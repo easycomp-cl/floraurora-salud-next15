@@ -1,10 +1,13 @@
-import Image from "next/image";
+import LoginButton from "@/components/ui/LoginLogoutButton";
+import UserGreetText from "@/components/ui/UserGreetText";
+import AuthDebug from "@/components/ui/AuthDebug";
 
 export default function Home() {
   return (
     <div>
-      <h1>Hello World!!</h1>
-      <h1>Hello World!! 2</h1>
+      <UserGreetText />
+      <LoginButton />
+      <AuthDebug />
     </div>
   );
 }
