@@ -12,6 +12,7 @@ export function useAuth() {
     const getInitialUser = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
+        console.log('Initial user loaded:', user);
         setUser(user);
       } catch (error) {
         console.error('Error getting initial user:', error);
@@ -26,6 +27,9 @@ export function useAuth() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event, session);
+        console.log('Previous user state:', user);
+        console.log('New user state:', session?.user ?? null);
+        
         setUser(session?.user ?? null);
         setLoading(false);
       }
@@ -37,10 +41,21 @@ export function useAuth() {
 
   const signOut = async () => {
     try {
+      console.log('Starting sign out process...');
+      console.log('Current user before sign out:', user);
+      
       const { error } = await clientSignout();
+      
       if (error) {
         console.error('Error during signout:', error);
+        return;
       }
+      
+      console.log('Sign out successful, clearing local state...');
+      // Forzar la limpieza del estado local
+      setUser(null);
+      
+      console.log('Local state cleared, user should now be null');
     } catch (error) {
       console.error('Error during signout:', error);
     }

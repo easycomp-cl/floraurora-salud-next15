@@ -49,15 +49,19 @@ export async function clientSignup(email: string, password: string, fullName: st
 // Función para cerrar sesión
 export async function clientSignout() {
   try {
+    console.log('clientSignout: Starting sign out process...');
+    
     const { error } = await supabase.auth.signOut();
     
     if (error) {
+      console.error('clientSignout: Error during sign out:', error);
       throw error;
     }
-
+    
+    console.log('clientSignout: Sign out successful');
     return { error: null };
   } catch (error) {
-    console.error("Error during signout:", error);
+    console.error('clientSignout: Unexpected error during sign out:', error);
     return { error };
   }
 }

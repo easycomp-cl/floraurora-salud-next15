@@ -1,13 +1,10 @@
 "use client";
-import { Button } from "@/components/ui/button";
 import { clientSignInWithGoogle } from "@/lib/client-auth";
-import React, { useState } from "react";
+import React from "react";
+import GoogleSignInButton from "./GoogleSignInButton";
 
 const SignInWithGoogleButton = () => {
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleGoogleSignIn = async () => {
-    setIsLoading(true);
     try {
       console.log("Iniciando autenticación con Google...");
 
@@ -31,21 +28,14 @@ const SignInWithGoogleButton = () => {
     } catch (error) {
       console.error("Unexpected error during Google sign in:", error);
       alert("Error inesperado durante el inicio de sesión");
-    } finally {
-      setIsLoading(false);
     }
   };
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      className="w-full"
+    <GoogleSignInButton
       onClick={handleGoogleSignIn}
-      disabled={isLoading}
-    >
-      {isLoading ? "Conectando..." : "Login with Google"}
-    </Button>
+      className="max-w-sm mx-auto"
+    />
   );
 };
 
