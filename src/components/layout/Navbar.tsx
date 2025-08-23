@@ -21,7 +21,9 @@ const Navbar = () => {
           <DesktopNav />
 
           {/* Sección de Usuario */}
-          <UserSection />
+          <div className="hidden lg:block">
+            <UserSection />
+          </div>
 
           {/* Navegación Móvil */}
           <MobileNav />

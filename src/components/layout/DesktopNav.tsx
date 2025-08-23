@@ -10,14 +10,6 @@ const DesktopNav = () => {
     <div className="hidden lg:flex items-center space-x-6">
       {/* Navegación de marketing para todos los usuarios */}
       <MarketingNav />
-
-      {/* Navegación para usuarios autenticados */}
-      {isAuthenticated && (
-        <>
-          <div className="border-l border-gray-300 h-6 mx-2" />
-          <AuthenticatedNav />
-        </>
-      )}
     </div>
   );
 };

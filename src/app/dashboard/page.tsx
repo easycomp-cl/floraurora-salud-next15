@@ -1,157 +1,165 @@
 "use client";
+
 import { useAuth } from "@/lib/hooks/useAuth";
-import { redirect } from "next/navigation";
+import { useEffect } from "react";
 
 export default function DashboardPage() {
+  const { user, session, loading, isAuthenticated } = useAuth();
+
+  useEffect(() => {
+    // console.log("📊 Dashboard: Estado de autenticación:", {
+    //   loading,
+    //   isAuthenticated,
+    //   hasUser: !!user,
+    //   hasSession: !!session,
+    //   userEmail: user?.email,
+    // });
+  }, [user, session, loading, isAuthenticated]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-red-600 mb-4">
+            Acceso Denegado
+          </h1>
+          <p className="text-gray-600">
+            No tienes permisos para acceder a esta página.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-        <p className="text-gray-600">
-          Bienvenido a tu panel de control. Aquí puedes gestionar tus citas,
-          sesiones y perfil.
-        </p>
-      </div>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white shadow rounded-lg p-6">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
+            Dashboard de FlorAurora Salud
+          </h1>
 
-      {/* Stats Grid */}
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-              <svg
-                className="w-6 h-6 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Información del usuario */}
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-blue-900 mb-4">
+                Información del Usuario
+              </h2>
+              <div className="space-y-2">
+                <p>
+                  <strong>Email:</strong> {user?.email}
+                </p>
+                <p>
+                  <strong>ID:</strong> {user?.id}
+                </p>
+                <p>
+                  <strong>Rol:</strong>{" "}
+                  {user?.user_metadata?.role || "No especificado"}
+                </p>
+                <p>
+                  <strong>Proveedor:</strong>{" "}
+                  {user?.app_metadata?.provider || "email"}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">Próxima Cita</p>
-              <p className="text-2xl font-bold text-gray-900">15 Ago</p>
+
+            {/* Estado de la sesión */}
+            <div className="bg-green-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-green-900 mb-4">
+                Estado de la Sesión
+              </h2>
+              <div className="space-y-2">
+                <p>
+                  <strong>Autenticado:</strong> {isAuthenticated ? "Sí" : "No"}
+                </p>
+                <p>
+                  <strong>Token de acceso:</strong>{" "}
+                  {session?.access_token ? "Presente" : "Ausente"}
+                </p>
+                <p>
+                  <strong>Token de refresco:</strong>{" "}
+                  {session?.refresh_token ? "Presente" : "Ausente"}
+                </p>
+                <p>
+                  <strong>Expira:</strong>{" "}
+                  {session?.expires_at
+                    ? new Date(session.expires_at * 1000).toLocaleString()
+                    : "No especificado"}
+                </p>
+              </div>
+            </div>
+
+            {/* Acciones rápidas */}
+            <div className="bg-purple-50 p-6 rounded-lg">
+              <h2 className="text-xl font-semibold text-purple-900 mb-4">
+                Acciones Rápidas
+              </h2>
+              <div className="space-y-3">
+                <a
+                  href="/dashboard/appointments"
+                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
+                >
+                  Ver Citas
+                </a>
+                <a
+                  href="/dashboard/sessions"
+                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
+                >
+                  Ver Sesiones
+                </a>
+                <a
+                  href="/dashboard/profile"
+                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
+                >
+                  Editar Perfil
+                </a>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-              <svg
-                className="w-6 h-6 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Sesiones Completadas
-              </p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
-            </div>
+          {/* Debug adicional */}
+          <div className="mt-8 p-4 bg-gray-100 rounded-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Información de Debug
+            </h3>
+            <pre className="text-xs bg-white p-3 rounded border overflow-auto">
+              {JSON.stringify(
+                {
+                  user: user
+                    ? {
+                        id: user.id,
+                        email: user.email,
+                        metadata: user.user_metadata,
+                        appMetadata: user.app_metadata,
+                      }
+                    : null,
+                  session: session
+                    ? {
+                        access_token: !!session.access_token,
+                        refresh_token: !!session.refresh_token,
+                        expires_at: session.expires_at,
+                        user_id: session.user?.id,
+                      }
+                    : null,
+                  isAuthenticated,
+                  loading,
+                },
+                null,
+                2
+              )}
+            </pre>
           </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
-              <svg
-                className="w-6 h-6 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                />
-              </svg>
-            </div>
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Saldo Pendiente
-              </p>
-              <p className="text-2xl font-bold text-gray-900">$45.000</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Acciones Rápidas
-        </h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <a
-            href="/appointments"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Agendar Nueva Cita</h3>
-              <p className="text-sm text-gray-600">
-                Programa tu próxima sesión
-              </p>
-            </div>
-          </a>
-
-          <a
-            href="/profile"
-            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4">
-              <svg
-                className="w-5 h-5 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-            </div>
-            <div>
-              <h3 className="font-medium text-gray-900">Editar Perfil</h3>
-              <p className="text-sm text-gray-600">
-                Actualiza tu información personal
-              </p>
-            </div>
-          </a>
         </div>
       </div>
     </div>

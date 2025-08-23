@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { authenticatedNavItems, NavItem } from "@/lib/navigation";
 
 const UserSection = () => {
   const { user, isAuthenticated, signOut } = useAuth();
@@ -33,17 +34,21 @@ const UserSection = () => {
     }
   };
 
+  const handleNavItemClick = () => {
+    setIsDropdownOpen(false);
+  };
+
   if (!isAuthenticated) {
     return (
       <div className="flex items-center space-x-3">
         <Link
-          href="/login"
+          href="/auth/login"
           className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 transition-colors"
         >
           Iniciar Sesión
         </Link>
         <Link
-          href="/signup"
+          href="/auth/signup"
           className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors"
         >
           Registrarse
@@ -84,23 +89,18 @@ const UserSection = () => {
             </p>
           </div>
 
-          <Link
-            href="/profile"
-            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-            onClick={() => setIsDropdownOpen(false)}
-          >
-            <User className="w-4 h-4" />
-            <span>Mi Perfil</span>
-          </Link>
-
-          <Link
-            href="/dashboard"
-            className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-            onClick={() => setIsDropdownOpen(false)}
-          >
-            <Settings className="w-4 h-4" />
-            <span>Dashboard</span>
-          </Link>
+          {/* Páginas de usuario autenticado */}
+          {authenticatedNavItems.map((item: NavItem) => (
+            <Link
+              key={item.name}
+              href={item.url}
+              className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+              onClick={handleNavItemClick}
+            >
+              <item.icon className="w-4 h-4" />
+              <span>{item.name}</span>
+            </Link>
+          ))}
 
           <div className="border-t border-gray-100 mt-2 pt-2">
             <button

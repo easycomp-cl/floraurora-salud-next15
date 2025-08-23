@@ -3,7 +3,30 @@ import { createClient } from "@supabase/supabase-js";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Verificar que las variables de entorno estén configuradas
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('❌ Variables de entorno de Supabase no configuradas:', {
+    hasUrl: !!supabaseUrl,
+    hasKey: !!supabaseAnonKey
+  });
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+    debug: false, // Comentado para evitar logs repetitivos en consola
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'sb-auth-token'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'floraurora-psychology-platform'
+    }
+  }
+});
 
 // Tipos para las tablas de la base de datos
 export interface Database {

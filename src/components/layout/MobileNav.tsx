@@ -81,14 +81,35 @@ const MobileNav = () => {
 
   return (
     <div className="lg:hidden" ref={menuRef}>
-      {/* Botón hamburguesa */}
+      {/* Botón del menú móvil - cambia según el estado de autenticación */}
       <button
         onClick={toggleMenu}
         className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md"
-        aria-label="Abrir menú"
+        aria-label={isAuthenticated ? "Abrir menú de usuario" : "Abrir menú"}
         aria-expanded={isOpen}
       >
-        {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        {isOpen ? (
+          <X className="w-6 h-6" />
+        ) : isAuthenticated ? (
+          // Avatar del usuario cuando está autenticado
+          <div className="flex items-center space-x-1">
+            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-medium">
+                {user?.user_metadata?.name?.[0] || user?.email?.[0] || "U"}
+              </span>
+            </div>
+            {/* Nombre del usuario visible en tablets */}
+            <div className="hidden md:block text-left">
+              <p className="text-sm font-medium text-gray-900 truncate max-w-24">
+                {user?.user_metadata?.name || user?.email || "Usuario"}
+              </p>
+            </div>
+            <ChevronDown className="w-4 h-4 text-gray-500" />
+          </div>
+        ) : (
+          // Ícono de hamburguesa cuando no está autenticado
+          <Menu className="w-6 h-6" />
+        )}
       </button>
 
       {/* Menú móvil */}
