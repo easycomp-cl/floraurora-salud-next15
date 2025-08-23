@@ -1,21 +1,18 @@
-"use client";
-import { useAuth } from "@/lib/hooks/useAuth";
-import { redirect } from "next/navigation";
-
-export default function DashboardPage() {
+export default function AdminPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Panel de Administración
+        </h1>
         <p className="text-gray-600">
-          Bienvenido a tu panel de control. Aquí puedes gestionar tus citas,
-          sesiones y perfil.
+          Gestiona usuarios, profesionales y revisa reportes del sistema.
         </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
@@ -29,13 +26,15 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                 />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Próxima Cita</p>
-              <p className="text-2xl font-bold text-gray-900">15 Ago</p>
+              <p className="text-sm font-medium text-gray-600">
+                Usuarios Totales
+              </p>
+              <p className="text-2xl font-bold text-gray-900">1,247</p>
             </div>
           </div>
         </div>
@@ -53,15 +52,13 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                 />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">
-                Sesiones Completadas
-              </p>
-              <p className="text-2xl font-bold text-gray-900">12</p>
+              <p className="text-sm font-medium text-gray-600">Profesionales</p>
+              <p className="text-2xl font-bold text-gray-900">89</p>
             </div>
           </div>
         </div>
@@ -79,15 +76,37 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-600">Citas Hoy</p>
+              <p className="text-2xl font-bold text-gray-900">156</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="flex items-center">
+            <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mr-4">
+              <svg
+                className="w-6 h-6 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
                   d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
                 />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">
-                Saldo Pendiente
-              </p>
-              <p className="text-2xl font-bold text-gray-900">$45.000</p>
+              <p className="text-sm font-medium text-gray-600">Ingresos Mes</p>
+              <p className="text-2xl font-bold text-gray-900">$12.5M</p>
             </div>
           </div>
         </div>
@@ -96,11 +115,11 @@ export default function DashboardPage() {
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Acciones Rápidas
+          Acciones de Administración
         </h2>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-3 gap-4">
           <a
-            href="/appointments"
+            href="/admin/users"
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mr-4">
@@ -114,20 +133,20 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
                 />
               </svg>
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Agendar Nueva Cita</h3>
+              <h3 className="font-medium text-gray-900">Gestionar Usuarios</h3>
               <p className="text-sm text-gray-600">
-                Programa tu próxima sesión
+                Ver y editar usuarios del sistema
               </p>
             </div>
           </a>
 
           <a
-            href="/profile"
+            href="/admin/professionals"
             className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
           >
             <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-4">
@@ -141,14 +160,43 @@ export default function DashboardPage() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
                 />
               </svg>
             </div>
             <div>
-              <h3 className="font-medium text-gray-900">Editar Perfil</h3>
+              <h3 className="font-medium text-gray-900">
+                Gestionar Profesionales
+              </h3>
               <p className="text-sm text-gray-600">
-                Actualiza tu información personal
+                Administrar psicólogos y especialistas
+              </p>
+            </div>
+          </a>
+
+          <a
+            href="/admin/reports"
+            className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center mr-4">
+              <svg
+                className="w-5 h-5 text-purple-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-medium text-gray-900">Ver Reportes</h3>
+              <p className="text-sm text-gray-600">
+                Análisis y estadísticas del sistema
               </p>
             </div>
           </a>

@@ -16,18 +16,18 @@ export const navItems: NavItem[] = [
   { name: "Inicio", url: "/", icon: Home },
   {
     name: "Nosotros",
-    url: "/about-us",
+    url: "/about",
     icon: HeartPulse,
   },
   {
     name: "Servicios",
-    url: "#",
+    url: "/services",
     icon: MonitorCog,
     subItems: [
-      { name: "Psicoterapia Infanto Juvenil", url: "#web" },
-      { name: "Psicoterapia Adultos", url: "#soporte" },
-      { name: "Terapia de Pareja", url: "#soporte" },
-      { name: "Evaluación y Psicodiagnóstico", url: "#consultoria" },
+      { name: "Psicoterapia Infanto Juvenil", url: "/services" },
+      { name: "Psicoterapia Adultos", url: "/services" },
+      { name: "Terapia de Pareja", url: "/services" },
+      { name: "Evaluación y Psicodiagnóstico", url: "/services" },
     ],
   },
   {
@@ -36,13 +36,13 @@ export const navItems: NavItem[] = [
     icon: Briefcase,
   },
   
-  { name: "Contacto", url: "/contact-us", icon: AtSign },
+  { name: "Contacto", url: "/contact", icon: AtSign },
 ];
 
 export const authenticatedNavItems: NavItem[] = [
   { name: "Dashboard", url: "/dashboard", icon: Settings },
-  { name: "Agendar Cita", url: "/agendar-cita", icon: Calendar },
-  { name: "Mi Perfil", url: "/profile", icon: User },
-  { name: "Sesiones", url: "/sessions", icon: Calendar },
-  { name: "Mensajes", url: "/messages", icon: MessageSquare },
+  { name: "Citas", url: "/dashboard/appointments", icon: Calendar },
+  { name: "Mi Perfil", url: "/dashboard/profile", icon: User },
+  { name: "Sesiones", url: "/dashboard/sessions", icon: Calendar },
+  { name: "Mensajes", url: "/dashboard/messages", icon: MessageSquare },
 ];
