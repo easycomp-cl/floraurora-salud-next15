@@ -51,6 +51,15 @@ export function LoginForm() {
               Login
             </Button>
             <SignInWithGoogleButton />
+
+            {/* Información sobre la funcionalidad */}
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-xs text-blue-700 text-center">
+                🔐 <strong>Inicio de sesión con Google:</strong> Se verifica
+                automáticamente si el usuario existe en la base de datos y se
+                crea si es necesario.
+              </p>
+            </div>
           </div>
         </form>
         <div className="mt-4 text-center text-sm">

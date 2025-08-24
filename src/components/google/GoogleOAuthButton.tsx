@@ -1,105 +1,177 @@
 "use client";
-import React from "react";
-import { clientSignInWithGoogle } from "@/lib/client-auth";
+import React, { useState } from "react";
+import { useGoogleAuth } from "@/lib/hooks/useGoogleAuth";
+import { GoogleUserData } from "@/lib/services/googleAuthService";
 
 interface GoogleOAuthButtonProps {
-  text?: string;
-  className?: string;
-  onSuccess?: () => void;
+  onSuccess?: (userData: any) => void;
   onError?: (error: string) => void;
+  onUserExists?: (userData: any) => void;
 }
 
+/**
+ * Botón de Google OAuth que maneja inicio de sesión y registro automático
+ */
 const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
-  text = "Continuar con Google",
-  className = "",
   onSuccess,
   onError,
+  onUserExists,
 }) => {
+  const {
+    isLoading,
+    error,
+    user,
+    registerGoogleUser,
+    checkUserExists,
+    clearError,
+    resetState,
+  } = useGoogleAuth();
+
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+
+  /**
+   * Simula el flujo de Google OAuth (en un caso real, esto vendría de Google)
+   */
   const handleGoogleSignIn = async () => {
+    setIsAuthenticating(true);
+    clearError();
+
     try {
-      console.log("Iniciando autenticación con Google...");
+      // Simular datos que vendrían de Google OAuth
+      const mockGoogleData: GoogleUserData = {
+        sub: `google_${Date.now()}`, // ID único de Google
+        name: "María González",
+        given_name: "María",
+        family_name: "González",
+        email: `maria.gonzalez${Date.now()}@gmail.com`,
+        email_verified: true,
+      };
 
-      const { data, error } = await clientSignInWithGoogle();
+      console.log("🔐 Iniciando sesión con Google OAuth:", mockGoogleData);
 
-      if (error) {
-        console.error("Error signing in with Google:", error);
-        const errorMessage =
-          error instanceof Error ? error.message : "Error desconocido";
+      // 1. Verificar si el usuario ya existe
+      const userExists = await checkUserExists(mockGoogleData.email);
 
-        if (onError) {
-          onError(errorMessage);
-        } else {
-          alert(`Error al iniciar sesión: ${errorMessage}`);
+      if (userExists) {
+        console.log("👤 Usuario existente, iniciando sesión...");
+        if (onUserExists) {
+          onUserExists(user);
         }
         return;
       }
 
-      if (data) {
-        console.log("Google sign in initiated successfully:", data);
-        console.log("Redirecting to:", data.url);
+      // 2. Si no existe, registrarlo automáticamente
+      console.log("📝 Usuario nuevo, registrando automáticamente...");
+      const success = await registerGoogleUser(mockGoogleData);
 
-        if (onSuccess) {
-          onSuccess();
+      if (success) {
+        console.log("✅ Usuario registrado e iniciado sesión exitosamente");
+        if (onSuccess && user) {
+          onSuccess(user);
         }
-
-        // La redirección se maneja automáticamente por Supabase
-      }
-    } catch (error) {
-      console.error("Unexpected error during Google sign in:", error);
-      const errorMessage = "Error inesperado durante el inicio de sesión";
-
-      if (onError) {
-        onError(errorMessage);
       } else {
-        alert(errorMessage);
+        console.error("❌ Error al registrar usuario");
+        if (onError) {
+          onError(error || "Error al registrar usuario");
+        }
       }
+    } catch (err) {
+      console.error("💥 Error inesperado:", err);
+      if (onError) {
+        onError("Error inesperado durante la autenticación");
+      }
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
   return (
-    <button
-      type="button"
-      onClick={handleGoogleSignIn}
-      className={`
-        w-full h-11 px-4 py-2
-        flex items-center justify-center space-x-3
-        bg-white text-gray-700
-        border border-gray-300 rounded-md
-        hover:bg-gray-50 hover:border-gray-400
-        focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-        transition-all duration-200 ease-in-out
-        shadow-sm hover:shadow-md
-        ${className}
-      `}
-    >
-      {/* Logo oficial de Google */}
-      <svg
-        className="w-5 h-5 flex-shrink-0"
-        viewBox="0 0 24 24"
-        xmlns="http://www.w3.org/2000/svg"
-        aria-label="Google logo"
-      >
-        <path
-          d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-          fill="#4285F4"
-        />
-        <path
-          d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-          fill="#34A853"
-        />
-        <path
-          d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-          fill="#FBBC05"
-        />
-        <path
-          d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-          fill="#EA4335"
-        />
-      </svg>
+    <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
+        🔐 Google OAuth - Inicio de Sesión
+      </h2>
 
-      {/* Texto del botón */}
-      <span className="text-sm font-medium">{text}</span>
-    </button>
+      {/* Botón de Google OAuth */}
+      <button
+        onClick={handleGoogleSignIn}
+        disabled={isLoading || isAuthenticating}
+        className="w-full mb-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+      >
+        {isLoading || isAuthenticating ? (
+          <>
+            <span className="animate-spin mr-2">⏳</span>
+            {isAuthenticating ? "Autenticando..." : "Procesando..."}
+          </>
+        ) : (
+          <>
+            <span className="mr-2">🔐</span>
+            Iniciar Sesión con Google
+          </>
+        )}
+      </button>
+
+      {/* Mostrar error si existe */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <strong>Error:</strong> {error}
+        </div>
+      )}
+
+      {/* Mostrar datos del usuario si se autenticó exitosamente */}
+      {user && (
+        <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+          <h3 className="font-semibold mb-2">
+            ✅ Usuario autenticado exitosamente:
+          </h3>
+          <p>
+            <strong>ID:</strong> {user.id}
+          </p>
+          <p>
+            <strong>User ID:</strong> {user.user_id}
+          </p>
+          <p>
+            <strong>Nombre:</strong> {user.name}
+          </p>
+          <p>
+            <strong>Apellido:</strong> {user.last_name}
+          </p>
+          <p>
+            <strong>Email:</strong> {user.email}
+          </p>
+          <p>
+            <strong>Rol:</strong> {user.role === 1 ? "Paciente" : "Desconocido"}
+          </p>
+        </div>
+      )}
+
+      {/* Información del flujo */}
+      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+        <h3 className="text-lg font-semibold text-blue-800 mb-2">
+          📋 Flujo de Autenticación
+        </h3>
+        <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+          <li>Usuario hace clic en "Iniciar Sesión con Google"</li>
+          <li>Sistema verifica si el usuario ya existe en la base de datos</li>
+          <li>
+            <strong>Si existe:</strong> Inicia sesión directamente
+          </li>
+          <li>
+            <strong>Si no existe:</strong> Se registra automáticamente
+          </li>
+          <li>
+            Usuario queda autenticado y sus datos se guardan en la tabla users
+          </li>
+        </ol>
+      </div>
+
+      {/* Botón para resetear estado */}
+      <button
+        onClick={resetState}
+        className="w-full mt-4 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+      >
+        🔄 Resetear Estado
+      </button>
+    </div>
   );
 };
 

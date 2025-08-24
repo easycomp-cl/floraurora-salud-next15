@@ -60,6 +60,21 @@ export async function GET(request: NextRequest) {
         console.log('🔑 Token de acceso:', data.session.access_token ? 'Presente' : 'Ausente');
         console.log('🍪 Cookies de sesión configuradas');
         
+        // 🆕 NUEVO: Verificar y crear usuario en tabla Users
+        try {
+          const userExists = await checkUserInUsersTable(data.user, supabase);
+          
+          if (!userExists) {
+            console.log('🆕 Usuario no existe en tabla Users, creando...');
+            await createUserInUsersTable(data.user, supabase);
+          } else {
+            console.log('👤 Usuario ya existe en tabla Users');
+          }
+        } catch (error) {
+          console.error('⚠️ Error al manejar tabla Users:', error);
+          // Continuar con la autenticación aunque falle la tabla Users
+        }
+        
         // Crear respuesta con redirección
         const response = NextResponse.redirect(`${origin}${next}`);
         
@@ -101,5 +116,105 @@ export async function GET(request: NextRequest) {
     console.error('❌ No se recibió código de autorización');
     console.log('🔍 Parámetros recibidos:', Object.fromEntries(searchParams.entries()));
     return NextResponse.redirect(`${origin}/auth/login?error=no_code`);
+  }
+}
+
+/**
+ * Verifica si un usuario existe en la tabla Users
+ */
+async function checkUserInUsersTable(supabaseUser: any, supabase: any): Promise<boolean> {
+  try {
+    console.log('🔍 Verificando si usuario existe en tabla Users:', supabaseUser.id);
+    
+    // Intentar primero con tabla 'Users' (mayúsculas)
+    let { data, error } = await supabase
+      .from('Users')
+      .select('id')
+      .eq('id', supabaseUser.id)
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.log('⚠️ Error con tabla "Users", intentando con "users"...');
+      
+      // Intentar con tabla 'users' (minúsculas)
+      const result = await supabase
+        .from('users')
+        .select('id')
+        .eq('id', supabaseUser.id)
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    }
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('❌ Error al verificar usuario:', error);
+      return false;
+    }
+    
+    const exists = !!data;
+    console.log(`🔍 Usuario ${exists ? 'encontrado' : 'no encontrado'} en tabla Users`);
+    return exists;
+    
+  } catch (error) {
+    console.error('❌ Error inesperado al verificar usuario:', error);
+    return false;
+  }
+}
+
+/**
+ * Crea un nuevo usuario en la tabla Users
+ */
+async function createUserInUsersTable(supabaseUser: any, supabase: any): Promise<void> {
+  try {
+    console.log('🆕 Creando usuario en tabla Users:', supabaseUser.id);
+    
+    // Extraer datos del usuario de Supabase
+    const fullName = supabaseUser.user_metadata?.full_name || 'Usuario';
+    const nameParts = fullName.split(' ');
+    
+    const userData = {
+      id: supabaseUser.id,
+      name: nameParts[0] || 'Usuario',
+      last_name: nameParts.slice(1).join(' ') || '',
+      email: supabaseUser.email,
+      role: 1, // Paciente por defecto
+      is_active: true,
+      created_at: new Date().toISOString()
+    };
+    
+    console.log('📝 Datos a insertar:', userData);
+    
+    // Intentar insertar en tabla 'Users' primero
+    let { data, error } = await supabase
+      .from('Users')
+      .insert(userData)
+      .select()
+      .single();
+    
+    if (error) {
+      console.log('⚠️ Error con tabla "Users", intentando con "users"...');
+      
+      // Intentar con tabla 'users'
+      const result = await supabase
+        .from('users')
+        .insert(userData)
+        .select()
+        .single();
+      
+      data = result.data;
+      error = result.error;
+    }
+    
+    if (error) {
+      console.error('❌ Error al crear usuario en tabla Users:', error);
+      throw error;
+    }
+    
+    console.log('✅ Usuario creado exitosamente en tabla Users:', data);
+    
+  } catch (error) {
+    console.error('💥 Error al crear usuario en tabla Users:', error);
+    // No lanzar error aquí para no interrumpir el flujo de autenticación
   }
 }
