@@ -1,0 +1,77 @@
+/* Layout principal */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;            /* ocupa alto de la pantalla */
+  background: var(--celeste);
+}
+
+/* Columna izquierda */
+.hero__left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.25rem;
+  padding: clamp(1.5rem, 5vw, 4.5rem);
+  color: var(--texto);
+  background: #b3e5fc; /* celeste */
+}
+
+.hero__title {
+  font-size: clamp(2.4rem, 6vw, 5rem);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.hero__subtitle {
+  font-size: clamp(1.05rem, 2.2vw, 1.6rem);
+  line-height: 1.5;
+  margin: 0.5rem 0 0;
+  opacity: 0.9;
+}
+
+.hero__btn {
+  width: fit-content;
+  margin-top: 0.5rem;
+  padding: 0.95rem 1.4rem;
+  border: 2px solid #0b2239;   /* borde azul oscuro */
+  border-radius: 12px;
+  background: #ffffff;         /* fondo blanco */
+  color: #0b2239;              /* texto azul oscuro */
+  font-weight: 700;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hero__btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Columna derecha: imagen */
+.hero__right {
+  position: relative;
+  overflow: hidden;
+}
+
+.hero__right img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* llena sin deformar */
+  display: block;
+}
+
+/* Responsive: en pantallas pequeñas se apila */
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .hero__right {
+    height: 48vh; /* alto razonable para el banner en móvil */
+    order: -1;    /* imagen arriba, texto abajo (cambia a gusto) */
+  }
+}
