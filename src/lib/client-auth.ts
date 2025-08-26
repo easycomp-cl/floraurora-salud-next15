@@ -5,18 +5,33 @@ import supabase from "@/utils/supabase/client";
 // Función para iniciar sesión con email y password
 export async function clientLogin(email: string, password: string) {
   try {
+    //console.log('🔐 clientLogin: Iniciando autenticación para:', email);
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
+      //console.error('❌ clientLogin: Error de autenticación:', error);
       throw error;
     }
 
+    if (!data.session) {
+      console.error('❌ clientLogin: No se creó sesión después de la autenticación');
+      throw new Error('No se pudo crear la sesión de usuario');
+    }
+
+    console.log('✅ clientLogin: Autenticación exitosa, sesión creada:', {
+      userId: data.user?.id,
+      userEmail: data.user?.email,
+      hasSession: !!data.session,
+      hasAccessToken: !!data.session.access_token
+    });
+
     return { data, error: null };
   } catch (error) {
-    console.error("Error during login:", error);
+    //console.error("❌ clientLogin: Error durante el login:", error);
     return { data: null, error };
   }
 }

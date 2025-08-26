@@ -51,41 +51,49 @@ export function useAuth() {
     // Escuchar cambios en el estado de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        // console.log('🔄 useAuth: Cambio de estado detectado:', { 
-        //   event, 
-        //   hasSession: !!newSession,
-        //   userEmail: newSession?.user?.email,
-        //   previousUser: user?.email,
-        //   accessToken: !!newSession?.access_token,
-        //   refreshToken: !!newSession?.refresh_token,
-        //   expiresAt: newSession?.expires_at
-        // });
-        
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-        setLoading(false);
-        
-        // Log adicional para debugging (comentado para evitar spam en consola)
-        // if (event === 'SIGNED_IN') {
-        //   console.log('✅ useAuth: Usuario autenticado:', newSession?.user?.email);
-        //   console.log('🔑 Tokens de sesión:', {
-        //     accessToken: !!newSession?.access_token,
-        //     refreshToken: !!newSession?.refresh_token,
-        //     expiresAt: newSession?.expires_at
-        //   });
-        //   
-        //   // Verificar cookies en el navegador
-        //   console.log('🍪 Cookies de sesión:', {
-        //     authToken: document.cookie.includes('sb-') ? 'Presente' : 'Ausente',
-        //     allCookies: document.cookie.split(';').filter(c => c.includes('sb-')).map(c => c.trim())
-        //   });
-        // } else if (event === 'SIGNED_OUT') {
-        //   console.log('🚪 useAuth: Usuario desconectado');
-        // } else if (event === 'TOKEN_REFRESHED') {
-        //   console.log('🔄 useAuth: Token refrescado');
-        // } else if (event === 'USER_UPDATED') {
-        //   console.log('👤 useAuth: Usuario actualizado');
-        // }
+        try {
+          // console.log('🔄 useAuth: Cambio de estado detectado:', { 
+          //   event, 
+          //   hasSession: !!newSession,
+          //   userEmail: newSession?.user?.email,
+          //   previousUser: user?.email,
+          //   accessToken: !!newSession?.access_token,
+          //   refreshToken: !!newSession?.refresh_token,
+          //   expiresAt: newSession?.expires_at
+          // });
+          
+          setSession(newSession);
+          setUser(newSession?.user ?? null);
+          setLoading(false);
+          
+          // Log adicional para debugging (comentado para evitar spam en consola)
+          // if (event === 'SIGNED_IN') {
+          //   console.log('✅ useAuth: Usuario autenticado:', newSession?.user?.email);
+          //   console.log('🔑 Tokens de sesión:', {
+          //     accessToken: !!newSession?.access_token,
+          //     refreshToken: !!newSession?.refresh_token,
+          //     expiresAt: newSession?.expires_at
+          //   });
+          //   
+          //   // Verificar cookies en el navegador
+          //   console.log('🍪 Cookies de sesión:', {
+          //     authToken: document.cookie.includes('sb-') ? 'Presente' : 'Ausente',
+          //     allCookies: document.cookie.split(';').filter(c => c.includes('sb-')).map(c => c.trim())
+          //   });
+          // } else if (event === 'SIGNED_OUT') {
+          //   console.log('🚪 useAuth: Usuario desconectado');
+          // } else if (event === 'TOKEN_REFRESHED') {
+          //   console.log('🔄 useAuth: Token refrescado');
+          // } else if (event === 'USER_UPDATED') {
+          //   console.log('👤 useAuth: Usuario actualizado');
+          // }
+        } catch (error) {
+          console.error('💥 Error en onAuthStateChange:', error);
+          // En caso de error, establecer estado como no autenticado
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+        }
       }
     );
 

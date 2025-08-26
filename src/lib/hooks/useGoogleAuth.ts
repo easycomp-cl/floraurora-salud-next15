@@ -41,7 +41,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
         setUser(result.data.userRecord);
         return true;
       } else {
-        const errorMessage = result.error?.message || 'Error al registrar usuario';
+        const errorMessage = (result.error as any)?.message || 'Error al registrar usuario';
         console.error('❌ Error en registro:', errorMessage);
         setError(errorMessage);
         return false;
@@ -106,7 +106,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
         setUser(result.data);
         return true;
       } else {
-        const errorMessage = result.error?.message || 'Error al actualizar usuario';
+        const errorMessage = (result.error as any)?.message || 'Error al actualizar usuario';
         console.error('❌ Error en actualización:', errorMessage);
         setError(errorMessage);
         return false;
@@ -137,7 +137,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
         setUser(result.data);
         return true;
       } else {
-        const errorMessage = result.error?.message || 'Error al iniciar sesión';
+        const errorMessage = (result.error as any)?.message || 'Error al iniciar sesión';
         console.error('❌ Error en inicio de sesión:', errorMessage);
         setError(errorMessage);
         return false;

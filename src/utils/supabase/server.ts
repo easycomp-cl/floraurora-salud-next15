@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
+import { cookies, headers } from "next/headers";
 import { Database } from "./client";
 
 export async function createClient() {
@@ -26,6 +27,16 @@ export async function createClient() {
         }
     );
 }
+
+
+  /** Admin client (Service Role) — ONLY use on the server (never in the browser) */
+export function createAdminServer() {
+    return createSupabaseClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!, // keep this out of the client
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+  }
 
 // Funciones de utilidad específicas para el servidor
 export const serverAuth = {
