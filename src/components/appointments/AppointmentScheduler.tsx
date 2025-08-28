@@ -11,10 +11,10 @@ import ProfessionalsList from "./ProfessionalsList";
 import ServicesList from "./ServicesList";
 import Calendar from "./Calendar";
 import AppointmentSummaryCard from "./AppointmentSummaryCard";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 
 export default function AppointmentScheduler() {
-  const { user } = useAuth();
+  const { user } = useAuthState();
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);

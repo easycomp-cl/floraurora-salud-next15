@@ -1,6 +1,7 @@
 "use client";
 
-import supabase from "@/utils/supabase/client";
+import { supabase } from "@/utils/supabase/client";
+import { clearSessionCookies } from "@/utils/supabase/cookie-utils";
 
 // Función para iniciar sesión con email y password
 export async function clientLogin(email: string, password: string) {
@@ -61,24 +62,93 @@ export async function clientSignup(email: string, password: string, fullName: st
   }
 }
 
-// Función para cerrar sesión
 export async function clientSignout() {
   try {
-    console.log('clientSignout: Starting sign out process...');
+    console.log("🚪 Iniciando proceso de desconexión del cliente...");
     
+    // Limpiar cookies del lado del cliente
+    if (typeof window !== 'undefined') {
+      clearSessionCookies();
+    }
+    
+    // Desconectar de Supabase
     const { error } = await supabase.auth.signOut();
     
     if (error) {
-      console.error('clientSignout: Error during sign out:', error);
-      throw error;
+      console.error("❌ Error durante la desconexión:", error);
+      return { error };
     }
     
-    console.log('clientSignout: Sign out successful');
+    console.log("✅ Desconexión exitosa del cliente");
     return { error: null };
   } catch (error) {
-    console.error('clientSignout: Unexpected error during sign out:', error);
+    console.error("💥 Error inesperado durante la desconexión:", error);
     return { error };
   }
+}
+
+export async function clientGetSession() {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error("Error getting client session:", error);
+      return { session: null, error };
+    }
+    
+    return { session, error: null };
+  } catch (error) {
+    console.error("Unexpected error getting client session:", error);
+    return { session: null, error };
+  }
+}
+
+export async function clientGetUser() {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error("Error getting client user:", error);
+      return { user: null, error };
+    }
+    
+    return { user, error: null };
+  } catch (error) {
+    console.error("Unexpected error getting client user:", error);
+    return { user: null, error };
+  }
+}
+
+// Función para verificar si la sesión está activa en el cliente
+export function isClientSessionActive(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  
+  // Verificar si hay token en localStorage
+  const authToken = localStorage.getItem('sb-auth-token');
+  if (!authToken) {
+    return false;
+  }
+  
+  // Verificar si hay cookies de sesión
+  const hasAuthCookies = document.cookie.includes('sb-');
+  
+  return !!(authToken && hasAuthCookies);
+}
+
+// Función para limpiar el estado de autenticación del cliente
+export function clearClientAuthState() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  
+  // Limpiar localStorage
+  localStorage.removeItem('sb-auth-token');
+  localStorage.removeItem('supabase.auth.token');
+  
+  // Limpiar cookies del lado del cliente
+  clearSessionCookies();
 }
 
 // Función para iniciar sesión con Google

@@ -2,11 +2,11 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { authenticatedNavItems, NavItem } from "@/lib/navigation";
 
-const UserSection = () => {
-  const { user, isAuthenticated, signOut } = useAuth();
+export default function UserSection() {
+  const { user, isAuthenticated, signOut } = useAuthState();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -27,10 +27,15 @@ const UserSection = () => {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      console.log("🚪 UserSection: Iniciando cierre de sesión...");
       setIsDropdownOpen(false);
+
+      // Cerrar sesión
+      await signOut();
+
+      console.log("✅ UserSection: Sesión cerrada exitosamente");
     } catch (error) {
-      console.error("Error al cerrar sesión:", error);
+      console.error("❌ UserSection: Error al cerrar sesión:", error);
     }
   };
 
@@ -92,13 +97,13 @@ const UserSection = () => {
           {/* Páginas de usuario autenticado */}
           {authenticatedNavItems.map((item: NavItem) => (
             <Link
-              key={item.name}
-              href={item.url}
+              key={item.label}
+              href={item.href}
               className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
               onClick={handleNavItemClick}
             >
               <item.icon className="w-4 h-4" />
-              <span>{item.name}</span>
+              <span>{item.label}</span>
             </Link>
           ))}
 
@@ -115,6 +120,4 @@ const UserSection = () => {
       )}
     </div>
   );
-};
-
-export default UserSection;
+}

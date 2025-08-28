@@ -1,12 +1,12 @@
 "use client";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { redirect } from "next/navigation";
 import AppointmentScheduler from "@/components/appointments/AppointmentScheduler";
 
-export default function AgendarCitaPage() {
-  const { isAuthenticated, loading } = useAuth();
+export default function AppointmentsPage() {
+  const { isAuthenticated, isLoading } = useAuthState();
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Cargando...</div>

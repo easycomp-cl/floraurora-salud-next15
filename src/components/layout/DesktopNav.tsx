@@ -1,10 +1,11 @@
 "use client";
-import { useAuth } from "@/lib/hooks/useAuth";
+import Link from "next/link";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import MarketingNav from "./MarketingNav";
 import AuthenticatedNav from "./AuthenticatedNav";
 
-const DesktopNav = () => {
-  const { isAuthenticated } = useAuth();
+export default function DesktopNav() {
+  const { isAuthenticated } = useAuthState();
 
   return (
     <div className="hidden lg:flex items-center space-x-6">
@@ -12,6 +13,4 @@ const DesktopNav = () => {
       <MarketingNav />
     </div>
   );
-};
-
-export default DesktopNav;
+}

@@ -1,4 +1,5 @@
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { ProfileCompletionDialog } from "@/components/profile/ProfileCompletionDialog";
 
 export default function DashboardLayout({
   children,
@@ -7,6 +8,7 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
+      <ProfileCompletionDialog /> {/* Renderiza el diálogo aquí */}
       <div className="min-h-screen bg-gray-50">
         {/* Main Content */}
         <main className="py-8">

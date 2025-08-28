@@ -1,5 +1,7 @@
 "use server";
 
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, createAdminServer } from "@/utils/supabase/server";
@@ -18,6 +20,96 @@ const signupSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
+
+export async function getSession() {
+  const cookieStore = await cookies();
+  
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        }
+      }
+    }
+  );
+
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error("Error getting session:", error);
+      return null;
+    }
+    
+    return session;
+  } catch (error) {
+    console.error("Unexpected error getting session:", error);
+    return null;
+  }
+}
+
+export async function getUser() {
+  const cookieStore = await cookies();
+  
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        }
+      }
+    }
+  );
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    
+    if (error) {
+      console.error("Error getting user:", error);
+      return null;
+    }
+    
+    return user;
+  } catch (error) {
+    console.error("Unexpected error getting user:", error);
+    return null;
+  }
+}
+
+export async function requireAuth() {
+  const session = await getSession();
+  
+  if (!session) {
+    redirect("/auth/login");
+  }
+  
+  return session;
+}
+
+export async function requireUser() {
+  const user = await getUser();
+  
+  if (!user) {
+    redirect("/auth/login");
+  }
+  
+  return user;
+}
 
 // export async function login(prevState: any, formData: FormData) {
 //   const supabase = await createClient();

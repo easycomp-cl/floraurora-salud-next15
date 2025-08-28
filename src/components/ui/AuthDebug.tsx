@@ -1,11 +1,11 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useEffect, useState } from "react";
 import supabase from "@/utils/supabase/client";
 
 export default function AuthDebug() {
-  const { user, session, loading, isAuthenticated } = useAuth();
+  const { user, session, isLoading, isAuthenticated } = useAuthState();
   const [debugInfo, setDebugInfo] = useState<any>({});
   const [cookies, setCookies] = useState<string[]>([]);
 
@@ -42,7 +42,7 @@ export default function AuthDebug() {
                   expires_at: session.expires_at,
                 }
               : null,
-            loading,
+            loading: isLoading,
             isAuthenticated,
           },
           directSupabase: {
@@ -78,7 +78,7 @@ export default function AuthDebug() {
     };
 
     getDebugInfo();
-  }, [user, session, loading, isAuthenticated]);
+  }, [user, session, isLoading, isAuthenticated]);
 
   if (!process.env.NODE_ENV || process.env.NODE_ENV === "production") {
     return null; // No mostrar en producción

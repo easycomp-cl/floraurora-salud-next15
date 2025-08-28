@@ -2,11 +2,11 @@
 import Link from "next/link";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { navItems, authenticatedNavItems, NavItem } from "@/lib/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useMobileMenu } from "@/lib/hooks/useMobileMenu";
 
 const MobileNav = () => {
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut } = useAuthState();
   const {
     isOpen,
     openDropdown,
@@ -32,32 +32,32 @@ const MobileNav = () => {
   const renderNavItem = (item: NavItem) => {
     if (item.subItems) {
       return (
-        <div key={item.name} className="border-b border-gray-200">
+        <div key={item.label} className="border-b border-gray-200">
           <button
-            onClick={() => toggleDropdown(item.name)}
+            onClick={() => toggleDropdown(item.label)}
             className="flex items-center justify-between w-full py-3 px-4 text-left text-gray-700 hover:text-gray-900 hover:bg-gray-50"
           >
             <div className="flex items-center space-x-3">
               <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.name}</span>
+              <span className="font-medium">{item.label}</span>
             </div>
             <ChevronDown
               className={`w-4 h-4 transition-transform ${
-                openDropdown === item.name ? "rotate-180" : ""
+                openDropdown === item.label ? "rotate-180" : ""
               }`}
             />
           </button>
 
-          {openDropdown === item.name && (
+          {openDropdown === item.label && (
             <div className="bg-gray-50 border-t border-gray-100">
               {item.subItems.map((subItem) => (
                 <Link
-                  key={subItem.name}
-                  href={subItem.url}
+                  key={subItem.label}
+                  href={subItem.href}
                   className="block py-2 px-8 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   onClick={handleNavItemClick}
                 >
-                  {subItem.name}
+                  {subItem.label}
                 </Link>
               ))}
             </div>
@@ -68,13 +68,13 @@ const MobileNav = () => {
 
     return (
       <Link
-        key={item.name}
-        href={item.url}
+        key={item.label}
+        href={item.href}
         className="flex items-center space-x-3 py-3 px-4 text-gray-700 hover:text-gray-900 hover:bg-gray-50 border-b border-gray-200"
         onClick={handleNavItemClick}
       >
         <item.icon className="w-5 h-5" />
-        <span className="font-medium">{item.name}</span>
+        <span className="font-medium">{item.label}</span>
       </Link>
     );
   };

@@ -2,10 +2,10 @@
 import React from "react";
 import { Button } from "./button";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/hooks/useAuth";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 
-const LoginButton = () => {
-  const { user, signOut } = useAuth();
+export default function LoginLogoutButton() {
+  const { user, signOut } = useAuthState();
   const router = useRouter();
 
   const handleSignOut = async () => {
@@ -27,6 +27,4 @@ const LoginButton = () => {
       Login
     </Button>
   );
-};
-
-export default LoginButton;
+}

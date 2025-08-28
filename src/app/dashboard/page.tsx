@@ -1,10 +1,11 @@
 "use client";
 
-import { useAuth } from "@/lib/hooks/useAuth";
+import { redirect } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useEffect } from "react";
 
 export default function DashboardPage() {
-  const { user, session, loading, isAuthenticated } = useAuth();
+  const { user, session, isLoading, isAuthenticated } = useAuthState();
 
   useEffect(() => {
     // console.log("📊 Dashboard: Estado de autenticación:", {
@@ -14,9 +15,9 @@ export default function DashboardPage() {
     //   hasSession: !!session,
     //   userEmail: user?.email,
     // });
-  }, [user, session, loading, isAuthenticated]);
+  }, [user, session, isLoading, isAuthenticated]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -153,7 +154,7 @@ export default function DashboardPage() {
                       }
                     : null,
                   isAuthenticated,
-                  loading,
+                  isLoading,
                 },
                 null,
                 2

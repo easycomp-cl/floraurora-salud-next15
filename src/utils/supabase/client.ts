@@ -11,22 +11,30 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-    flowType: 'pkce',
-    debug: false, // Comentado para evitar logs repetitivos en consola
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: 'sb-auth-token'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'floraurora-psychology-platform'
-    }
+// Crear una única instancia del cliente para evitar múltiples instancias
+let supabaseInstance: ReturnType<typeof createClient> | null = null;
+
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true, // Habilitar para OAuth
+        flowType: 'pkce',
+        debug: false, // Deshabilitar debug en producción
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'sb-auth-token'
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'floraurora-psychology-platform'
+        }
+      }
+    });
   }
-});
+  return supabaseInstance;
+})();
 
 // Tipos para las tablas de la base de datos
 export interface Database {

@@ -6,7 +6,7 @@ import UserSection from "./UserSection";
 
 const Navbar = () => {
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200 relative">
+    <nav className="bg-white mb-20 shadow-sm border-b border-gray-200 relative">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}

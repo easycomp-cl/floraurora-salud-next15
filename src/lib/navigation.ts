@@ -1,48 +1,97 @@
 import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MessageSquare, MonitorCog } from "lucide-react";
 
+export interface NavSubItem {
+  label: string;
+  href: string;
+  description?: string;
+}
+
 export interface NavItem {
-  name: string;
-  url: string;
-  icon: any;
+  label: string;
+  href: string;
+  icon: any; // Componente de icono de Lucide
+  description?: string;
   subItems?: NavSubItem[];
 }
 
-export interface NavSubItem {
-  name: string;
-  url: string;
-}
-
 export const navItems: NavItem[] = [
-  { name: "Inicio", url: "/", icon: Home },
   {
-    name: "Nosotros",
-    url: "/about",
-    icon: HeartPulse,
+    label: "Inicio",
+    href: "/",
+    icon: Home,
+    description: "Página principal de FlorAurora Salud",
   },
   {
-    name: "Servicios",
-    url: "/services",
+    label: "Servicios",
+    href: "/services",
     icon: MonitorCog,
+    description: "Nuestros servicios de psicología",
     subItems: [
-      { name: "Psicoterapia Infanto Juvenil", url: "/services" },
-      { name: "Psicoterapia Adultos", url: "/services" },
-      { name: "Terapia de Pareja", url: "/services" },
-      { name: "Evaluación y Psicodiagnóstico", url: "/services" },
-    ],
+      {
+        label: "Psicoterapia Infanto Juvenil",
+        href: "/services",
+        description: "Terapia especializada para niños y adolescentes"
+      },
+      {
+        label: "Psicoterapia Adultos",
+        href: "/services",
+        description: "Terapia para adultos"
+      },
+      {
+        label: "Terapia de Pareja",
+        href: "/services",
+        description: "Terapia de pareja y relaciones"
+      },
+      {
+        label: "Evaluación y Psicodiagnóstico",
+        href: "/services",
+        description: "Evaluaciones psicológicas completas"
+      },
+    ]
   },
   {
-    name: "Profesionales",
-    url: "/professionals",
+    label: "Profesionales",
+    href: "/professionals",
     icon: Briefcase,
+    description: "Conoce a nuestro equipo",
   },
-  
-  { name: "Contacto", url: "/contact", icon: AtSign },
+  {
+    label: "Acerca de",
+    href: "/about",
+    icon: HeartPulse,
+    description: "Información sobre FlorAurora Salud",
+  },
+  {
+    label: "Contacto",
+    href: "/contact",
+    icon: AtSign,
+    description: "Contáctanos",
+  },
 ];
 
 export const authenticatedNavItems: NavItem[] = [
-  { name: "Dashboard", url: "/dashboard", icon: Settings },
-  { name: "Citas", url: "/dashboard/appointments", icon: Calendar },
-  { name: "Mi Perfil", url: "/dashboard/profile", icon: User },
-  { name: "Sesiones", url: "/dashboard/sessions", icon: Calendar },
-  { name: "Mensajes", url: "/dashboard/messages", icon: MessageSquare },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    icon: Settings,
+    description: "Panel principal",
+  },
+  {
+    label: "Citas",
+    href: "/dashboard/appointments",
+    icon: Calendar,
+    description: "Gestiona tus citas",
+  },
+  {
+    label: "Sesiones",
+    href: "/dashboard/sessions",
+    icon: Calendar,
+    description: "Historial de sesiones",
+  },
+  {
+    label: "Perfil",
+    href: "/dashboard/profile",
+    icon: User,
+    description: "Tu perfil personal",
+  },
 ];
