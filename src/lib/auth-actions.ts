@@ -12,6 +12,13 @@ const loginSchema = z.object({
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
+const signupSchema = z.object({
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
+  email: z.string().email("Correo electrónico inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+});
+
 // export async function login(prevState: any, formData: FormData) {
 //   const supabase = await createClient();
 
@@ -178,67 +185,138 @@ export async function login(prevState: any, formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  // const supabase = await createClient();
+  const supabase = await createClient();
+  const admin = createAdminServer();
+  console.log("🔍 formData:", formData);
+  const firstName = formData.get("first-name") as string;
+  const lastName = formData.get("last-name") as string;
+  const email = (formData.get("email") as string)?.toLowerCase().trim() || "";
+  const password = formData.get("password") as string;
 
-  // // type-casting here for convenience
-  // // in practice, you should validate your inputs
-  // const firstName = formData.get("first-name") as string;
-  // const lastName = formData.get("last-name") as string;
-  // const data = {
-  //   email: formData.get("email") as string,
-  //   password: formData.get("password") as string,
-  //   options: {
-  //     data: {
-  //       full_name: `${firstName + " " + lastName}`,
-  //       email: formData.get("email") as string,
-  //     },
-  //   },
-  // };
+  // 1. Validar los datos con Zod
+  const parsed = signupSchema.safeParse({
+    firstName,
+    lastName,
+    email,
+    password,
+  });
 
-  // const { error } = await supabase.auth.signUp(data);
+  if (!parsed.success) {
+    console.log("❌ Error de validación Zod en signup:", parsed.error.flatten());
+    return {
+      success: false,
+      error: "Datos de formulario inválidos",
+      details: parsed.error.flatten(),
+    };
+  }
 
-  // if (error) {
-  //   redirect("/error");
+  // 2. Verificar si el usuario ya existe en Supabase Auth
+  const { data: existingUsers, error: listUsersError } = await admin.auth.admin.listUsers();
+
+  if (listUsersError) {
+    console.error("Error al listar usuarios para verificar existencia:", listUsersError);
+    return {
+      success: false,
+      error: "Error en el servicio de autenticación al verificar usuario.",
+    };
+  }
+
+  if (existingUsers?.users) {
+    const userExists = existingUsers.users.some((user) => user.email?.toLowerCase() === email);
+    if (userExists) {
+      console.log("🔍 Usuario ya existe:", email);
+      return {
+        success: false,
+        error: "Ya existe una cuenta con este correo electrónico.",
+      };
+    }
+  }
+
+  // 3. Registrar el usuario en Supabase Auth
+  console.log("Email a registrar en Supabase:", email);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
+    email: email,
+    password: password,
+    options: {
+      emailRedirectTo: `${baseUrl}/auth/auth/confirm`,
+      data: {
+        full_name: `${firstName} ${lastName}`,
+        email: email,
+      },
+    },
+  });
+
+  if (signUpError) {
+    console.error("Error al registrar usuario en Supabase Auth:", signUpError);
+    if (signUpError.message.includes("User already registered")) {
+      return {
+        success: false,
+        error: "Ya existe una cuenta con este correo electrónico.",
+      };
+    }
+    return {
+      success: false,
+      error: "Error al crear la cuenta. Por favor, inténtelo de nuevo.",
+    };
+  }
+
+  // 4. Insertar datos del usuario en la tabla 'users' si el registro fue exitoso en Auth
+  // La lógica de inserción en la tabla 'users' se moverá a la función de confirmación de email.
+  // if (signUpData.user) {
+  //   const { error: insertError } = await supabase.from("users").insert({
+  //     user_id: signUpData.user.id,
+  //     name: firstName,
+  //     last_name: lastName,
+  //     email: email,
+  //     is_active: true,
+  //     role: 2, 
+  //   });
+  //
+  //   if (insertError) {
+  //     console.error("Error al insertar el usuario en la tabla 'users':", insertError);
+  //     redirect("/error");
+  //   }
+  // } else {
+  //   console.error("Error: signUpData.user es nulo después de un registro exitoso sin error.");
+  //   return {
+  //     success: false,
+  //     error: "Error inesperado al obtener los datos del usuario después del registro.",
+  //   };
   // }
-
-  // revalidatePath("/", "layout");
-  // redirect("/");
   
-  // Temporalmente deshabilitado hasta resolver el problema de importación
-  console.log("Signup function called: ", formData);
+  revalidatePath("/", "layout");
+  redirect("/auth/confirm");
 }
 
 export async function signout() {
-  // const supabase = await createClient();
-  // const { error } = await supabase.auth.signOut();
-  // if (error) {
-  //   console.log(error);
-  //   redirect("/error");
-  // }
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.log(error);
+    redirect("/error");
+  }
 
-  // redirect("/logout");
-  
-  // Temporalmente deshabilitado hasta resolver el problema de importación
-  console.log("Signout function called");
+  redirect("/auth/logout");
 }
 
 // Esta función debe ejecutarse en el cliente, no en el servidor
-// export async function signInWithGoogle() {
-//   const supabase = await createClient();
-//   const { data, error } = await supabase.auth.signInWithOAuth({
-//     provider: "google",
-//     options: {
-//       queryParams: {
-//         access_type: "offline",
-//         prompt: "consent",
-//       },
-//     },
-//   });
+export async function signInWithGoogle() {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      queryParams: {
+        access_type: "offline",
+        prompt: "consent",
+      },
+    },
+  });
 
-//   if (error) {
-//     console.log(error);
-//     redirect("/error");
-//   }
+  if (error) {
+    console.log(error);
+    redirect("/error");
+  }
 
-//   redirect(data.url);
-// }
+  redirect(data.url);
+}

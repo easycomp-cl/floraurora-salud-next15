@@ -16,7 +16,7 @@ export default function ProfilePage() {
   if (!isAuthenticated) {
     redirect("/login");
   }
-
+  console.log("user", user);
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Mi Perfil</h1>
@@ -30,7 +30,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-800">
-              {user?.user_metadata?.name || "Usuario"}
+              {user?.user_metadata?.full_name || "Usuario"}
             </h2>
             <p className="text-gray-600">{user?.email}</p>
           </div>
@@ -47,7 +47,7 @@ export default function ProfilePage() {
                   Nombre
                 </label>
                 <p className="text-gray-900">
-                  {user?.user_metadata?.name || "No especificado"}
+                  {user?.user_metadata?.full_name || "No especificado"}
                 </p>
               </div>
               <div>
