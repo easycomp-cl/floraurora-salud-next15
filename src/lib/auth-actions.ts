@@ -289,6 +289,63 @@ export async function signup(formData: FormData) {
   redirect("/auth/confirm");
 }
 
+export async function signupPro(formData: FormData) {
+  const supabase = await createClient();
+  // Aquí solo haremos parsing y guardaremos la solicitud en una tabla
+  // Ej: professional_requests con estado "pending". El admin aprobará/rechazará.
+
+  const full_name = (formData.get("full_name") as string)?.trim() || "";
+  const rut = (formData.get("rut") as string)?.trim() || "";
+  const birth_date = (formData.get("birth_date") as string) || "";
+  const university = (formData.get("university") as string)?.trim() || "";
+  const study_year_start = (formData.get("study_year_start") as string)?.trim() || "";
+  const study_year_end = (formData.get("study_year_end") as string)?.trim() || "";
+  const extra_studies = (formData.get("extra_studies") as string)?.trim() || "";
+  const superintendence_number = (formData.get("superintendence_number") as string)?.trim() || "";
+
+  // Subir archivo al storage (si está configurado). Bucket: 'docs'
+  const degree_copy = formData.get("degree_copy") as File | null;
+  let degree_copy_url: string | null = null;
+  if (degree_copy && degree_copy.size) {
+    const arrayBuffer = await degree_copy.arrayBuffer();
+    const fileBytes = new Uint8Array(arrayBuffer);
+    const ext = degree_copy.type.includes("pdf") ? "pdf" : degree_copy.type.includes("png") ? "png" : "jpg";
+    const path = `professional-degrees/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("docs")
+      .upload(path, fileBytes, {
+        contentType: degree_copy.type,
+        upsert: false,
+      });
+    if (!uploadError && uploadData) {
+      const { data: publicUrl } = supabase.storage.from("docs").getPublicUrl(uploadData.path);
+      degree_copy_url = publicUrl.publicUrl;
+    }
+  }
+
+  const { error } = await supabase.from("professional_requests").insert({
+    full_name,
+    rut,
+    birth_date,
+    university,
+    study_year_start,
+    study_year_end,
+    extra_studies,
+    superintendence_number,
+    degree_copy_url,
+    status: "pending",
+    created_at: new Date().toISOString(),
+  });
+
+  if (error) {
+    console.error("Error al guardar solicitud profesional:", error);
+    redirect("/error");
+  }
+
+  revalidatePath("/", "layout");
+  redirect("/auth/confirm");
+}
+
 export async function signout() {
   const supabase = await createClient();
   const { error } = await supabase.auth.signOut();
