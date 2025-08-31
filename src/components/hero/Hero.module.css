@@ -66,12 +66,45 @@
 /* Responsive: en pantallas pequeñas se apila */
 @media (max-width: 900px) {
   .hero {
+    position: relative;
     grid-template-columns: 1fr;
-    min-height: auto;
+    min-height: 60vh;
+    overflow: hidden;
   }
 
   .hero__right {
-    height: 48vh; /* alto razonable para el banner en móvil */
-    order: -1;    /* imagen arriba, texto abajo (cambia a gusto) */
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+  }
+
+  .hero__right img,
+  .hero__right :global(img) {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .hero__left {
+    position: relative;
+    z-index: 2;
+    margin: 2rem 1rem;
+    padding: 2rem 1rem;
+    background: none;
+  }
+
+  .hero__right::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255,255,255,0.7); /* o usa un degradado si prefieres */
+    z-index: 2;
+    pointer-events: none;
   }
 }
