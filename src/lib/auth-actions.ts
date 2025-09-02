@@ -338,6 +338,7 @@ export async function signup(formData: FormData) {
       },
     },
   });
+  console.log("🔍 signUpData:", signUpData);
 
   if (signUpError) {
     console.error("Error al registrar usuario en Supabase Auth:", signUpError);

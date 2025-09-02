@@ -22,6 +22,12 @@ export const navItems: NavItem[] = [
     description: "Página principal de FlorAurora Salud",
   },
   {
+    label: "Nosotros",
+    href: "/about",
+    icon: HeartPulse,
+    description: "Información sobre FlorAurora Salud",
+  },
+  {
     label: "Servicios",
     href: "/services",
     icon: MonitorCog,
@@ -55,12 +61,7 @@ export const navItems: NavItem[] = [
     icon: Briefcase,
     description: "Conoce a nuestro equipo",
   },
-  {
-    label: "Acerca de",
-    href: "/about",
-    icon: HeartPulse,
-    description: "Información sobre FlorAurora Salud",
-  },
+  
   {
     label: "Contacto",
     href: "/contact",
