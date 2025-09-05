@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { Professional } from "@/lib/types/appointment"; // Mantener Professional de appointment.ts
+import { Patient } from "@/lib/services/profileService"; // Importar Patient de profileService.ts
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -45,7 +47,7 @@ export interface Database {
           id: string
           email: string
           full_name: string
-          role: 'patient' | 'psychologist' | 'admin'
+          role: number // Cambiado de string a number
           created_at: string
           updated_at: string
         }
@@ -53,7 +55,7 @@ export interface Database {
           id?: string
           email: string
           full_name: string
-          role: 'patient' | 'psychologist' | 'admin'
+          role: number // Cambiado de string a number
           created_at?: string
           updated_at?: string
         }
@@ -61,11 +63,23 @@ export interface Database {
           id?: string
           email?: string
           full_name?: string
-          role?: 'patient' | 'psychologist' | 'admin'
+          role?: number // Cambiado de string a number
           created_at?: string
           updated_at?: string
         }
       }
+      // Definición de la tabla 'patients'
+      patients: {
+        Row: Patient;
+        Insert: Partial<Patient>;
+        Update: Partial<Patient>;
+      };
+      // Definición de la tabla 'professionals'
+      professionals: {
+        Row: Professional;
+        Insert: Partial<Professional>;
+        Update: Partial<Professional>;
+      };
       sessions: {
         Row: {
           id: string
@@ -140,8 +154,23 @@ export interface Database {
   }
 }
 
-// Cliente tipado con la interfaz de la base de datos
-export const supabaseTyped = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Cliente tipado con la interfaz de la base de datos y configuración de autenticación
+export const supabaseTyped = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true, // Habilitar para OAuth
+    flowType: 'pkce',
+    debug: false, // Deshabilitar debug en producción
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    storageKey: 'sb-auth-token'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'floraurora-psychology-platform'
+    }
+  }
+});
 
 // Funciones de utilidad para autenticación
 export const auth = {
@@ -193,7 +222,7 @@ export const db = {
     const { data, error } = await supabaseTyped
       .from('users')
       .select('*')
-      .eq('id', id)
+      .eq('user_id', id) // Cambiado de 'id' a 'user_id'
       .single();
     return { data, error };
   },

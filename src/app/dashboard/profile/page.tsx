@@ -9,71 +9,107 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { User } from "@supabase/supabase-js";
-import { UserProfile } from "@/lib/types/profile";
+import { UserProfile, PatientProfile } from "@/lib/types/profile";
 
-type FullUserProfile = User &
-  UserProfile & {
-    patientProfile?: Patient | null;
-    professionalProfile?: Professional | null;
+import { getFullUserProfileData } from "@/lib/userdata/profile-data";
+//Datos de perfil completo
+
+// Importamos las interfaces necesarias de profile-data.ts y services/profileService.ts
+import { DetailedUserData, UserProfileData } from "@/lib/userdata/profile-data";
+
+type FormDataState = Partial<{
+  name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  address: string;
+  birth_date: string;
+  patientProfile: Partial<PatientProfile>;
+  professionalProfile: Partial<Professional>;
+}>;
+
+export default function UserProfilePage() {
+  const [profileData, setProfileData] = useState<UserProfileData>({
+    user: null,
+    profile: null,
+    loading: true,
+    error: null,
+  });
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<FormDataState>({});
+
+  // Mover fetchUserProfile fuera del useEffect para que sea accesible globalmente en el componente
+  const fetchUserProfile = async () => {
+    try {
+      setProfileData((prev: UserProfileData) => ({
+        ...prev,
+        loading: true,
+        error: null,
+      }));
+      const data = await getFullUserProfileData();
+      if (data) {
+        setProfileData((prev: UserProfileData) => ({
+          ...prev,
+          user: data.user,
+          profile: data.profile,
+          loading: false,
+          error: null, // Clear any previous errors on successful fetch
+        }));
+        // Initialize formData with current profile data for editing
+        setFormData((prev: FormDataState) => ({
+          name: data.user?.name || "",
+          last_name: data.user?.last_name || "",
+          email: data.user?.email || "",
+          phone_number: data.user?.phone_number || "",
+          address: data.user?.address || "",
+          birth_date: data.user?.birth_date || "",
+          patientProfile:
+            data.user?.role === "patient" && data.profile
+              ? {
+                  emergency_contact_name:
+                    (data.profile as PatientProfile).emergency_contact_name ||
+                    "",
+                  emergency_contact_phone:
+                    (data.profile as PatientProfile).emergency_contact_phone ||
+                    "",
+                  health_insurances_id:
+                    (data.profile as PatientProfile).health_insurances_id || 0,
+                }
+              : undefined,
+          professionalProfile:
+            data.user?.role === "professional" && data.profile
+              ? {
+                  title: (data.profile as Professional).title || "",
+                  specialty: (data.profile as Professional).specialty || "",
+                  bio: (data.profile as Professional).bio || "",
+                }
+              : undefined,
+        }));
+      } else {
+        setProfileData((prev: UserProfileData) => ({
+          ...prev,
+          user: null,
+          profile: null,
+          loading: false,
+          error: "No se pudo cargar la información del perfil.",
+        }));
+      }
+    } catch (err) {
+      console.error("Error al cargar el perfil del usuario:", err);
+      setProfileData((prev: UserProfileData) => ({
+        ...prev,
+        loading: false,
+        error: "Ocurrió un error al cargar tu perfil.",
+      }));
+    }
   };
 
-export default function ProfilePage() {
-  const { user, isAuthenticated, isLoading } = useAuthState();
-  const [fullProfile, setFullProfile] = useState<FullUserProfile | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<
-    Partial<{
-      full_name: string;
-      email: string;
-      patientProfile: Partial<Patient>;
-      professionalProfile: Partial<Professional>;
-    }>
-  >({});
-  const [loadingProfileData, setLoadingProfileData] = useState(true);
-
   useEffect(() => {
-    const fetchProfileData = async () => {
-      if (isAuthenticated && user && !isLoading) {
-        setLoadingProfileData(true);
-        let patientProfile: Patient | null = null;
-        let professionalProfile: Professional | null = null;
+    fetchUserProfile();
+  }, []); // El array vacío asegura que se ejecute solo una vez al montar el componente
 
-        if (user.role === "patient") {
-          patientProfile = await profileService.getPatientProfile(user.id);
-        } else if (user.role === "professional") {
-          professionalProfile = await profileService.getProfessionalProfile(
-            user.id
-          );
-        }
-
-        const combinedProfile: FullUserProfile = {
-          ...user,
-          patientProfile,
-          professionalProfile,
-        };
-        setFullProfile(combinedProfile);
-        setFormData({
-          full_name: combinedProfile.full_name || "",
-          email: combinedProfile.email || "",
-          patientProfile: {
-            date_of_birth: combinedProfile.patientProfile?.date_of_birth || "",
-            gender: combinedProfile.patientProfile?.gender || undefined, // Cambiar a undefined si no hay valor
-            phone_number: combinedProfile.patientProfile?.phone_number || "",
-            address: combinedProfile.patientProfile?.address || "",
-          },
-          professionalProfile: {
-            title: combinedProfile.professionalProfile?.title || "",
-            specialty: combinedProfile.professionalProfile?.specialty || "",
-            bio: combinedProfile.professionalProfile?.bio || "",
-          },
-        });
-        setLoadingProfileData(false);
-      }
-    };
-    fetchProfileData();
-  }, [user, isAuthenticated, isLoading]);
-
-  if (isLoading || loadingProfileData) {
+  if (profileData.loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Cargando perfil...</div>
@@ -81,10 +117,18 @@ export default function ProfilePage() {
     );
   }
 
-  if (!isAuthenticated || !fullProfile) {
-    redirect("/login");
-    return null; // Ensure nothing else renders after redirect
+  if (profileData.error) {
+    return <div className="text-red-500">Error: {profileData.error}</div>;
   }
+
+  if (!profileData.user) {
+    redirect("/login");
+  }
+
+  // if (!isAuthenticated || !fullProfile) {
+  //   redirect("/login");
+  //   return null; // Ensure nothing else renders after redirect
+  // }
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -95,11 +139,11 @@ export default function ProfilePage() {
     setFormData((prev) => {
       const [parent, child] = name.split(".");
 
-      if (child) {
+      if (parent === "patientProfile" || parent === "professionalProfile") {
         return {
           ...prev,
           [parent]: {
-            ...(prev[parent as keyof typeof prev] as object),
+            ...(prev[parent] as object),
             [child]: value,
           },
         };
@@ -113,39 +157,73 @@ export default function ProfilePage() {
   };
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!profileData.user) return;
     try {
       // Actualizar datos de la tabla 'users'
-      if (formData.full_name && formData.full_name !== user.full_name) {
-        await profileService.updateUserDetails(user.id, formData.full_name);
-      }
+      const userUpdateData: Partial<UserProfile> = {};
 
-      if (user.role === "patient" && formData.patientProfile) {
-        const patientUpdateData: Partial<Patient> = {
-          date_of_birth: formData.patientProfile.date_of_birth,
-          gender: formData.patientProfile.gender as "male" | "female" | "other",
-          phone_number: formData.patientProfile.phone_number,
-          address: formData.patientProfile.address,
-        };
-        await profileService.updatePatientProfile(user.id, patientUpdateData);
-      } else if (user.role === "professional" && formData.professionalProfile) {
-        const professionalUpdateData: Partial<Professional> = {
-          name: formData.full_name, // Asume que el nombre del profesional viene del full_name
-          title: formData.professionalProfile.title,
-          specialty: formData.professionalProfile.specialty,
-          bio: formData.professionalProfile.bio,
-        };
-        await profileService.updateProfessionalProfile(
-          user.id,
-          professionalUpdateData
+      if (formData.name && formData.name !== profileData.user.name) {
+        userUpdateData.name = formData.name;
+      }
+      if (
+        formData.last_name &&
+        formData.last_name !== profileData.user.last_name
+      ) {
+        userUpdateData.last_name = formData.last_name;
+      }
+      if (
+        formData.phone_number &&
+        formData.phone_number !== profileData.user.phone_number
+      ) {
+        userUpdateData.phone_number = formData.phone_number;
+      }
+      if (formData.address && formData.address !== profileData.user.address) {
+        userUpdateData.address = formData.address;
+      }
+      if (
+        formData.birth_date &&
+        formData.birth_date !== profileData.user.birth_date
+      ) {
+        userUpdateData.birth_date = formData.birth_date;
+      }
+      console.log("profileData.user", profileData.user);
+      console.log("profileData.user.user_id", profileData.user.user_id);
+
+      if (Object.keys(userUpdateData).length > 0) {
+        await profileService.updateUserProfile(
+          profileData.user.user_id, // Usar user_id (UUID) para la autenticación
+          userUpdateData
         );
       }
+
+      if (profileData.user.role === "patient" && formData.patientProfile) {
+        const patientUpdateData: Partial<PatientProfile> = {
+          emergency_contact_name:
+            formData.patientProfile.emergency_contact_name,
+          emergency_contact_phone:
+            formData.patientProfile.emergency_contact_phone,
+          health_insurances_id: formData.patientProfile.health_insurances_id,
+        };
+        await profileService.updatePatientProfile(
+          profileData.user.user_id, // Usar user_id (UUID) para la autenticación
+          patientUpdateData
+        );
+      } else if (
+        profileData.user.role === "professional" &&
+        formData.professionalProfile
+      ) {
+        // TODO: Implementar cuando se cree la tabla de profesionales
+        console.log("Professional profile update not yet implemented");
+      }
       setIsEditing(false);
-      // Opcional: Recargar los datos del perfil para asegurar que estén actualizados
-      // window.location.reload();
-      // Mejorar esto con una actualización de estado local o re-fetch específico
+      // Recargar los datos del perfil para asegurar que estén actualizados
+      await fetchUserProfile(); // Volvemos a cargar los datos después de guardar
     } catch (error) {
       console.error("Error al guardar el perfil:", error);
+      setProfileData((prev) => ({
+        ...prev,
+        error: "Error al guardar los cambios.",
+      }));
     }
   };
 
@@ -157,15 +235,19 @@ export default function ProfilePage() {
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
             <span className="text-white text-2xl font-bold">
-              {fullProfile.full_name?.[0] || fullProfile.email?.[0] || "U"}
+              {profileData.user.name?.[0] || profileData.user.email?.[0] || "U"}
             </span>
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-800">
-              {fullProfile.full_name || "Usuario"}
+              {profileData.user.name && profileData.user.last_name
+                ? `${profileData.user.name} ${profileData.user.last_name}`
+                : profileData.user.email || "Usuario"}
             </h2>
-            <p className="text-gray-600">{fullProfile.email}</p>
-            <p className="text-gray-600 capitalize">Rol: {fullProfile.role}</p>
+            <p className="text-gray-600">{profileData.user.email}</p>
+            <p className="text-gray-600 capitalize">
+              Rol: {profileData.user.role}
+            </p>
           </div>
         </div>
 
@@ -176,109 +258,160 @@ export default function ProfilePage() {
             </h3>
             <div className="space-y-3">
               <div>
-                <Label htmlFor="full_name">Nombre Completo</Label>
+                <Label htmlFor="name">Nombre</Label>
                 {isEditing ? (
                   <Input
-                    id="full_name"
-                    name="full_name"
+                    id="name"
+                    name="name"
                     type="text"
-                    value={formData.full_name || ""}
+                    value={formData.name || ""}
                     onChange={handleInputChange}
                   />
                 ) : (
                   <p className="text-gray-900">
-                    {fullProfile.full_name || "No especificado"}
+                    {profileData.user.name || "No especificado"}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="last_name">Apellido</Label>
+                {isEditing ? (
+                  <Input
+                    id="last_name"
+                    name="last_name"
+                    type="text"
+                    value={formData.last_name || ""}
+                    onChange={handleInputChange}
+                  />
+                ) : (
+                  <p className="text-gray-900">
+                    {profileData.user.last_name || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
                 <Label htmlFor="email">Email</Label>
-                <p className="text-gray-900">{fullProfile.email}</p>
+                <p className="text-gray-900">{profileData.user.email}</p>
+              </div>
+              <div>
+                <Label htmlFor="phone_number">Teléfono</Label>
+                {isEditing ? (
+                  <Input
+                    id="phone_number"
+                    name="phone_number"
+                    type="text"
+                    value={formData.phone_number || ""}
+                    onChange={handleInputChange}
+                  />
+                ) : (
+                  <p className="text-gray-900">
+                    {profileData.user.phone_number || "No especificado"}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="address">Dirección</Label>
+                {isEditing ? (
+                  <Input
+                    id="address"
+                    name="address"
+                    type="text"
+                    value={formData.address || ""}
+                    onChange={handleInputChange}
+                  />
+                ) : (
+                  <p className="text-gray-900">
+                    {profileData.user.address || "No especificado"}
+                  </p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="birth_date">Fecha de Nacimiento</Label>
+                {isEditing ? (
+                  <Input
+                    id="birth_date"
+                    name="birth_date"
+                    type="date"
+                    value={formData.birth_date || ""}
+                    onChange={handleInputChange}
+                  />
+                ) : (
+                  <p className="text-gray-900">
+                    {profileData.user.birth_date || "No especificado"}
+                  </p>
+                )}
               </div>
 
-              {fullProfile.role === "patient" && fullProfile.patientProfile && (
+              {profileData.user.role === "patient" && profileData.profile && (
                 <>
                   <div>
-                    <Label htmlFor="patientProfile.date_of_birth">
-                      Fecha de Nacimiento
+                    <Label htmlFor="patientProfile.emergency_contact_name">
+                      Nombre de Contacto de Emergencia
                     </Label>
                     {isEditing ? (
                       <Input
-                        id="patientProfile.date_of_birth"
-                        name="patientProfile.date_of_birth"
-                        type="date"
-                        value={formData.patientProfile?.date_of_birth || ""}
+                        id="patientProfile.emergency_contact_name"
+                        name="patientProfile.emergency_contact_name"
+                        type="text"
+                        value={
+                          formData.patientProfile?.emergency_contact_name || ""
+                        }
                         onChange={handleInputChange}
                       />
                     ) : (
                       <p className="text-gray-900">
-                        {fullProfile.patientProfile.date_of_birth ||
-                          "No especificado"}
+                        {(profileData.profile as PatientProfile)
+                          .emergency_contact_name || "No especificado"}
                       </p>
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="patientProfile.gender">Género</Label>
-                    {isEditing ? (
-                      <select
-                        id="patientProfile.gender"
-                        name="patientProfile.gender"
-                        value={formData.patientProfile?.gender || ""}
-                        onChange={handleInputChange}
-                        className="flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <option value="">Selecciona</option>
-                        <option value="male">Masculino</option>
-                        <option value="female">Femenino</option>
-                        <option value="other">Otro</option>
-                      </select>
-                    ) : (
-                      <p className="text-gray-900">
-                        {fullProfile.patientProfile.gender || "No especificado"}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="patientProfile.phone_number">
-                      Número de Teléfono
+                    <Label htmlFor="patientProfile.emergency_contact_phone">
+                      Teléfono de Contacto de Emergencia
                     </Label>
                     {isEditing ? (
                       <Input
-                        id="patientProfile.phone_number"
-                        name="patientProfile.phone_number"
+                        id="patientProfile.emergency_contact_phone"
+                        name="patientProfile.emergency_contact_phone"
                         type="text"
-                        value={formData.patientProfile?.phone_number || ""}
+                        value={
+                          formData.patientProfile?.emergency_contact_phone || ""
+                        }
                         onChange={handleInputChange}
                       />
                     ) : (
                       <p className="text-gray-900">
-                        {fullProfile.patientProfile.phone_number ||
-                          "No especificado"}
+                        {(profileData.profile as PatientProfile)
+                          .emergency_contact_phone || "No especificado"}
                       </p>
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="patientProfile.address">Dirección</Label>
+                    <Label htmlFor="patientProfile.health_insurances_id">
+                      ID de Seguro de Salud
+                    </Label>
                     {isEditing ? (
                       <Input
-                        id="patientProfile.address"
-                        name="patientProfile.address"
-                        type="text"
-                        value={formData.patientProfile?.address || ""}
+                        id="patientProfile.health_insurances_id"
+                        name="patientProfile.health_insurances_id"
+                        type="number"
+                        value={
+                          formData.patientProfile?.health_insurances_id || ""
+                        }
                         onChange={handleInputChange}
                       />
                     ) : (
                       <p className="text-gray-900">
-                        {fullProfile.patientProfile.address ||
-                          "No especificado"}
+                        {(profileData.profile as PatientProfile)
+                          .health_insurances_id || "No especificado"}
                       </p>
                     )}
                   </div>
                 </>
               )}
 
-              {fullProfile.role === "professional" &&
-                fullProfile.professionalProfile && (
+              {profileData.user.role === "professional" &&
+                profileData.profile && (
                   <>
                     <div>
                       <Label htmlFor="professionalProfile.title">Título</Label>
@@ -292,7 +425,7 @@ export default function ProfilePage() {
                         />
                       ) : (
                         <p className="text-gray-900">
-                          {fullProfile.professionalProfile.title ||
+                          {(profileData.profile as Professional).title ||
                             "No especificado"}
                         </p>
                       )}
@@ -311,7 +444,7 @@ export default function ProfilePage() {
                         />
                       ) : (
                         <p className="text-gray-900">
-                          {fullProfile.professionalProfile.specialty ||
+                          {(profileData.profile as Professional).specialty ||
                             "No especificado"}
                         </p>
                       )}
@@ -329,7 +462,7 @@ export default function ProfilePage() {
                         />
                       ) : (
                         <p className="text-gray-900">
-                          {fullProfile.professionalProfile.bio ||
+                          {(profileData.profile as Professional).bio ||
                             "No especificado"}
                         </p>
                       )}
@@ -347,18 +480,22 @@ export default function ProfilePage() {
               <div>
                 <Label>ID de Usuario</Label>
                 <p className="text-gray-900 text-sm font-mono">
-                  {fullProfile.id}
+                  {profileData.user.id}
+                </p>
+              </div>
+              <div>
+                <Label>UUID de Autenticación</Label>
+                <p className="text-gray-900 text-sm font-mono">
+                  {profileData.user.user_id}
                 </p>
               </div>
               <div>
                 <Label>Proveedor</Label>
-                <p className="text-gray-900">
-                  {fullProfile.app_metadata?.provider || "email"}
-                </p>
+                <p className="text-gray-900">{"email"} </p>
               </div>
 
               {/* Elementos específicos por rol */}
-              {fullProfile.role === "admin" && (
+              {profileData.user.role === "admin" && (
                 <>
                   <div className="bg-blue-100 p-3 rounded-md">
                     <h4 className="font-semibold">Panel de Administración</h4>
@@ -375,7 +512,7 @@ export default function ProfilePage() {
                 </>
               )}
 
-              {fullProfile.role === "patient" && (
+              {profileData.user.role === "patient" && (
                 <>
                   <div className="bg-green-100 p-3 rounded-md">
                     <h4 className="font-semibold">Mis Citas</h4>
@@ -392,7 +529,7 @@ export default function ProfilePage() {
                 </>
               )}
 
-              {fullProfile.role === "professional" && (
+              {profileData.user.role === "professional" && (
                 <>
                   <div className="bg-purple-100 p-3 rounded-md">
                     <h4 className="font-semibold">Mi Calendario</h4>
@@ -414,7 +551,59 @@ export default function ProfilePage() {
 
         <div className="mt-6 flex justify-end">
           {isEditing ? (
-            <Button onClick={handleSave}>Guardar Cambios</Button>
+            <>
+              <Button onClick={handleSave} className="mr-2">
+                Guardar Cambios
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsEditing(false);
+                  // Restablecer formData a los datos actuales si el usuario cancela la edición
+                  if (profileData.user) {
+                    setFormData((prev: FormDataState) => ({
+                      name: profileData.user?.name || "",
+                      last_name: profileData.user?.last_name || "",
+                      email: profileData.user?.email || "",
+                      phone_number: profileData.user?.phone_number || "",
+                      address: profileData.user?.address || "",
+                      birth_date: profileData.user?.birth_date || "",
+                      patientProfile:
+                        profileData.user?.role === "patient" &&
+                        profileData.profile
+                          ? {
+                              emergency_contact_name:
+                                (profileData.profile as PatientProfile)
+                                  .emergency_contact_name || "",
+                              emergency_contact_phone:
+                                (profileData.profile as PatientProfile)
+                                  .emergency_contact_phone || "",
+                              health_insurances_id:
+                                (profileData.profile as PatientProfile)
+                                  .health_insurances_id || 0,
+                            }
+                          : undefined,
+                      professionalProfile:
+                        profileData.user?.role === "professional" &&
+                        profileData.profile
+                          ? {
+                              title:
+                                (profileData.profile as Professional).title ||
+                                "",
+                              specialty:
+                                (profileData.profile as Professional)
+                                  .specialty || "",
+                              bio:
+                                (profileData.profile as Professional).bio || "",
+                            }
+                          : undefined,
+                    }));
+                  }
+                }}
+              >
+                Cancelar
+              </Button>
+            </>
           ) : (
             <Button onClick={() => setIsEditing(true)}>Editar Perfil</Button>
           )}

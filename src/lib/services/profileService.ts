@@ -1,108 +1,229 @@
-import supabase from '@/utils/supabase/client';
-import { User } from '@supabase/supabase-js';
+import { supabaseTyped } from '@/utils/supabase/client'; // Usar el cliente tipado con autenticación
+import { User as SupabaseUser } from '@supabase/supabase-js';
 import { UserProfile, Profile } from '@/lib/types/profile';
 import { Professional } from '@/lib/types/appointment'; // Importa la interfaz Professional
 
-// Definir una interfaz para Patient (asumiendo campos, ajustar según la base de datos real)
+// Definir una interfaz para Patient basada en la tabla real
 export interface Patient {
-  id: string;
-  user_id: string;
-  date_of_birth: string;
-  gender: 'male' | 'female' | 'other';
-  phone_number: string;
-  address: string;
-  // Añadir otros campos relevantes para pacientes
+  id: number;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  health_insurances_id: number;
+  created_at: string;
+}
+
+// Definir una interfaz para User basada en la tabla real
+export interface User {
+  id: number;
+  rut?: string;
+  name?: string;
+  last_name?: string;
+  email?: string;
+  phone_number?: string;
+  role: number; // 1=admin, 2=patient, 3=professional (asumiendo)
+  is_active?: boolean;
+  birth_date?: string;
+  password?: string;
+  created_at: string;
+  address?: string;
+  user_id: string; // UUID de Supabase Auth
 }
 
 export const profileService = {
+  // Obtener perfil de usuario desde la tabla users
+  async getUserProfile(userId: string): Promise<User | null> {
+    const { data, error } = await supabaseTyped
+      .from('users')
+      .select('*')
+      .eq('id', userId) 
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+    
+    return data || null;
+  },
+  async getUserProfileByUuid(userId: string): Promise<User | null> {
+    const { data, error } = await supabaseTyped
+      .from('users')
+      .select('*')
+      .eq('user_id', userId) 
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+    
+    return data || null;
+  },
+
+  // Obtener perfil de paciente desde la tabla patients
   async getPatientProfile(userId: string): Promise<Patient | null> {
-    const { data, error } = await supabase
+    // Primero obtener el usuario para conseguir su id
+    const user = await this.getUserProfile(userId);
+    if (!user) return null;
+
+    const { data, error } = await supabaseTyped
       .from('patients')
       .select('*')
-      .eq('user_id', userId)
+      .eq('id', user.id) // Usar el id de la tabla users para la relación
       .single();
-    if (error && error.code !== 'PGRST116') { // PGRST116 es "No rows found"
+    
+    if (error && error.code !== 'PGRST116') {
       console.error('Error fetching patient profile:', error);
       return null;
     }
+    
     return data || null;
   },
 
-  async getProfessionalProfile(userId: string): Promise<Professional | null> {
-    const { data, error } = await supabase
-      .from('professionals')
-      .select('*')
-      .eq('id', userId) // Asumiendo que el ID del profesional es el user_id
-      .single();
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching professional profile:', error);
-      return null;
-    }
-    return data || null;
-  },
+  // async getProfessionalProfile(userId: number): Promise<Professional | null> {
+  //   const { data, error } = await supabaseTyped
+  //     .from('professionals') // Tipado con <Professional>
+  //     .select() // Eliminado el tipado explícito <Professional[]>
+  //     .eq('user_id', userId) // Cambiado de 'id' a 'user_id'
+  //     .single();
+  //   if (error && error.code !== 'PGRST116') {
+  //     console.error('Error fetching professional profile:', error);
+  //     return null;
+  //   }
+  //   return data || null;
+  // },
 
-  async isProfileComplete(user: (User & UserProfile)): Promise<boolean> {
-    if (!user || user.loading) return false; // Si el usuario no está cargado, no está completo
+  async isProfileComplete(user: UserProfile): Promise<boolean> {
+    if (!user) return false;
 
-    // Siempre se requiere full_name y email de la tabla users
-    if (!user.full_name || !user.email) return false;
+    // Verificar campos básicos requeridos de la tabla users
+    if (!user.name || !user.last_name || !user.email) return false;
 
+    // Verificar el rol (1=admin, 2=patient, 3=professional)
     switch (user.role) {
-      case 'admin':
-        // Para el admin, solo se requiere el full_name y email
+      case 1: // admin
+        // Para el admin, solo se requiere name, last_name y email
         return true;
-      case 'patient':
-        const patientProfile = await this.getPatientProfile(user.id);
+      case 2: // patient
+        const patientProfile = await this.getPatientProfile(user.user_id);
         return !!patientProfile && 
-               !!patientProfile.date_of_birth &&
-               !!patientProfile.gender &&
-               !!patientProfile.phone_number &&
-               !!patientProfile.address; // Verificar campos específicos de paciente
-      case 'professional':
-        const professionalProfile = await this.getProfessionalProfile(user.id);
-        return !!professionalProfile &&
-               !!professionalProfile.name &&
-               !!professionalProfile.title &&
-               !!professionalProfile.specialty &&
-               !!professionalProfile.bio; // Verificar campos específicos de profesional
+               !!patientProfile.emergency_contact_name &&
+               !!patientProfile.emergency_contact_phone &&
+               !!patientProfile.health_insurances_id;
+      case 3: // professional
+        // TODO: Implementar cuando se cree la tabla de profesionales
+        return false;
       default:
         return false;
     }
   },
 
-  async updatePatientProfile(userId: string, profileData: Partial<Patient>): Promise<Patient | null> {
-    const { data, error } = await supabase
+
+  async createPatientProfile(userId: string, profileData: Omit<Patient, 'id' | 'created_at'>): Promise<Patient | null> {
+
+    // Primero obtener el usuario para conseguir su id
+    const user = await this.getUserProfile(userId);
+    console.log("AWAIT user", user);
+    if (!user) throw new Error('User not found');
+
+    const { data, error } = await supabaseTyped
       .from('patients')
-      .update(profileData)
-      .eq('user_id', userId)
+      .insert({
+        ...profileData,
+        id: user.id // Usar el id de la tabla users para la relación
+      })
       .select()
       .single();
+    
+    if (error) {
+      console.error('Error creating patient profile:', error);
+      throw error;
+    }
+    
+    return data;
+  },
+
+  async updatePatientProfile(userId: string, profileData: Partial<Patient>): Promise<Patient | null> {
+    // Primero obtener el usuario para conseguir su id
+    console.log("=== INICIO updatePatientProfile ===");
+    console.log("userId recibido:", userId);
+    console.log("profileData recibido:", profileData);
+    const user = await this.getUserProfileByUuid(userId);
+    if (!user) throw new Error('User not found');
+
+    const { data, error } = await supabaseTyped
+      .from('patients')
+      .update(profileData)
+      .eq('id', user.id) // Usar el id de la tabla users para la relación
+      .select()
+      .single();
+    
     if (error) {
       console.error('Error updating patient profile:', error);
       throw error;
     }
+    
     return data;
   },
 
-  async updateProfessionalProfile(userId: string, profileData: Partial<Professional>): Promise<Professional | null> {
-    const { data, error } = await supabase
-      .from('professionals')
+  // TODO: Implementar cuando se cree la tabla de profesionales
+  // async updateProfessionalProfile(userId: string, profileData: Partial<Professional>): Promise<Professional | null> {
+  //   const { data, error } = await supabaseTyped
+  //     .from('professionals')
+  //     .update(profileData)
+  //     .eq('user_id', userId)
+  //     .select()
+  //     .single();
+  //   if (error) {
+  //     console.error('Error updating professional profile:', error);
+  //     throw error;
+  //   }
+  //   return data;
+  // },
+
+  async updateUserProfile(userId: string, profileData: Partial<User>): Promise<User | null> {
+    console.log("=== INICIO updateUserProfile ===");
+    console.log("userId recibido:", userId);
+    console.log("profileData recibido:", profileData);
+    
+    // Verificar autenticación
+    const { data: { user: authUser }, error: authError } = await supabaseTyped.auth.getUser();
+    
+    if (authError || !authUser) {
+      console.error('Error de autenticación:', authError);
+      throw new Error("Usuario no autenticado");
+    }
+    
+    console.log("Usuario autenticado:", authUser.id);
+    
+    // Verificar que el user_id coincida con el usuario autenticado
+    if (authUser.id !== userId) {
+      throw new Error("No tienes permisos para actualizar este perfil");
+    }
+    
+    // Realizar la actualización directamente sin verificar existencia previa
+    const { data, error } = await supabaseTyped
+      .from('users')
       .update(profileData)
-      .eq('id', userId) // Asumiendo que el ID del profesional es el user_id
+      .eq('user_id', userId)
       .select()
       .single();
+    
     if (error) {
-      console.error('Error updating professional profile:', error);
+      console.error('Error updating user profile:', error);
       throw error;
     }
+    
+    console.log("Usuario actualizado exitosamente:", data);
     return data;
   },
 
-  async updateUserDetails(userId: string, full_name: string): Promise<void> {
-    const { error } = await supabase
+  async updateUserDetails(userId: string, name: string, last_name: string): Promise<void> {
+    const { error } = await supabaseTyped
       .from('users')
-      .update({ full_name: full_name })
-      .eq('id', userId);
+      .update({ name, last_name })
+      .eq('user_id', userId); // Usar user_id (UUID de Supabase Auth)
+    
     if (error) {
       console.error('Error updating user details:', error);
       throw error;

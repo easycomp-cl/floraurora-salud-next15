@@ -331,7 +331,7 @@ export async function signup(formData: FormData) {
     email: email,
     password: password,
     options: {
-      emailRedirectTo: `${baseUrl}/auth/auth/confirm`,
+      emailRedirectTo: `${baseUrl}/confirm`,
       data: {
         full_name: `${firstName} ${lastName}`,
         email: email,
@@ -379,7 +379,7 @@ export async function signup(formData: FormData) {
   // }
   
   revalidatePath("/", "layout");
-  redirect("/auth/confirm");
+  redirect("/confirm");
 }
 
 export async function signupPro(formData: FormData) {

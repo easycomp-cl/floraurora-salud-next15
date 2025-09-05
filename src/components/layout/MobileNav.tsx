@@ -162,14 +162,14 @@ const MobileNav = () => {
               ) : (
                 <div className="space-y-3">
                   <Link
-                    href="/auth/login"
+                    href="/login"
                     className="block w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 hover:border-gray-300 text-center"
                     onClick={closeMenu}
                   >
                     Iniciar Sesión
                   </Link>
                   <Link
-                    href="/auth/signup"
+                    href="/signup"
                     className="block w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 text-center"
                     onClick={closeMenu}
                   >

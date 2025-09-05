@@ -7,23 +7,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
-export default function ConfirmPage() {
+export default function ConfirmedPage() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
       <Card className="mx-auto max-w-md">
         <CardHeader>
-          <CardTitle className="text-xl">Confirmación de Correo</CardTitle>
+          <CardTitle className="text-xl">¡Correo Confirmado!</CardTitle>
           <CardDescription>
-            Hemos enviado un enlace de confirmación a su correo electrónico. Por
-            favor, revise su bandeja de entrada (y spam) para activar su cuenta.
+            Su cuenta ha sido activada exitosamente. Ahora puede iniciar sesión.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="mt-4 text-center text-sm">
-            ¿Ya confirmó su correo?{" "}
-            <Link href="/auth/login" className="underline">
-              Iniciar sesión
+          <div className="mt-4 text-center">
+            <Link href="/login" passHref>
+              <Button className="w-full">Iniciar sesión</Button>
             </Link>
           </div>
         </CardContent>

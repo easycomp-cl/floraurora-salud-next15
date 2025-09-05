@@ -39,7 +39,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href="/auth/signup-pro"
+                  href="/signup-pro"
                   className="text-gray-300 hover:text-white"
                 >
                   Trabaja con nosotros

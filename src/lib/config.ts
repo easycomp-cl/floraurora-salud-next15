@@ -26,13 +26,13 @@ export const config = {
 
     // Rutas de autenticación
     auth: {
-      login: "/auth/login",
-      signup: "/auth/signup",
-      signupPro: "/auth/signup-pro",
-      callback: "/auth/callback",
-      confirm: "/auth/confirm",
-      confirmed: "/auth/confirmed",
-      logout: "/auth/logout",
+      login: "/login",
+      signup: "/signup",
+      signupPro: "/signup-pro",
+      callback: "/callback",
+      confirm: "/confirm",
+      confirmed: "/confirmed",
+      logout: "/logout",
     },
 
     // Rutas protegidas
@@ -75,12 +75,12 @@ export const config = {
       "/services",
       "/professionals",
       "/contact",
-      "/auth/login",
-      "/auth/signup",
-      "/auth/signup-pro",
-      "/auth/callback",
-      "/auth/confirm",
-      "/auth/confirmed",
+      "/login",
+      "/signup",
+      "/signup-pro",
+      "/callback",
+      "/confirm",
+      "/confirmed",
     ],
 
     // Rutas de redirección después de autenticación
@@ -88,7 +88,7 @@ export const config = {
       afterLogin: "/dashboard",
       afterLogout: "/",
       afterSignup: "/dashboard",
-      unauthorized: "/auth/login",
+      unauthorized: "/login",
     },
   },
 

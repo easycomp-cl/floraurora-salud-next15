@@ -26,9 +26,9 @@ export function useAuthRedirect() {
 
     // CASO 2: Usuario autenticado en página de login/signup, redirigir al dashboard
     if (isAuthenticated && (
-      pathname === "/auth/login" || 
-      pathname === "/auth/signup" || 
-      pathname === "/auth/signup-pro"
+      pathname === "/login" || 
+      pathname === "/signup" || 
+      pathname === "/signup-pro"
     )) {
       console.log("🔄 useAuthRedirect: Usuario autenticado en página de auth, redirigiendo al dashboard...");
       router.push(config.auth.redirects.afterLogin);
