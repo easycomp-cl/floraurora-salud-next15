@@ -26,11 +26,11 @@ export function useAuthState() {
   const updateAuthState = useCallback((user: User | null, session: Session | null) => {
     if (!mountedRef.current) return;
     
-    console.log("🔄 useAuthState: Actualizando estado", {
-      hasUser: !!user,
-      hasSession: !!session,
-      userEmail: user?.email
-    });
+    // console.log("🔄 useAuthState: Actualizando estado", {
+    //   hasUser: !!user,
+    //   hasSession: !!session,
+    //   userEmail: user?.email
+    // });
 
     const newState = {
       user,
@@ -47,25 +47,25 @@ export function useAuthState() {
 
   const getInitialSession = useCallback(async () => {
     try {
-      console.log("🔍 useAuthState: Obteniendo sesión inicial...");
+      //console.log("🔍 useAuthState: Obteniendo sesión inicial...");
       
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error("❌ useAuthState: Error al obtener sesión inicial:", error);
+        //console.error("❌ useAuthState: Error al obtener sesión inicial:", error);
         updateAuthState(null, null);
         return;
       }
 
       if (session?.user) {
-        console.log("✅ useAuthState: Sesión inicial encontrada:", session.user.email);
+        //console.log("✅ useAuthState: Sesión inicial encontrada:", session.user.email);
         updateAuthState(session.user, session);
       } else {
-        console.log("ℹ️ useAuthState: No hay sesión inicial");
+        //console.log("ℹ️ useAuthState: No hay sesión inicial");
         updateAuthState(null, null);
       }
     } catch (error) {
-      console.error("💥 useAuthState: Error inesperado:", error);
+      //console.error("💥 useAuthState: Error inesperado:", error);
       updateAuthState(null, null);
     }
   }, [updateAuthState]);
@@ -84,16 +84,16 @@ export function useAuthState() {
       async (event, session) => {
         if (!mountedRef.current) return;
         
-        console.log("🔄 useAuthState: Cambio de estado detectado:", {
-          event,
-          hasSession: !!session,
-          userEmail: session?.user?.email
-        });
+        // console.log("🔄 useAuthState: Cambio de estado detectado:", {
+        //   event,
+        //   hasSession: !!session,
+        //   userEmail: session?.user?.email
+        // });
 
         if (event === "SIGNED_IN" && session) {
           updateAuthState(session.user, session);
         } else if (event === "SIGNED_OUT") {
-          console.log("🚪 useAuthState: Usuario cerró sesión");
+          //console.log("🚪 useAuthState: Usuario cerró sesión");
           updateAuthState(null, null);
         } else if (event === "TOKEN_REFRESHED" && session) {
           updateAuthState(session.user, session);
@@ -115,7 +115,7 @@ export function useAuthState() {
 
   const signOut = useCallback(async () => {
     try {
-      console.log("🚪 useAuthState: Iniciando cierre de sesión...");
+      //console.log("🚪 useAuthState: Iniciando cierre de sesión...");
       
       // Limpiar estado inmediatamente para evitar retrasos
       setAuthState(prev => ({
@@ -128,11 +128,11 @@ export function useAuthState() {
 
       const { error } = await supabase.auth.signOut();
       if (error) {
-        console.error("❌ useAuthState: Error al cerrar sesión:", error);
+        //console.error("❌ useAuthState: Error al cerrar sesión:", error);
         throw error;
       }
       
-      console.log("✅ useAuthState: Sesión cerrada exitosamente");
+      //console.log("✅ useAuthState: Sesión cerrada exitosamente");
       
       // Redirigir inmediatamente después del cierre de sesión
       router.push("/");

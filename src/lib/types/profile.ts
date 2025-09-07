@@ -9,6 +9,8 @@ export type Profile = {
   is_active?: boolean;
   birth_date?: string;
   address?: string;
+  gender?: string;
+  nationality?: string;
   user_id: string; // UUID de Supabase Auth
   created_at: string;
   // Campos de paciente si aplica
@@ -38,6 +40,36 @@ export type UserProfile = {
   is_active?: boolean;
   birth_date?: string;
   address?: string;
+  gender?: string;
+  nationality?: string;
   user_id: string; // UUID de Supabase Auth
   created_at: string;
 };
+
+// Interfaz para títulos profesionales
+export interface ProfessionalTitle {
+  id: number;
+  title_name: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+// Interfaz para especialidades profesionales
+export interface ProfessionalSpecialty {
+  id: number;
+  name: string;
+  title_id: number | null;
+  created_at: string;
+}
+
+// Interfaz para profesionales basada en la tabla real
+export interface ProfessionalProfile {
+  id: number;
+  title_id: number | null;
+  profile_description: string | null;
+  resume_url: string | null;
+  created_at: string;
+  // Campos relacionados que se obtienen por JOIN
+  title?: ProfessionalTitle;
+  specialties?: ProfessionalSpecialty[];
+}
