@@ -23,6 +23,7 @@ interface CalendarProps {
   selectedDate: string | null;
   selectedTime: string | null;
   timeSlots: TimeSlot[];
+  availableDates: string[];
   onDateSelect: (date: string) => void;
   onTimeSelect: (time: string) => void;
 }
@@ -31,17 +32,58 @@ export default function Calendar({
   selectedDate,
   selectedTime,
   timeSlots,
+  availableDates,
   onDateSelect,
   onTimeSelect,
 }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
+  // Log para depuración
+  console.log("Calendar props:", {
+    selectedDate,
+    selectedTime,
+    timeSlotsCount: timeSlots.length,
+    availableDatesCount: availableDates.length,
+    timeSlots: timeSlots.slice(0, 5), // Mostrar solo los primeros 5
+  });
+
+  // Limitar navegación a máximo 2 semanas en el futuro
+  const today = new Date();
+  const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const nextMonth = () => {
+    const nextMonthDate = addMonths(currentMonth, 1);
+    if (nextMonthDate <= twoWeeksFromNow) {
+      setCurrentMonth(nextMonthDate);
+    }
+  };
+
+  const prevMonth = () => {
+    const prevMonthDate = subMonths(currentMonth, 1);
+    if (prevMonthDate >= today) {
+      setCurrentMonth(prevMonthDate);
+    }
+  };
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
-  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Ajustar para que el lunes sea el primer día de la semana
+  const startOfWeek = (date: Date) => {
+    const day = date.getDay();
+    const diff = day === 0 ? 6 : day - 1; // Si es domingo (0), restar 6; si no, restar 1
+    return new Date(date.getTime() - diff * 24 * 60 * 60 * 1000);
+  };
+
+  const endOfWeek = (date: Date) => {
+    const day = date.getDay();
+    const diff = day === 0 ? 0 : 7 - day; // Si es domingo (0), no sumar; si no, sumar hasta domingo
+    return new Date(date.getTime() + diff * 24 * 60 * 60 * 1000);
+  };
+
+  const weekStart = startOfWeek(monthStart);
+  const weekEnd = endOfWeek(monthEnd);
+  const monthDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
   const weekDays = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
@@ -51,15 +93,18 @@ export default function Calendar({
 
   const isDateAvailable = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return timeSlots.some((slot) => slot.date === dateStr);
+    return availableDates.includes(dateStr);
   };
 
   const getAvailableTimesForDate = (date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return timeSlots
+    const availableTimes = timeSlots
       .filter((slot) => slot.date === dateStr)
       .map((slot) => slot.start_time)
       .sort();
+
+    console.log(`Horarios disponibles para ${dateStr}:`, availableTimes);
+    return availableTimes;
   };
 
   const handleDateClick = (date: Date) => {
@@ -82,7 +127,8 @@ export default function Calendar({
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={prevMonth}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            disabled={subMonths(currentMonth, 1) < today}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
@@ -93,7 +139,8 @@ export default function Calendar({
 
           <button
             onClick={nextMonth}
-            className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+            disabled={addMonths(currentMonth, 1) > twoWeeksFromNow}
+            className="p-2 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
@@ -181,14 +228,17 @@ export default function Calendar({
       )}
 
       {/* Nota informativa */}
-      <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-start space-x-3">
-          <CalendarIcon className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-yellow-800">
-            <p className="font-medium mb-1">Instrucciones:</p>
-            <p>1. Selecciona una fecha disponible en el calendario</p>
-            <p>2. Elige un horario de los disponibles</p>
-            <p>3. Revisa el resumen de tu cita en el panel derecho</p>
+          <CalendarIcon className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Disponibilidad:</p>
+            <p>
+              • Solo se muestran fechas disponibles en las próximas 2 semanas
+            </p>
+            <p>• Los horarios son de 1 hora (9:00, 10:00, 11:00, etc.)</p>
+            <p>• Los servicios tienen una duración de 55 minutos</p>
+            <p>• Selecciona una fecha y luego elige un horario disponible</p>
           </div>
         </div>
       </div>

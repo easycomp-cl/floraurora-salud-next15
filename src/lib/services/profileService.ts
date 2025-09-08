@@ -1,6 +1,6 @@
 import { supabaseTyped } from '@/utils/supabase/client'; // Usar el cliente tipado con autenticación
 import { User as SupabaseUser } from '@supabase/supabase-js';
-import { UserProfile, Profile } from '@/lib/types/profile';
+import { UserProfile, Profile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty } from '@/lib/types/profile';
 import { Professional } from '@/lib/types/appointment'; // Importa la interfaz Professional
 
 // Definir una interfaz para Patient basada en la tabla real
@@ -80,18 +80,124 @@ export const profileService = {
     return data || null;
   },
 
-  // async getProfessionalProfile(userId: number): Promise<Professional | null> {
-  //   const { data, error } = await supabaseTyped
-  //     .from('professionals') // Tipado con <Professional>
-  //     .select() // Eliminado el tipado explícito <Professional[]>
-  //     .eq('user_id', userId) // Cambiado de 'id' a 'user_id'
-  //     .single();
-  //   if (error && error.code !== 'PGRST116') {
-  //     console.error('Error fetching professional profile:', error);
-  //     return null;
-  //   }
-  //   return data || null;
-  // },
+  // Obtener perfil de profesional desde la tabla professionals
+  async getProfessionalProfile(userId: number): Promise<ProfessionalProfile | null> {
+    // Primero obtener el usuario para conseguir su id
+    const user = await this.getUserProfile(userId.toString());
+    console.log("getProfessionalProfile-user", user);
+    if (!user) return null;
+
+    const { data, error } = await supabaseTyped
+      .from('professionals')
+      .select(`
+        *,
+        title:professional_titles(*)
+      `)
+      .eq('id', user.id) // Usar el id de la tabla users para la relación
+      .single();
+    console.log("getProfessionalProfile-data", data);
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error fetching professional profile:', error);
+      return null;
+    }
+    
+    return data || null;
+  },
+
+  // Obtener títulos profesionales
+  async getProfessionalTitles(): Promise<ProfessionalTitle[]> {
+    const { data, error } = await supabaseTyped
+      .from('professional_titles')
+      .select('*')
+      .eq('is_active', true)
+      .order('title_name');
+    
+    if (error) {
+      console.error('Error fetching professional titles:', error);
+      return [];
+    }
+    
+    return data || [];
+  },
+
+  // Obtener especialidades disponibles por título
+  async getSpecialtiesByTitle(titleId: number): Promise<ProfessionalSpecialty[]> {
+    const { data, error } = await supabaseTyped
+      .from('specialties')
+      .select('*')
+      .eq('title_id', titleId)
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching specialties by title:', error);
+      return [];
+    }
+    
+    return data || [];
+  },
+
+  // Obtener especialidades de un profesional por su id
+  async getProfessionalSpecialties(professionalId: number): Promise<ProfessionalSpecialty[]> {
+    const { data, error } = await supabaseTyped
+      .from('professional_specialties')
+      .select(`
+        specialty_id,
+        specialties!inner(
+          id,
+          name,
+          title_id,
+          created_at
+        )
+      `)
+      .eq('professional_id', professionalId);
+    
+    console.log("getProfessionalSpecialties-data", data);
+    if (error) {
+      console.error('Error fetching professional specialties:', error);
+      return [];
+    }
+    
+    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
+    const specialties = data?.map((item: any) => ({
+      id: item.specialties.id,
+      name: item.specialties.name,
+      title_id: item.specialties.title_id,
+      created_at: item.specialties.created_at
+    })) || [];
+    
+    return specialties;
+  },
+
+  // Actualizar especialidades de un profesional
+  async updateProfessionalSpecialties(professionalId: number, specialtyIds: number[]): Promise<void> {
+    // Primero eliminar todas las especialidades existentes
+    const { error: deleteError } = await supabaseTyped
+      .from('professional_specialties')
+      .delete()
+      .eq('professional_id', professionalId);
+    
+    if (deleteError) {
+      console.error('Error deleting existing specialties:', deleteError);
+      throw deleteError;
+    }
+    
+    // Luego insertar las nuevas especialidades
+    if (specialtyIds.length > 0) {
+      const specialtyData = specialtyIds.map(specialtyId => ({
+        professional_id: professionalId,
+        specialty_id: specialtyId
+      }));
+      
+      const { error: insertError } = await supabaseTyped
+        .from('professional_specialties')
+        .insert(specialtyData);
+      
+      if (insertError) {
+        console.error('Error inserting new specialties:', insertError);
+        throw insertError;
+      }
+    }
+  },
 
   async isProfileComplete(user: UserProfile): Promise<boolean> {
     if (!user) return false;
@@ -111,8 +217,10 @@ export const profileService = {
                !!patientProfile.emergency_contact_phone &&
                !!patientProfile.health_insurances_id;
       case 3: // professional
-        // TODO: Implementar cuando se cree la tabla de profesionales
-        return false;
+        const professionalProfile = await this.getProfessionalProfile(user.id);
+        return !!professionalProfile && 
+               !!professionalProfile.title_id &&
+               !!professionalProfile.profile_description;
       default:
         return false;
     }
@@ -166,20 +274,29 @@ export const profileService = {
     return data;
   },
 
-  // TODO: Implementar cuando se cree la tabla de profesionales
-  // async updateProfessionalProfile(userId: string, profileData: Partial<Professional>): Promise<Professional | null> {
-  //   const { data, error } = await supabaseTyped
-  //     .from('professionals')
-  //     .update(profileData)
-  //     .eq('user_id', userId)
-  //     .select()
-  //     .single();
-  //   if (error) {
-  //     console.error('Error updating professional profile:', error);
-  //     throw error;
-  //   }
-  //   return data;
-  // },
+  // Actualizar perfil de profesional
+  async updateProfessionalProfile(userId: string, profileData: Partial<ProfessionalProfile>): Promise<ProfessionalProfile | null> {
+    // Primero obtener el usuario para conseguir su id
+    const user = await this.getUserProfileByUuid(userId);
+    if (!user) throw new Error('User not found');
+
+    const { data, error } = await supabaseTyped
+      .from('professionals')
+      .update(profileData)
+      .eq('id', user.id) // Usar el id de la tabla users para la relación
+      .select(`
+        *,
+        title:professional_titles(*)
+      `)
+      .single();
+    
+    if (error) {
+      console.error('Error updating professional profile:', error);
+      throw error;
+    }
+    
+    return data;
+  },
 
   async updateUserProfile(userId: string, profileData: Partial<User>): Promise<User | null> {
     console.log("=== INICIO updateUserProfile ===");

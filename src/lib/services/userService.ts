@@ -98,13 +98,13 @@ export class UserService {
         .single();
 
       if (error) {
-        console.error("❌ Error al obtener usuario:", error);
+        console.error("Error al obtener usuario:", error);
         throw error;
       }
 
       return { success: true, data };
     } catch (error) {
-      console.error("💥 Error inesperado al obtener usuario:", error);
+      console.error("Error inesperado al obtener usuario:", error);
       return { success: false, error };
     }
   }

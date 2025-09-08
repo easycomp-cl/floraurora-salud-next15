@@ -1,11 +1,16 @@
 "use client";
 import Link from "next/link";
 import { ChevronDown } from "lucide-react";
-import { authenticatedNavItems, NavItem } from "@/lib/navigation";
+import { getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
 import { useNavigation } from "@/lib/hooks/useNavigation";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 const AuthenticatedNav = () => {
   const { openDropdown, setOpenDropdown, dropdownRef } = useNavigation();
+  const { userProfile, loading } = useUserProfile();
+
+  // Obtener elementos de navegación basados en el rol del usuario
+  const navItems = getAuthenticatedNavItems(userProfile?.role);
 
   const renderNavItem = (item: NavItem) => {
     if (item.subItems) {
@@ -58,7 +63,7 @@ const AuthenticatedNav = () => {
 
   return (
     <div className="hidden lg:flex items-center space-x-6">
-      {authenticatedNavItems.map(renderNavItem)}
+      {navItems.map(renderNavItem)}
     </div>
   );
 };

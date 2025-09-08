@@ -1,29 +1,47 @@
 export interface Professional {
-  id: string;
+  id: number;
+  user_id: string;
   name: string;
-  title: string;
-  specialty: string;
-  avatar_url?: string;
-  bio?: string;
-  rating?: number;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  title_name?: string;
+  title_id?: number;
+  profile_description?: string;
+  resume_url?: string;
+  specialties: string[];
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface Specialty {
+  id: number;
+  name: string;
+  title_id: number;
+  created_at: string;
+}
+
+export interface ProfessionalTitle {
+  id: number;
+  title_name: string;
   is_active: boolean;
   created_at: string;
 }
 
 export interface Service {
-  id: string;
+  id: number;
   name: string;
   description?: string;
   duration_minutes: number;
   price: number;
-  professional_id: string;
+  professional_id: number;
   is_active: boolean;
   created_at: string;
 }
 
 export interface TimeSlot {
-  id: string;
-  professional_id: string;
+  id: number;
+  professional_id: number;
   date: string;
   start_time: string;
   end_time: string;

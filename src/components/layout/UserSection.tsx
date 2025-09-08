@@ -3,12 +3,17 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useAuthState } from "@/lib/hooks/useAuthState";
-import { authenticatedNavItems, NavItem } from "@/lib/navigation";
+import { getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 export default function UserSection() {
   const { user, isAuthenticated, signOut } = useAuthState();
+  const { userProfile } = useUserProfile();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Obtener elementos de navegación basados en el rol del usuario
+  const authenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
 
   // Cerrar dropdown cuando se hace clic fuera
   useEffect(() => {

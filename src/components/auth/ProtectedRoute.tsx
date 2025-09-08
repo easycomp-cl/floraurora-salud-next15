@@ -19,15 +19,15 @@ export default function ProtectedRoute({
   const [redirectAttempted, setRedirectAttempted] = useState(false);
 
   useEffect(() => {
-    console.log("🛡️ ProtectedRoute: Estado de autenticación:", {
-      isLoading,
-      isAuthenticated,
-      hasUser: !!user,
-      hasSession: !!session,
-      userEmail: user?.email,
-      sessionAccessToken: !!session?.access_token,
-      sessionExpiresAt: session?.expires_at,
-    });
+    // console.log("🛡️ ProtectedRoute: Estado de autenticación:", {
+    //   isLoading,
+    //   isAuthenticated,
+    //   hasUser: !!user,
+    //   hasSession: !!session,
+    //   userEmail: user?.email,
+    //   sessionAccessToken: !!session?.access_token,
+    //   sessionExpiresAt: session?.expires_at,
+    // });
 
     // Solo redirigir cuando no esté cargando y no esté autenticado
     if (!isLoading && !isAuthenticated) {
@@ -36,17 +36,18 @@ export default function ProtectedRoute({
         redirectTo
       );
       setShouldRedirect(true);
-    } else if (!isLoading && isAuthenticated) {
-      console.log("✅ ProtectedRoute: Usuario autenticado correctamente");
-      setShouldRedirect(false);
-      setRedirectAttempted(false);
     }
+    // else if (!isLoading && isAuthenticated) {
+    //   console.log("✅ ProtectedRoute: Usuario autenticado correctamente");
+    //   setShouldRedirect(false);
+    //   setRedirectAttempted(false);
+    // }
   }, [isAuthenticated, isLoading, redirectTo, user, session]);
 
   // Efecto separado para la redirección
   useEffect(() => {
     if (shouldRedirect && !redirectAttempted) {
-      console.log("🔄 ProtectedRoute: Ejecutando redirección a:", redirectTo);
+      // console.log("🔄 ProtectedRoute: Ejecutando redirección a:", redirectTo);
       setRedirectAttempted(true);
 
       // Usar setTimeout para evitar problemas de navegación durante el render
@@ -59,7 +60,7 @@ export default function ProtectedRoute({
   // Efecto adicional para forzar redirección si el usuario no está autenticado
   useEffect(() => {
     if (!isLoading && !isAuthenticated && !redirectAttempted) {
-      console.log("🔄 ProtectedRoute: Forzando redirección inmediata...");
+      // console.log("🔄 ProtectedRoute: Forzando redirección inmediata...");
       setRedirectAttempted(true);
 
       setTimeout(() => {
@@ -105,6 +106,6 @@ export default function ProtectedRoute({
   }
 
   // Si está autenticado, mostrar el contenido
-  console.log("✅ ProtectedRoute: Acceso permitido para:", user?.email);
+  // console.log("✅ ProtectedRoute: Acceso permitido para:", user?.email);
   return <>{children}</>;
 }

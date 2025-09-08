@@ -2,6 +2,7 @@
 import { auth, db, Database } from "@/utils/supabase/client"; // Agregamos Database
 import { profileService, Patient } from "@/lib/services/profileService";
 import { Professional } from "@/lib/types/appointment"; // Asegúrate de que esta importación sea correcta
+import { ProfessionalProfile } from "@/lib/types/profile";
 
 // 1. Interfaz para la información detallada del usuario
 export interface DetailedUserData {
@@ -18,6 +19,8 @@ export interface DetailedUserData {
   password?: string;
   created_at: string;
   address?: string;
+  gender?: string;
+  nationality?: string;
 }
 
 // Mapeo de roles numéricos a strings
@@ -36,7 +39,7 @@ function mapRoleNumberToString(roleNumber: number): 'any' | 'admin' | 'patient' 
 // 2. Interfaz para el tipo de datos que retornará la función principal
 export interface UserProfileData {
   user: DetailedUserDataMappped | null; // Usaremos DetailedUserDataMappped aquí
-  profile: Patient | Professional | null;
+  profile: Patient | Professional | ProfessionalProfile | null;
   loading: boolean;
   error: string | null;
 }
@@ -90,15 +93,15 @@ async function getDetailedUserFromDatabase(userId: string): Promise<DetailedUser
  * Función 3: Obtiene el perfil específico (paciente/profesional) según el rol del usuario.
  * Requiere el objeto DetailedUserDataMappped (con el rol ya mapeado a string).
  */
-async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patient | Professional | null> {
-  let specificProfile: Patient | Professional | null = null;
+async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patient | Professional | ProfessionalProfile | null> {
+  let specificProfile: Patient | Professional | ProfessionalProfile | null = null;
 
   // user.role ya es un string mapeado, podemos usarlo directamente en el switch
   switch (user.role) {
     case 'patient':
-      console.log("user", user);
-      console.log("user.id", user.id);
-      specificProfile = await profileService.getPatientProfile(user.id);
+      // console.log("user", user);
+      // console.log("user.id", user.id);
+      specificProfile = await profileService.getPatientProfile(user.id.toString());
       //console.log("specificProfile", specificProfile);
       if (specificProfile) {
         console.log("Perfil de paciente encontrado:", specificProfile);
@@ -107,9 +110,20 @@ async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patien
       }
       break;
     case 'professional':
-      // TODO: Implementar cuando se cree la tabla de profesionales
-      console.log("Professional profile not yet implemented");
-      specificProfile = null;
+      console.log("Obteniendo perfil de profesional para user:", user);
+      specificProfile = await profileService.getProfessionalProfile(user.id);
+      console.log("specificProfile", specificProfile);
+
+      if (specificProfile) {
+        console.log("Perfil de profesional encontrado:", specificProfile);
+        // Obtener especialidades si hay un title_id
+        if (specificProfile.title_id) {
+          const specialties = await profileService.getProfessionalSpecialties(specificProfile.id);
+          specificProfile.specialties = specialties;
+        }
+      } else {
+        console.log("No se encontró perfil de profesional para el usuario:", user.id);
+      }
       break;
     case 'admin':
       console.log("Usuario es un administrador, no se busca perfil específico de paciente/profesional.");
@@ -156,14 +170,3 @@ export async function getFullUserProfileData(): Promise<UserProfileData | null> 
     return null;
   }
 }
-
-// Para usar la función principal:
-// getFullUserProfileData().then(data => {
-//   if (data) {
-//     console.log("Información completa del usuario:", data.user);
-//     console.log("Perfil específico:", data.profile);
-//     if (data.user.role === 'patient' && data.profile) {
-//       console.log("Fecha de nacimiento del paciente:", (data.profile as Patient).date_of_birth);
-//     }
-//   }
-// });

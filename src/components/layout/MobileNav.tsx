@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { navItems, authenticatedNavItems, NavItem } from "@/lib/navigation";
+import { navItems, getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useMobileMenu } from "@/lib/hooks/useMobileMenu";
+import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 const MobileNav = () => {
   const { user, isAuthenticated, signOut } = useAuthState();
+  const { userProfile } = useUserProfile();
   const {
     isOpen,
     openDropdown,
@@ -15,6 +17,9 @@ const MobileNav = () => {
     closeMenu,
     toggleDropdown,
   } = useMobileMenu();
+
+  // Obtener elementos de navegación basados en el rol del usuario
+  const authenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
 
   const handleSignOut = async () => {
     try {
