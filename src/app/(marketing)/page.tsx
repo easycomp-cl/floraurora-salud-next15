@@ -5,11 +5,9 @@ export default function HomePage() {
   return (
     <main>
       <Hero imageSrc="/images/terapia-grupal.jpg" onCtaClick={() => {
-        // navega o abre modal
         window.location.href = "/reservar";
       }} />
     </main>
   );
 }
-
 
