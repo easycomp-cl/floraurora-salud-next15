@@ -1,4 +1,4 @@
-import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MessageSquare, MonitorCog } from "lucide-react";
+import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MessageSquare, MonitorCog, Clock } from "lucide-react";
 
 export interface NavSubItem {
   label: string;
@@ -70,7 +70,7 @@ export const navItems: NavItem[] = [
   },
 ];
 
-export const authenticatedNavItems: NavItem[] = [
+export const baseAuthenticatedNavItems: NavItem[] = [
   {
     label: "Dashboard",
     href: "/dashboard",
@@ -96,3 +96,28 @@ export const authenticatedNavItems: NavItem[] = [
     description: "Tu perfil personal",
   },
 ];
+
+// Elementos adicionales para profesionales
+export const professionalNavItems: NavItem[] = [
+  {
+    label: "Mis Horarios",
+    href: "/dashboard/schedules",
+    icon: Clock,
+    description: "Configura tu disponibilidad",
+  },
+];
+
+// Función para obtener elementos de navegación basados en el rol
+export function getAuthenticatedNavItems(userRole?: number): NavItem[] {
+  const items = [...baseAuthenticatedNavItems];
+  
+  // Agregar elementos específicos para profesionales
+  if (userRole === 3) {
+    items.push(...professionalNavItems);
+  }
+  
+  return items;
+}
+
+// Mantener compatibilidad con el array original
+export const authenticatedNavItems: NavItem[] = baseAuthenticatedNavItems;
