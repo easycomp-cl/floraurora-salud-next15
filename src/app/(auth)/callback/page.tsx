@@ -1,15 +1,18 @@
 "use client";
 import { useEffect, useState } from "react";
-import { supabase } from "@/utils/supabase/client";
 import { UserService } from "@/lib/services/userService";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState<string>("Iniciando autenticación...");
-  const [error, setError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(true);
-  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [debugInfo, setDebugInfo] = useState<{
+    hasSession: boolean;
+    userEmail?: string;
+    userId?: string;
+    timestamp?: string;
+    method?: string;
+  }>({ hasSession: false });
   const router = useRouter();
   const { user, session, isLoading, isAuthenticated } = useAuthState();
 
@@ -17,7 +20,11 @@ export default function AuthCallback() {
     let mounted = true;
     let redirectAttempted = false;
 
-    const processUserProfile = async (user: any) => {
+    const processUserProfile = async (user: {
+      id: string;
+      email?: string;
+      user_metadata?: { full_name?: string };
+    }) => {
       try {
         // Verificar si el usuario existe en la tabla users
         const userExists = await UserService.userExists(user.id);
@@ -109,26 +116,6 @@ export default function AuthCallback() {
     console.log("🖱️ Redirección manual iniciada");
     router.push("/dashboard");
   };
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            Error de Autenticación
-          </h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={() => router.push("/auth/login")}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Volver a Intentar
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

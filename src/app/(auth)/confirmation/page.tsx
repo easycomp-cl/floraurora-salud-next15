@@ -19,7 +19,7 @@ export default function ConfirmationPage() {
         const supabase = createClient;
         const { error, data } = await supabase.auth.verifyOtp({
           token_hash,
-          type: type as any, // Supabase types expect specific string literals
+          type: type as "signup" | "email",
         });
 
         if (!error && data.user) {

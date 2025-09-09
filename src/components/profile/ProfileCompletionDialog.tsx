@@ -24,9 +24,18 @@ export function ProfileCompletionDialog() {
     const checkProfile = async () => {
       if (!isLoading && isAuthenticated && user) {
         try {
-          const isComplete = await profileService.isProfileComplete(user);
-          if (!isComplete) {
-            setIsOpen(true);
+          // Obtener el perfil completo del usuario
+          //console.log("ProfileCompletionDialog-user.id", user.id);
+          const userProfile = await profileService.getUserProfileByUuid(
+            user.id
+          );
+          if (userProfile) {
+            const isComplete = await profileService.isProfileComplete(
+              userProfile
+            );
+            if (!isComplete) {
+              setIsOpen(true);
+            }
           }
         } catch (error) {
           console.error("Error checking profile completion:", error);

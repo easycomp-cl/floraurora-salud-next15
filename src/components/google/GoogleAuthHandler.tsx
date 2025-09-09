@@ -4,9 +4,25 @@ import { useGoogleAuth } from "@/lib/hooks/useGoogleAuth";
 import { GoogleUserData } from "@/lib/services/googleAuthService";
 
 interface GoogleAuthHandlerProps {
-  onSuccess?: (userData: any) => void;
+  onSuccess?: (userData: {
+    id: number;
+    email: string;
+    name: string;
+    google_id: string;
+    profile_picture?: string;
+    created_at: string;
+    updated_at: string;
+  }) => void;
   onError?: (error: string) => void;
-  onUserExists?: (userData: any) => void;
+  onUserExists?: (userData: {
+    id: number;
+    email: string;
+    name: string;
+    google_id: string;
+    profile_picture?: string;
+    created_at: string;
+    updated_at: string;
+  }) => void;
 }
 
 /**
@@ -41,12 +57,10 @@ const GoogleAuthHandler: React.FC<GoogleAuthHandlerProps> = ({
   const simulateGoogleCallback = async () => {
     // Datos simulados que Google proporcionaría
     const mockGoogleData: GoogleUserData = {
-      sub: "google_123456789",
+      id: "google_123456789",
       name: "Juan Carlos Pérez",
-      given_name: "Juan Carlos",
-      family_name: "Pérez",
       email: "juan.perez@gmail.com",
-      email_verified: true,
+      picture: "https://via.placeholder.com/150",
     };
 
     await handleGoogleUserData(mockGoogleData);
@@ -65,7 +79,15 @@ const GoogleAuthHandler: React.FC<GoogleAuthHandlerProps> = ({
       if (userExists) {
         console.log("👤 Usuario existente encontrado");
         if (onUserExists) {
-          onUserExists(googleUserData);
+          onUserExists({
+            id: 0, // Se actualizará con el ID real del usuario
+            email: googleUserData.email,
+            name: googleUserData.name,
+            google_id: googleUserData.id,
+            profile_picture: googleUserData.picture,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
         }
         return;
       }
@@ -99,7 +121,7 @@ const GoogleAuthHandler: React.FC<GoogleAuthHandlerProps> = ({
   const handleUpdateUser = async () => {
     if (!user) return;
 
-    const updates: any = {
+    const updates: Record<string, string> = {
       created_at: new Date().toISOString(),
     };
 
@@ -109,7 +131,7 @@ const GoogleAuthHandler: React.FC<GoogleAuthHandlerProps> = ({
     if (formData.birth_date) updates.birth_date = formData.birth_date;
     if (formData.address) updates.address = formData.address;
 
-    const success = await updateUser(user.id, updates);
+    const success = await updateUser(user.id.toString(), updates);
 
     if (success) {
       setShowUpdateForm(false);

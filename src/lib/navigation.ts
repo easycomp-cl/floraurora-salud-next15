@@ -1,4 +1,5 @@
-import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MessageSquare, MonitorCog, Clock } from "lucide-react";
+import React from "react";
+import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MonitorCog, Clock } from "lucide-react";
 
 export interface NavSubItem {
   label: string;
@@ -9,7 +10,7 @@ export interface NavSubItem {
 export interface NavItem {
   label: string;
   href: string;
-  icon: any; // Componente de icono de Lucide
+  icon: React.ComponentType<{ className?: string }>; // Componente de icono de Lucide
   description?: string;
   subItems?: NavSubItem[];
 }

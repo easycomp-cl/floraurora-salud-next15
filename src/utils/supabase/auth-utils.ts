@@ -13,20 +13,13 @@ export function createAuthClient() {
       flowType: 'pkce',
       debug: process.env.NODE_ENV === 'development',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'sb-auth-token',
-      cookieOptions: {
-        name: 'sb-auth-token',
-        lifetime: 60 * 60 * 24 * 7, // 7 días
-        domain: process.env.NODE_ENV === 'production' ? undefined : 'localhost',
-        path: '/',
-        sameSite: 'lax'
-      }
+      storageKey: 'sb-auth-token'
     }
   });
 }
 
 // Función para verificar si la sesión es válida
-export function isSessionValid(session: any): boolean {
+export function isSessionValid(session: { access_token?: string; expires_at?: number } | null): boolean {
   if (!session || !session.access_token || !session.expires_at) {
     return false;
   }
@@ -36,13 +29,13 @@ export function isSessionValid(session: any): boolean {
 }
 
 // Función para esperar a que la sesión se establezca
-export function waitForSession(client: any, maxWaitTime: number = 5000): Promise<any> {
+export function waitForSession(client: { auth: { getSession: () => Promise<{ data: { session: { access_token: string; expires_at: number; user: { id: string; email?: string } } | null } }> } }, maxWaitTime: number = 5000): Promise<{ access_token: string; expires_at: number; user: { id: string; email?: string } } | null> {
   return new Promise((resolve, reject) => {
     const startTime = Date.now();
     
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await client.auth.getSession();
+        const { data: { session } } = await client.auth.getSession();
         
         if (session && isSessionValid(session)) {
           resolve(session);

@@ -16,7 +16,8 @@ export async function logAccountProvider(emailRaw: string) {
 
   // 1) Look up in Supabase Auth by exact email (Admin API)
   const { data: listed, error: adminErr } = await admin.auth.admin.listUsers({
-        email,
+        page: 1,
+        perPage: 1000
   });
 
   if (adminErr) {
@@ -49,7 +50,7 @@ export async function logAccountProvider(emailRaw: string) {
   let providers: string[] = [];
   if (authUser) {
     const fromIdentities = Array.isArray(authUser.identities)
-      ? authUser.identities.map((i: any) => i.provider).filter(Boolean)
+      ? authUser.identities.map((i: { provider: string }) => i.provider).filter(Boolean)
       : [];
     const fromAppMeta = Array.isArray(authUser.app_metadata?.providers)
       ? authUser.app_metadata.providers

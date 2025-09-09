@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { NavItem } from '@/lib/navigation';
 
 export function useNavigation() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);

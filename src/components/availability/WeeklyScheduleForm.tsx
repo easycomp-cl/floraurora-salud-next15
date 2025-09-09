@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AvailabilityRule,
-  TimeSlot,
   WEEKDAYS,
   COMMON_TIME_SLOTS,
 } from "@/lib/types/availability";
@@ -25,11 +24,7 @@ export function WeeklyScheduleForm({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    loadWeeklyRules();
-  }, [professionalId]);
-
-  const loadWeeklyRules = async () => {
+  const loadWeeklyRules = useCallback(async () => {
     try {
       setLoading(true);
       const rules = await AvailabilityService.getAvailabilityRules(
@@ -41,7 +36,11 @@ export function WeeklyScheduleForm({
     } finally {
       setLoading(false);
     }
-  };
+  }, [professionalId]);
+
+  useEffect(() => {
+    loadWeeklyRules();
+  }, [professionalId, loadWeeklyRules]);
 
   const addTimeSlot = (weekday: number) => {
     const newRule: AvailabilityRule = {

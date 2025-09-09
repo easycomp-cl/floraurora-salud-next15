@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthState } from "./useAuthState";
 import { UserService } from "@/lib/services/userService";
 
@@ -16,16 +16,7 @@ export function useUserProfile() {
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadUserProfile();
-    } else {
-      setUserProfile(null);
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       setLoading(true);
       const result = await UserService.getUserById(user!.id);
@@ -57,7 +48,16 @@ export function useUserProfile() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserProfile();
+    } else {
+      setUserProfile(null);
+      setLoading(false);
+    }
+  }, [isAuthenticated, user, loadUserProfile]);
 
   const isProfessional = userProfile?.role === 3;
   const isAdmin = userProfile?.role === 1;
