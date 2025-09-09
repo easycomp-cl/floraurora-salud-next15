@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,11 +40,7 @@ export function DateOverridesForm({
     is_available: true,
   });
 
-  useEffect(() => {
-    loadOverrides();
-  }, [professionalId]);
-
-  const loadOverrides = async () => {
+  const loadOverrides = useCallback(async () => {
     try {
       setLoading(true);
       const overridesData = await AvailabilityService.getAvailabilityOverrides(
@@ -56,7 +52,11 @@ export function DateOverridesForm({
     } finally {
       setLoading(false);
     }
-  };
+  }, [professionalId]);
+
+  useEffect(() => {
+    loadOverrides();
+  }, [professionalId, loadOverrides]);
 
   const handleInputChange = (
     field: keyof DateOverrideForm,

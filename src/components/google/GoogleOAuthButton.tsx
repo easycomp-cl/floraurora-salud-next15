@@ -4,9 +4,25 @@ import { useGoogleAuth } from "@/lib/hooks/useGoogleAuth";
 import { GoogleUserData } from "@/lib/services/googleAuthService";
 
 interface GoogleOAuthButtonProps {
-  onSuccess?: (userData: any) => void;
+  onSuccess?: (userData: {
+    id: number;
+    email: string;
+    name: string;
+    google_id: string;
+    profile_picture?: string;
+    created_at: string;
+    updated_at: string;
+  }) => void;
   onError?: (error: string) => void;
-  onUserExists?: (userData: any) => void;
+  onUserExists?: (userData: {
+    id: number;
+    email: string;
+    name: string;
+    google_id: string;
+    profile_picture?: string;
+    created_at: string;
+    updated_at: string;
+  }) => void;
 }
 
 /**
@@ -39,12 +55,10 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
     try {
       // Simular datos que vendrían de Google OAuth
       const mockGoogleData: GoogleUserData = {
-        sub: `google_${Date.now()}`, // ID único de Google
+        id: `google_${Date.now()}`, // ID único de Google
         name: "María González",
-        given_name: "María",
-        family_name: "González",
         email: `maria.gonzalez${Date.now()}@gmail.com`,
-        email_verified: true,
+        picture: "https://via.placeholder.com/150",
       };
 
       console.log("🔐 Iniciando sesión con Google OAuth:", mockGoogleData);
@@ -54,8 +68,16 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
 
       if (userExists) {
         console.log("👤 Usuario existente, iniciando sesión...");
-        if (onUserExists) {
-          onUserExists(user);
+        if (onUserExists && user) {
+          onUserExists({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            google_id: user.google_id,
+            profile_picture: user.profile_picture,
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+          });
         }
         return;
       }
@@ -127,7 +149,7 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
             <strong>ID:</strong> {user.id}
           </p>
           <p>
-            <strong>User ID:</strong> {user.user_id}
+            <strong>Google ID:</strong> {user.google_id}
           </p>
           <p>
             <strong>Nombre:</strong> {user.name}
@@ -150,7 +172,7 @@ const GoogleOAuthButton: React.FC<GoogleOAuthButtonProps> = ({
           📋 Flujo de Autenticación
         </h3>
         <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-          <li>Usuario hace clic en "Iniciar Sesión con Google"</li>
+          <li>Usuario hace clic en &quot;Iniciar Sesión con Google&quot;</li>
           <li>Sistema verifica si el usuario ya existe en la base de datos</li>
           <li>
             <strong>Si existe:</strong> Inicia sesión directamente

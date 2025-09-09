@@ -7,7 +7,7 @@ import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 const AuthenticatedNav = () => {
   const { openDropdown, setOpenDropdown, dropdownRef } = useNavigation();
-  const { userProfile, loading } = useUserProfile();
+  const { userProfile } = useUserProfile();
 
   // Obtener elementos de navegación basados en el rol del usuario
   const navItems = getAuthenticatedNavItems(userProfile?.role);

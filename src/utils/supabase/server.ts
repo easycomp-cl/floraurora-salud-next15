@@ -78,7 +78,7 @@ export async function getServerUser() {
 }
 
 // Función para verificar si la sesión es válida en el servidor
-export function isServerSessionValid(session: any): boolean {
+export function isServerSessionValid(session: { access_token?: string; expires_at?: number } | null): boolean {
   if (!session || !session.access_token || !session.expires_at) {
     return false;
   }

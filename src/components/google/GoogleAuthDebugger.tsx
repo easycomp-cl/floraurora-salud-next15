@@ -6,7 +6,7 @@ interface TableInfo {
   name: string;
   columns: string[];
   rowCount: number;
-  sampleData: any[];
+  sampleData: Record<string, unknown>[];
 }
 
 const GoogleAuthDebugger: React.FC = () => {
@@ -71,7 +71,7 @@ const GoogleAuthDebugger: React.FC = () => {
           );
 
           try {
-            const { data: metaData, error: metaError } = await supabase
+            const { error: metaError } = await supabase
               .from("Users")
               .select("*")
               .limit(0); // No traer datos, solo estructura
@@ -128,7 +128,7 @@ const GoogleAuthDebugger: React.FC = () => {
 
           try {
             // Intentar obtener metadatos de la tabla
-            const { data: metaData, error: metaError } = await supabase
+            const { error: metaError } = await supabase
               .from("users")
               .select("*")
               .limit(0); // No traer datos, solo estructura
@@ -353,7 +353,8 @@ const GoogleAuthDebugger: React.FC = () => {
         <div className="max-h-96 overflow-y-auto">
           {debugLogs.length === 0 ? (
             <p className="text-gray-500">
-              No hay logs aún. Haz clic en "Verificar Estructura" para comenzar.
+              No hay logs aún. Haz clic en &quot;Verificar Estructura&quot; para
+              comenzar.
             </p>
           ) : (
             debugLogs.map((log, index) => (
@@ -372,11 +373,13 @@ const GoogleAuthDebugger: React.FC = () => {
         </h3>
         <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
           <li>
-            Haz clic en "Verificar Estructura" para revisar la tabla de usuarios
+            Haz clic en &quot;Verificar Estructura&quot; para revisar la tabla
+            de usuarios
           </li>
           <li>Revisa la información de la tabla y las columnas disponibles</li>
           <li>
-            Usa "Probar Inserción" para verificar que puedes crear usuarios
+            Usa &quot;Probar Inserción&quot; para verificar que puedes crear
+            usuarios
           </li>
           <li>Revisa los logs para entender qué está pasando</li>
           <li>Si hay errores, comparte los logs con el equipo de desarrollo</li>

@@ -17,7 +17,7 @@ export function useAuth() {
     isAuthenticated: false,
   });
 
-  const subscriptionRef = useRef<any>(null);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const isInitialized = useRef(false);
 
   const updateAuthState = useCallback((user: User | null, session: Session | null) => {

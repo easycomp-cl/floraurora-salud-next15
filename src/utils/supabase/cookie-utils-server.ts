@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
 // Función para configurar cookies de sesión de manera consistente (solo servidor)
-export function setSessionCookies(response: NextResponse, session: any) {
+export function setSessionCookies(response: NextResponse, session: { access_token?: string; refresh_token?: string } | null) {
   if (!session?.access_token) {
     return response;
   }
@@ -60,8 +60,8 @@ export function clearSessionCookies(response: NextResponse) {
 }
 
 // Función para obtener cookies de sesión (solo servidor)
-export function getSessionCookies() {
-  const cookieStore = cookies();
+export async function getSessionCookies() {
+  const cookieStore = await cookies();
   const allCookies = cookieStore.getAll();
   
   return {

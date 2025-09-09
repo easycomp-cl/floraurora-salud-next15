@@ -5,9 +5,6 @@ import { Target, Eye } from "lucide-react";
 import React from "react";
 import niceImg from "../../Fotos/trabajo.jpg";
 import logoImge from "../../Fotos/logo.png";
-import prof1 from "../../Fotos/nice.jpg";
-import prof2 from "../../Fotos/nice.jpg";
-import prof3 from "../../Fotos/nice.jpg";
 
 export default function Nosotros() {
   return (

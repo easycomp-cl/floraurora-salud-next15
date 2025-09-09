@@ -1,6 +1,5 @@
 "use client";
 
-import { redirect } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useEffect } from "react";
 

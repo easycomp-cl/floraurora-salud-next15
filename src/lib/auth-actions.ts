@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createAdminServer } from "@/utils/supabase/server";
 import { logAccountProvider } from "@/utils/supabase/accountProvider";
 
-import { email, z } from "zod";
+import { z } from "zod";
 
 const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
@@ -111,7 +111,7 @@ export async function requireUser() {
   return user;
 }
 
-// export async function login(prevState: any, formData: FormData) {
+// export async function login(prevState: { message?: string; error?: string } | null, formData: FormData) {
 //   const supabase = await createClient();
 
 //   const data = {
@@ -170,7 +170,7 @@ export async function requireUser() {
 //   redirect("/dashboard");
 // }
 
-export async function login(prevState: any, formData: FormData) {
+export async function login(prevState: { message?: string; error?: string } | null, formData: FormData) {
   // 1) Parse & validate input
   const data = {
     email: (formData.get("email") as string | null)?.toLowerCase().trim() || "",
@@ -295,11 +295,7 @@ export async function signup(formData: FormData) {
 
   if (!parsed.success) {
     console.log("❌ Error de validación Zod en signup:", parsed.error.flatten());
-    return {
-      success: false,
-      error: "Datos de formulario inválidos",
-      details: parsed.error.flatten(),
-    };
+    redirect("/auth/signup?error=invalid-data");
   }
 
   // 2. Verificar si el usuario ya existe en Supabase Auth
@@ -307,20 +303,14 @@ export async function signup(formData: FormData) {
 
   if (listUsersError) {
     console.error("Error al listar usuarios para verificar existencia:", listUsersError);
-    return {
-      success: false,
-      error: "Error en el servicio de autenticación al verificar usuario.",
-    };
+    redirect("/auth/signup?error=auth-service-error");
   }
 
   if (existingUsers?.users) {
     const userExists = existingUsers.users.some((user) => user.email?.toLowerCase() === email);
     if (userExists) {
       console.log("🔍 Usuario ya existe:", email);
-      return {
-        success: false,
-        error: "Ya existe una cuenta con este correo electrónico.",
-      };
+      redirect("/auth/signup?error=user-exists");
     }
   }
 
@@ -343,15 +333,9 @@ export async function signup(formData: FormData) {
   if (signUpError) {
     console.error("Error al registrar usuario en Supabase Auth:", signUpError);
     if (signUpError.message.includes("User already registered")) {
-      return {
-        success: false,
-        error: "Ya existe una cuenta con este correo electrónico.",
-      };
+      redirect("/auth/signup?error=user-exists");
     }
-    return {
-      success: false,
-      error: "Error al crear la cuenta. Por favor, inténtelo de nuevo.",
-    };
+    redirect("/auth/signup?error=signup-failed");
   }
 
   // 4. Insertar datos del usuario en la tabla 'users' si el registro fue exitoso en Auth
@@ -372,10 +356,7 @@ export async function signup(formData: FormData) {
   //   }
   // } else {
   //   console.error("Error: signUpData.user es nulo después de un registro exitoso sin error.");
-  //   return {
-  //     success: false,
-  //     error: "Error inesperado al obtener los datos del usuario después del registro.",
-  //   };
+  //   redirect("/auth/signup?error=unexpected-error");
   // }
   
   revalidatePath("/", "layout");
