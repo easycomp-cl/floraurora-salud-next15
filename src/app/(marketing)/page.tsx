@@ -4,7 +4,9 @@ import Hero from "../../../src/components/acc-to-page/home/Hero";
 export default function HomePage() {
   return (
     <main>
-      <Hero />
+      <Hero imageSrc="/images/terapia-grupal.jpg" onCtaClick={() => {
+        window.location.href = "/reservar";
+      }} />
     </main>
   );
 }
