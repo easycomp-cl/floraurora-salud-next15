@@ -17,9 +17,14 @@ export default function HeroCompromiso() {
             priority
           />
         </div>
-        <h2 className="text-3xl font-bold text-primary-900">Comprometidos contigo</h2>
+        <h2 className="text-3xl font-bold text-primary-900">
+          Comprometidos contigo
+        </h2>
         <p className="text-lg text-primary-700">
-          FlorAurora Salud es el servicio online de atención psicológica y médica más confiable del país. Contamos con un equipo de expertos altamente capacitados, plataformas modernas y un compromiso inquebrantable con el bienestar de nuestros pacientes.
+          FlorAurora Salud es el servicio online de atención psicológica y
+          médica más confiable del país. Contamos con un equipo de expertos
+          altamente capacitados, plataformas modernas y un compromiso
+          inquebrantable con el bienestar de nuestros pacientes.
         </p>
         <button className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-6 rounded shadow">
           Más información
