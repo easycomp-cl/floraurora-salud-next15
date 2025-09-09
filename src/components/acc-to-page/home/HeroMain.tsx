@@ -41,6 +41,7 @@ export default function HeroMain() {
           </button>
         </div>
       </div>
+      
       {/* Columna derecha vacía para mantener el espacio */}
       <div className="hidden md:block" />
     </section>
