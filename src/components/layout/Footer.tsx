@@ -12,7 +12,6 @@ const Footer = () => {
               <span className="text-xl font-bold">FlorAurora Salud</span>
             </div>
             <p className="text-gray-300 max-w-md">
-              Plataforma de videollamadas para sesiones de psicología.
               Conectamos pacientes con profesionales de la salud mental de
               manera segura y confidencial.
             </p>
@@ -42,7 +41,7 @@ const Footer = () => {
                   href="/signup-pro"
                   className="text-gray-300 hover:text-white"
                 >
-                  Trabaja con nosotros
+                  contrata nuestros planes
                 </a>
               </li>
             </ul>
@@ -52,9 +51,9 @@ const Footer = () => {
           <div>
             <h3 className="text-lg font-semibold mb-4">Contacto</h3>
             <ul className="space-y-2 text-gray-300">
-              <li>info@floraurora.com</li>
+              <li>contacto@floraurorasalud.cl</li>
               <li>+1 (555) 123-4567</li>
-              <li>Lun - Vie: 9:00 - 18:00</li>
+              
             </ul>
           </div>
         </div>
