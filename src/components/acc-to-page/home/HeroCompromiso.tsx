@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import logoImge from "../../Fotos/logo.png";
+import logoImge from "../../Fotos/logo2.png";
 
 export default function HeroCompromiso() {
   return (
@@ -21,10 +21,7 @@ export default function HeroCompromiso() {
           Comprometidos contigo
         </h2>
         <p className="text-lg text-primary-700">
-          FlorAurora Salud es el servicio online de atención psicológica y
-          médica más confiable del país. Contamos con un equipo de expertos
-          altamente capacitados, plataformas modernas y un compromiso
-          inquebrantable con el bienestar de nuestros pacientes.
+          FlorAurora Salud tiene el compromiso inquebrantable con el bienestar de las personas, por lo que pone a disposición un servicio online que conecta a consultantes con profesionales de la salud, a través de una plataforma confiable y segura, que entrega una experiencia única y cercana en el vínculo terapéutico. 
         </p>
         <button className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-6 rounded shadow">
           Más información
