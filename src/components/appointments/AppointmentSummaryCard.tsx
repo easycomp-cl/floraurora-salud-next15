@@ -1,6 +1,6 @@
 "use client";
 import { AppointmentSummary } from "@/lib/types/appointment";
-import { User, Clock, DollarSign, Calendar, CheckCircle } from "lucide-react";
+import { User, Clock, Calendar, CheckCircle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -69,7 +69,7 @@ export default function AppointmentSummaryCard({
                 {summary.professional.name}
               </p>
               <p className="text-sm text-blue-700">
-                {summary.professional.title}
+                {summary.professional.title_name || "Profesional"}
               </p>
             </div>
           </div>

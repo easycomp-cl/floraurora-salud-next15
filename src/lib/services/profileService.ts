@@ -1,7 +1,5 @@
 import { supabaseTyped } from '@/utils/supabase/client'; // Usar el cliente tipado con autenticación
-import { User as SupabaseUser } from '@supabase/supabase-js';
-import { UserProfile, Profile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty } from '@/lib/types/profile';
-import { Professional } from '@/lib/types/appointment'; // Importa la interfaz Professional
+import { UserProfile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty } from '@/lib/types/profile';
 
 // Definir una interfaz para Patient basada en la tabla real
 export interface Patient {
@@ -29,13 +27,35 @@ export interface User {
   user_id: string; // UUID de Supabase Auth
 }
 
+// Interfaz para el resultado de la consulta de especialidades de Supabase
+interface ProfessionalSpecialtyQueryResult {
+  specialty_id: number;
+  specialties: {
+    id: number;
+    name: string;
+    title_id: number;
+    created_at: string;
+  } | null;
+}
+
+// Interfaz temporal para manejar la estructura real de datos de Supabase
+interface ProfessionalSpecialtyQuery {
+  specialty_id: number;
+  specialties: {
+    id: number;
+    name: string;
+    title_id: number;
+    created_at: string;
+  } | null;
+}
+
 export const profileService = {
   // Obtener perfil de usuario desde la tabla users
-  async getUserProfile(userId: string): Promise<User | null> {
+  async getUserProfile(id: number): Promise<User | null> {
     const { data, error } = await supabaseTyped
       .from('users')
       .select('*')
-      .eq('id', userId) 
+      .eq('id', id) 
       .single();
     
     if (error && error.code !== 'PGRST116') {
@@ -61,7 +81,7 @@ export const profileService = {
   },
 
   // Obtener perfil de paciente desde la tabla patients
-  async getPatientProfile(userId: string): Promise<Patient | null> {
+  async getPatientProfile(userId: number): Promise<Patient | null> {
     // Primero obtener el usuario para conseguir su id
     const user = await this.getUserProfile(userId);
     if (!user) return null;
@@ -83,7 +103,7 @@ export const profileService = {
   // Obtener perfil de profesional desde la tabla professionals
   async getProfessionalProfile(userId: number): Promise<ProfessionalProfile | null> {
     // Primero obtener el usuario para conseguir su id
-    const user = await this.getUserProfile(userId.toString());
+    const user = await this.getUserProfile(userId);
     console.log("getProfessionalProfile-user", user);
     if (!user) return null;
 
@@ -142,7 +162,7 @@ export const profileService = {
       .from('professional_specialties')
       .select(`
         specialty_id,
-        specialties!inner(
+        specialties(
           id,
           name,
           title_id,
@@ -152,19 +172,44 @@ export const profileService = {
       .eq('professional_id', professionalId);
     
     console.log("getProfessionalSpecialties-data", data);
+    console.log("getProfessionalSpecialties-data length:", data?.length);
     if (error) {
       console.error('Error fetching professional specialties:', error);
       return [];
     }
     
-    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
-    const specialties = data?.map((item: any) => ({
-      id: item.specialties.id,
-      name: item.specialties.name,
-      title_id: item.specialties.title_id,
-      created_at: item.specialties.created_at
-    })) || [];
+    if (!data || data.length === 0) {
+      console.log('No specialties found for professional:', professionalId);
+      return [];
+    }
     
+    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
+    const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item, index) => {
+      console.log(`Processing item ${index}:`, item);
+      const { specialties: specialtyData } = item; // specialties es un objeto individual, no un array
+      console.log(`specialtyData for item ${index}:`, specialtyData);
+      
+      // Validar que el objeto de especialidad exista
+      if (!specialtyData || typeof specialtyData !== 'object') {
+        console.warn('No specialty found for item:', item);
+        return null;
+      }
+      
+      // Validar que tenga al menos la propiedad id
+      if (specialtyData.id === undefined || specialtyData.id === null) {
+        console.warn('Specialty data missing required id property:', specialtyData);
+        return null;
+      }
+      
+      return {
+        id: specialtyData.id,
+        name: specialtyData.name || '',
+        title_id: specialtyData.title_id || null,
+        created_at: specialtyData.created_at || new Date().toISOString()
+      };
+    }).filter((specialty): specialty is ProfessionalSpecialty => specialty !== null) || [];
+    
+    console.log("Mapped specialties:", specialties);
     return specialties;
   },
 
@@ -211,7 +256,7 @@ export const profileService = {
         // Para el admin, solo se requiere name, last_name y email
         return true;
       case 2: // patient
-        const patientProfile = await this.getPatientProfile(user.user_id);
+        const patientProfile = await this.getPatientProfile(user.id);
         return !!patientProfile && 
                !!patientProfile.emergency_contact_name &&
                !!patientProfile.emergency_contact_phone &&
@@ -230,7 +275,7 @@ export const profileService = {
   async createPatientProfile(userId: string, profileData: Omit<Patient, 'id' | 'created_at'>): Promise<Patient | null> {
 
     // Primero obtener el usuario para conseguir su id
-    const user = await this.getUserProfile(userId);
+    const user = await this.getUserProfileByUuid(userId);
     console.log("AWAIT user", user);
     if (!user) throw new Error('User not found');
 

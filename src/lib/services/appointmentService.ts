@@ -1,7 +1,7 @@
 import supabase from '@/utils/supabase/client';
-import type { Professional, Service, TimeSlot, Specialty } from '@/lib/types/appointment';
+import type { Professional, Service, TimeSlot } from '@/lib/types/appointment';
+import type { BlockedSlot } from '@/lib/types/availability';
 import { AvailabilityService } from './availabilityService';
-import type { AvailabilityRule, AvailabilityOverride, BlockedSlot } from '@/lib/types/availability';
 
 export const appointmentService = {
   // Obtener todas las áreas disponibles (professional_titles)
@@ -17,7 +17,7 @@ export const appointmentService = {
       
       console.log("getAreas-data", data);
       // Transformar los datos para asegurar los tipos correctos
-      return (data || []).map((area: any) => ({
+      return (data || []).map((area: { id: unknown; title_name: unknown }) => ({
         id: Number(area.id),
         title_name: String(area.title_name)
       }));
@@ -30,7 +30,7 @@ export const appointmentService = {
   // Obtener todos los profesionales activos con sus especialidades y títulos
   async getProfessionals(areaFilter?: number): Promise<Professional[]> {
     try {
-      let query = supabase
+      const query = supabase
         .from('professionals')
         .select(`
           id,
@@ -41,7 +41,9 @@ export const appointmentService = {
           ),
           users!inner(
             name,
-            last_name
+            last_name,
+            email,
+            phone_number
           )
         `)
         .eq('title_id', areaFilter || 0)
@@ -55,7 +57,7 @@ console.log("getProfessionals-data", data);
 
       // Obtener las especialidades para cada profesional
       const professionalsWithSpecialties = await Promise.all(
-        (data || []).map(async (prof: any) => {
+        (data || []).map(async (prof: { id: unknown; profile_description: unknown; professional_titles: unknown; users: unknown }) => {
           // Consultar especialidades del profesional
           const { data: specialtiesData, error: specialtiesError } = await supabase
             .from('professional_specialties')
@@ -64,28 +66,35 @@ console.log("getProfessionals-data", data);
                 name
               )
             `)
-            .eq('professional_id', prof.id);
+            .eq('professional_id', Number(prof.id));
 
           if (specialtiesError) {
-            console.warn(`Error fetching specialties for professional ${prof.id}:`, specialtiesError);
+            console.warn(`Error fetching specialties for professional ${Number(prof.id)}:`, specialtiesError);
           }
 
-          const specialties = specialtiesData?.map((ps: any) => ps.specialties?.name).filter(Boolean) || [];
+          const specialties = specialtiesData?.map((ps: { specialties: unknown }) => {
+            const specialty = ps.specialties as { name?: unknown } | null;
+            return specialty?.name ? String(specialty.name) : null;
+          }).filter((name): name is string => Boolean(name)) || [];
+
+          const users = prof.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown };
+          const professionalTitles = prof.professional_titles as { title_name?: unknown; id?: unknown };
+          const profData = prof as { resume_url?: unknown; is_active?: unknown; created_at?: unknown };
 
           return {
-            id: prof.id,
-            user_id: prof.user_id,
-            name: prof.users.name,
-            last_name: prof.users.last_name,
-            email: prof.users.email,
-            phone_number: prof.users.phone_number,
-            title_name: prof.professional_titles?.title_name,
-            title_id: prof.professional_titles?.id,
-            profile_description: prof.profile_description,
-            resume_url: prof.resume_url,
+            id: Number(prof.id),
+            user_id: String(prof.id), // Usar el id del profesional como user_id temporalmente
+            name: String(users?.name || ''),
+            last_name: String(users?.last_name || ''),
+            email: String(users?.email || ''),
+            phone_number: String(users?.phone_number || ''),
+            title_name: String(professionalTitles?.title_name || ''),
+            title_id: Number(professionalTitles?.id || 0),
+            profile_description: String(prof.profile_description || ''),
+            resume_url: String(profData?.resume_url || ''),
             specialties: specialties,
-            is_active: prof.is_active,
-            created_at: prof.created_at
+            is_active: Boolean(profData?.is_active),
+            created_at: String(profData?.created_at || new Date().toISOString())
           };
         })
       );
@@ -316,7 +325,7 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
       const slotEnd = minutesToTime(current + durationMinutes);
       
       // Solo incluir slots que empiecen en horas exactas (minutos = 0)
-      const [hours, minutes] = slotStart.split(':').map(Number);
+      const [, minutes] = slotStart.split(':').map(Number);
       if (minutes === 0) {
         slots.push({
           start_time: slotStart,

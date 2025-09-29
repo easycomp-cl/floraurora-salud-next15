@@ -6,7 +6,7 @@ import supabase from "@/utils/supabase/client";
 
 export default function AuthDebug() {
   const { user, session, isLoading, isAuthenticated } = useAuthState();
-  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [debugInfo, setDebugInfo] = useState<Record<string, unknown>>({});
   const [cookies, setCookies] = useState<string[]>([]);
 
   useEffect(() => {

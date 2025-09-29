@@ -18,7 +18,7 @@ export function useAuthState() {
     isAuthenticated: false,
   });
 
-  const subscriptionRef = useRef<any>(null);
+  const subscriptionRef = useRef<{ unsubscribe: () => void } | null>(null);
   const isInitialized = useRef(false);
   const mountedRef = useRef(true);
   const router = useRouter();
@@ -64,7 +64,7 @@ export function useAuthState() {
         //console.log("ℹ️ useAuthState: No hay sesión inicial");
         updateAuthState(null, null);
       }
-    } catch (error) {
+    } catch {
       //console.error("💥 useAuthState: Error inesperado:", error);
       updateAuthState(null, null);
     }

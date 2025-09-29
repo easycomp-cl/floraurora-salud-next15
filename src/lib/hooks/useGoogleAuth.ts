@@ -1,11 +1,23 @@
 import { useState, useCallback } from 'react';
 import GoogleAuthService, { GoogleUserData, CreateUserData } from '../services/googleAuthService';
 
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  last_name?: string;
+  google_id: string;
+  profile_picture?: string;
+  created_at: string;
+  updated_at: string;
+  role?: number;
+}
+
 interface UseGoogleAuthReturn {
   // Estados
   isLoading: boolean;
   error: string | null;
-  user: any | null;
+  user: User | null;
   
   // Funciones
   registerGoogleUser: (googleUserData: GoogleUserData) => Promise<boolean>;
@@ -22,7 +34,7 @@ interface UseGoogleAuthReturn {
 export const useGoogleAuth = (): UseGoogleAuthReturn => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [user, setUser] = useState<any | null>(null);
+  const [user, setUser] = useState<User | null>(null);
 
   /**
    * Registra un usuario de Google
@@ -37,11 +49,32 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       
       if (result.success && result.data) {
         console.log('✅ Usuario registrado exitosamente:', result.data);
-        // Usar userRecord del resultado, no del estado
-        setUser(result.data.userRecord);
+        // Convertir userRecord al tipo User esperado
+        const userRecord = result.data.userRecord as {
+          id: number;
+          email: string;
+          name: string;
+          last_name?: string;
+          google_id: string;
+          profile_picture?: string;
+          created_at: string;
+          updated_at: string;
+          role?: number;
+        };
+        setUser({
+          id: userRecord.id,
+          email: userRecord.email,
+          name: userRecord.name,
+          last_name: userRecord.last_name,
+          google_id: userRecord.google_id,
+          profile_picture: userRecord.profile_picture,
+          created_at: userRecord.created_at,
+          updated_at: userRecord.updated_at,
+          role: userRecord.role,
+        });
         return true;
       } else {
-        const errorMessage = (result.error as any)?.message || 'Error al registrar usuario';
+        const errorMessage = (result.error as { message?: string })?.message || 'Error al registrar usuario';
         console.error('❌ Error en registro:', errorMessage);
         setError(errorMessage);
         return false;
@@ -68,7 +101,7 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       const result = await GoogleAuthService.checkGoogleUserExists(email);
       
       if (result.error) {
-        const errorMessage = result.error.message || 'Error al verificar usuario';
+        const errorMessage = (result.error as { message?: string })?.message || 'Error al verificar usuario';
         console.error('❌ Error al verificar usuario:', errorMessage);
         setError(errorMessage);
         return false;
@@ -76,7 +109,18 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       
       if (result.exists && result.data) {
         console.log('👤 Usuario existente encontrado:', result.data);
-        setUser(result.data);
+        const userData = result.data as {
+          id: number;
+          email: string;
+          name: string;
+          last_name?: string;
+          google_id: string;
+          profile_picture?: string;
+          created_at: string;
+          updated_at: string;
+          role?: number;
+        };
+        setUser(userData);
       }
       
       return result.exists;
@@ -93,20 +137,31 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
   /**
    * Actualiza los datos de un usuario existente
    */
-  const updateUser = useCallback(async (userId: number, updates: Partial<CreateUserData>): Promise<boolean> => {
+  const updateUser = useCallback(async (userId: string, updates: Partial<CreateUserData>): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
     
     try {
       console.log('📝 Actualizando usuario...');
-      const result = await GoogleAuthService.updateGoogleUser(userId, updates);
+      const result = await GoogleAuthService.updateGoogleUser(parseInt(userId), updates);
       
       if (result.success && result.data) {
         console.log('✅ Usuario actualizado exitosamente:', result.data);
-        setUser(result.data);
+        const userData = result.data as {
+          id: number;
+          email: string;
+          name: string;
+          last_name?: string;
+          google_id: string;
+          profile_picture?: string;
+          created_at: string;
+          updated_at: string;
+          role?: number;
+        };
+        setUser(userData);
         return true;
       } else {
-        const errorMessage = (result.error as any)?.message || 'Error al actualizar usuario';
+        const errorMessage = (result.error as { message?: string })?.message || 'Error al actualizar usuario';
         console.error('❌ Error en actualización:', errorMessage);
         setError(errorMessage);
         return false;
@@ -134,10 +189,21 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       
       if (result.success && result.data) {
         console.log('✅ Inicio de sesión exitoso:', result.data);
-        setUser(result.data);
+        const userData = result.data as {
+          id: number;
+          email: string;
+          name: string;
+          last_name?: string;
+          google_id: string;
+          profile_picture?: string;
+          created_at: string;
+          updated_at: string;
+          role?: number;
+        };
+        setUser(userData);
         return true;
       } else {
-        const errorMessage = (result.error as any)?.message || 'Error al iniciar sesión';
+        const errorMessage = (result.error as { message?: string })?.message || 'Error al iniciar sesión';
         console.error('❌ Error en inicio de sesión:', errorMessage);
         setError(errorMessage);
         return false;

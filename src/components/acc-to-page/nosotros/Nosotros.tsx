@@ -1,9 +1,9 @@
 "use client";
 
-
 import NosotrosHeader from "./NosotrosHeader";
 import NuestraMision from "./NuestraMision";
 import NuestraVision from "./NuestraVision";
+
 
 export default function Nosotros() {
   return (

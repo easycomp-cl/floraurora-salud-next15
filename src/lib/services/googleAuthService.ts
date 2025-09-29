@@ -1,5 +1,19 @@
 import { supabase } from "@/utils/supabase/client";
 
+export interface GoogleUserData {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+}
+
+export interface CreateUserData {
+  email: string;
+  name: string;
+  google_id: string;
+  profile_picture?: string;
+}
+
 export class GoogleAuthService {
   /**
    * Inicia el proceso de autenticación con Google
@@ -98,4 +112,121 @@ export class GoogleAuthService {
       return { success: false, error };
     }
   }
+
+  /**
+   * Registra un usuario de Google
+   */
+  static async registerGoogleUser(googleUserData: GoogleUserData) {
+    try {
+      console.log("🔄 Registrando usuario de Google...");
+      
+      // Crear usuario en la tabla de usuarios
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          email: googleUserData.email,
+          name: googleUserData.name,
+          google_id: googleUserData.id,
+          profile_picture: googleUserData.picture,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Error al registrar usuario:", error);
+        return { success: false, error };
+      }
+
+      console.log("✅ Usuario registrado exitosamente");
+      return { success: true, data: { userRecord: data } };
+    } catch (error) {
+      console.error("💥 Error inesperado al registrar usuario:", error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * Verifica si un usuario de Google ya existe
+   */
+  static async checkGoogleUserExists(email: string) {
+    try {
+      console.log("🔍 Verificando si existe usuario...");
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error && error.code !== 'PGRST116') {
+        console.error("❌ Error al verificar usuario:", error);
+        return { exists: false, error };
+      }
+
+      return { exists: !!data, data };
+    } catch (error) {
+      console.error("💥 Error inesperado al verificar usuario:", error);
+      return { exists: false, error };
+    }
+  }
+
+  /**
+   * Actualiza un usuario de Google
+   */
+  static async updateGoogleUser(userId: number, updates: Partial<CreateUserData>) {
+    try {
+      console.log("📝 Actualizando usuario...");
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("❌ Error al actualizar usuario:", error);
+        return { success: false, error };
+      }
+
+      console.log("✅ Usuario actualizado exitosamente");
+      return { success: true, data };
+    } catch (error) {
+      console.error("💥 Error inesperado al actualizar usuario:", error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * Inicia sesión con un usuario de Google existente
+   */
+  static async signInGoogleUser(email: string) {
+    try {
+      console.log("🔐 Iniciando sesión...");
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (error) {
+        console.error("❌ Error al iniciar sesión:", error);
+        return { success: false, error };
+      }
+
+      console.log("✅ Inicio de sesión exitoso");
+      return { success: true, data };
+    } catch (error) {
+      console.error("💥 Error inesperado al iniciar sesión:", error);
+      return { success: false, error };
+    }
+  }
 }
+
+export default GoogleAuthService;

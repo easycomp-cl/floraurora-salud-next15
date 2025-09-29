@@ -12,6 +12,12 @@ export interface Professional {
   specialties: string[];
   is_active: boolean;
   created_at: string;
+  // Propiedades adicionales para la UI
+  avatar_url?: string;
+  bio?: string;
+  rating?: number;
+  specialty?: string;
+  title?: string;
 }
 
 export interface Specialty {

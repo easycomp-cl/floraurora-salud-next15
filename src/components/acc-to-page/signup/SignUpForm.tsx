@@ -11,7 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signup } from "@/lib/auth-actions";
-import SignInWithGoogleButton from "@/components/google/SignInWithGoogleButton";
+import { SignUpFormWrapper } from "./SignUpFormWrapper";
 
 export function SignUpForm() {
   return (
@@ -23,7 +23,7 @@ export function SignUpForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action="">
+        <form action={signup}>
           <div className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -59,12 +59,14 @@ export function SignUpForm() {
               <Label htmlFor="password">Contraseña</Label>
               <Input name="password" id="password" type="password" />
             </div>
-            <Button formAction={signup} type="submit" className="w-full">
+            <Button type="submit" className="w-full">
               Crear una cuenta
             </Button>
-            <SignInWithGoogleButton />
           </div>
         </form>
+
+        <SignUpFormWrapper />
+
         <div className="mt-4 text-center text-sm">
           ¿Ya tienes una cuenta?{" "}
           <Link href="/login" className="underline">

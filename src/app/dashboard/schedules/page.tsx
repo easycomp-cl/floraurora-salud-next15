@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { UserService } from "@/lib/services/userService";
 import { WeeklyScheduleForm } from "@/components/availability/WeeklyScheduleForm";
@@ -12,29 +12,43 @@ import { Calendar, Clock, AlertTriangle, Settings, Shield } from "lucide-react";
 
 export default function SchedulesPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<{
+    id: string;
+    email: string;
+    name: string;
+    last_name: string;
+    role: number;
+  } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      loadUserProfile();
-    }
-  }, [isAuthenticated, user]);
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       setLoadingProfile(true);
       const result = await UserService.getUserById(user!.id);
-      if (result.success) {
-        setUserProfile(result.data);
+      if (result.success && result.data) {
+        setUserProfile(
+          result.data as {
+            id: string;
+            email: string;
+            name: string;
+            last_name: string;
+            role: number;
+          }
+        );
       }
     } catch (error) {
       console.error("Error al cargar perfil de usuario:", error);
     } finally {
       setLoadingProfile(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserProfile();
+    }
+  }, [isAuthenticated, user, loadUserProfile]);
 
   const handleUpdate = () => {
     setRefreshKey((prev) => prev + 1);
@@ -174,19 +188,19 @@ export default function SchedulesPage() {
         <div className="space-y-8">
           <WeeklyScheduleForm
             key={`weekly-${refreshKey}`}
-            professionalId={userProfile.id}
+            professionalId={parseInt(userProfile.id)}
             onUpdate={handleUpdate}
           />
 
           <BlockedSlotsForm
             key={`blocked-${refreshKey}`}
-            professionalId={userProfile.id}
+            professionalId={parseInt(userProfile.id)}
             onUpdate={handleUpdate}
           />
 
           <DateOverridesForm
             key={`overrides-${refreshKey}`}
-            professionalId={userProfile.id}
+            professionalId={parseInt(userProfile.id)}
             onUpdate={handleUpdate}
           />
         </div>

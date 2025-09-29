@@ -3,7 +3,11 @@ import React, { useState } from "react";
 import { supabase } from "@/utils/supabase/client";
 
 interface WorkingGoogleOAuthButtonProps {
-  onSuccess?: (userData: any) => void;
+  onSuccess?: (userData: {
+    id: string;
+    email?: string;
+    user_metadata?: { name?: string };
+  }) => void;
   onError?: (error: string) => void;
 }
 
@@ -53,8 +57,9 @@ const WorkingGoogleOAuthButton: React.FC<WorkingGoogleOAuthButtonProps> = ({
         // Por ahora, simulamos el éxito
         if (onSuccess) {
           onSuccess({
-            message: "Autenticación iniciada. Redirigiendo a Google...",
-            url: data.url,
+            id: "google_user_123",
+            email: "usuario@ejemplo.com",
+            user_metadata: { name: "Usuario de Prueba" },
           });
         }
       }
@@ -99,7 +104,7 @@ const WorkingGoogleOAuthButton: React.FC<WorkingGoogleOAuthButtonProps> = ({
           📋 Flujo de Autenticación Funcional
         </h3>
         <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-          <li>Usuario hace clic en "Iniciar Sesión con Google"</li>
+          <li>Usuario hace clic en &quot;Iniciar Sesión con Google&quot;</li>
           <li>Supabase redirige al usuario a Google OAuth</li>
           <li>Usuario se autentica en Google</li>
           <li>Google redirige de vuelta a tu aplicación</li>

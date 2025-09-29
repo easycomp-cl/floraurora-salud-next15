@@ -3,7 +3,7 @@ import { useAuthState } from "@/lib/hooks/useAuthState";
 import { redirect } from "next/navigation";
 
 export default function SessionsPage() {
-  const { user, isAuthenticated, isLoading } = useAuthState();
+  const { isAuthenticated, isLoading } = useAuthState();
 
   if (isLoading) {
     return (

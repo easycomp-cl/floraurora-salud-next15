@@ -1,5 +1,5 @@
 // Importa las funciones necesarias
-import { auth, db, Database } from "@/utils/supabase/client"; // Agregamos Database
+import { auth, db } from "@/utils/supabase/client";
 import { profileService, Patient } from "@/lib/services/profileService";
 import { Professional } from "@/lib/types/appointment"; // Asegúrate de que esta importación sea correcta
 import { ProfessionalProfile } from "@/lib/types/profile";
@@ -99,9 +99,9 @@ async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patien
   // user.role ya es un string mapeado, podemos usarlo directamente en el switch
   switch (user.role) {
     case 'patient':
-      // console.log("user", user);
-      // console.log("user.id", user.id);
-      specificProfile = await profileService.getPatientProfile(user.id.toString());
+      console.log("user", user);
+      console.log("user.id", user.id);
+      specificProfile = await profileService.getPatientProfile(user.id);
       //console.log("specificProfile", specificProfile);
       if (specificProfile) {
         console.log("Perfil de paciente encontrado:", specificProfile);
@@ -142,22 +142,23 @@ async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patien
  * Función principal: Combina las tres funciones para obtener toda la información del perfil del usuario.
  */
 export async function getFullUserProfileData(): Promise<UserProfileData | null> {
+  
   try {
     // Paso 1: Obtener el ID del usuario autenticado
     const userId = await getAuthenticatedUserId();
     if (!userId) {
       return null;
     }
-
+    console.log("getFullUserProfileData-userId", userId);
     // Paso 2: Obtener los datos detallados del usuario de la base de datos
     const detailedUser = await getDetailedUserFromDatabase(userId);
     if (!detailedUser) {
       return null;
     }
-
+    console.log("getFullUserProfileData-detailedUser", detailedUser);
     // Paso 3: Obtener el perfil específico (paciente/profesional)
     const specificProfile = await getSpecificProfile(detailedUser);
-
+    console.log("getFullUserProfileData-specificProfile", specificProfile);
     return {
       user: detailedUser,
       profile: specificProfile,

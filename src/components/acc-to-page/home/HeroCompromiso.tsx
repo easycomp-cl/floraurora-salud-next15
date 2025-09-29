@@ -17,7 +17,9 @@ export default function HeroCompromiso() {
             priority
           />
         </div>
-        <h2 className="text-3xl font-bold text-primary-900">Comprometidos contigo</h2>
+        <h2 className="text-3xl font-bold text-primary-900">
+          Comprometidos contigo
+        </h2>
         <p className="text-lg text-primary-700">
           FlorAurora Salud tiene el compromiso inquebrantable con el bienestar de las personas, por lo que pone a disposición un servicio online que conecta a consultantes con profesionales de la salud, a través de una plataforma confiable y segura, que entrega una experiencia única y cercana en el vínculo terapéutico. 
         </p>

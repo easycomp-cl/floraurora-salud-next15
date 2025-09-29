@@ -1,14 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
 import { redirect } from "next/navigation";
-import { profileService, Patient } from "@/lib/services/profileService";
-import { Professional } from "@/lib/types/appointment";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { User } from "@supabase/supabase-js";
 import {
   UserProfile,
   PatientProfile,
@@ -21,7 +18,7 @@ import { getFullUserProfileData } from "@/lib/userdata/profile-data";
 //Datos de perfil completo
 
 // Importamos las interfaces necesarias de profile-data.ts y services/profileService.ts
-import { DetailedUserData, UserProfileData } from "@/lib/userdata/profile-data";
+import { UserProfileData } from "@/lib/userdata/profile-data";
 import { countries, genderOptions } from "@/lib/data/countries";
 
 // Importar validaciones con Zod
@@ -85,7 +82,7 @@ export default function UserProfilePage() {
           error: null, // Clear any previous errors on successful fetch
         }));
         // Initialize formData with current profile data for editing
-        setFormData((prev: FormDataState) => ({
+        setFormData(() => ({
           name: data.user?.name || "",
           last_name: data.user?.last_name || "",
           email: data.user?.email || "",
@@ -335,8 +332,8 @@ export default function UserProfilePage() {
     } catch (error) {
       if (error instanceof ZodError) {
         const errors: Record<string, string> = {};
-        error.issues.forEach((err: any) => {
-          const fieldName = err.path.join(".");
+        error.issues.forEach((err) => {
+          const fieldName = err.path.map(String).join(".");
           errors[fieldName] = err.message;
         });
         setFormErrors(errors);
@@ -1113,7 +1110,7 @@ export default function UserProfilePage() {
                   setFormErrors({}); // Limpiar errores de validación
                   // Restablecer formData a los datos actuales si el usuario cancela la edición
                   if (profileData.user) {
-                    setFormData((prev: FormDataState) => ({
+                    setFormData(() => ({
                       name: profileData.user?.name || "",
                       last_name: profileData.user?.last_name || "",
                       email: profileData.user?.email || "",

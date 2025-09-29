@@ -1,6 +1,7 @@
 "use client";
 import { Professional } from "@/lib/types/appointment";
 import { User, Star } from "lucide-react";
+import Image from "next/image";
 
 interface ProfessionalsListProps {
   professionals: Professional[];
@@ -36,9 +37,11 @@ export default function ProfessionalsList({
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
                 {professional.avatar_url ? (
-                  <img
+                  <Image
                     src={professional.avatar_url}
                     alt={professional.name}
+                    width={48}
+                    height={48}
                     className="w-12 h-12 rounded-full object-cover"
                   />
                 ) : (

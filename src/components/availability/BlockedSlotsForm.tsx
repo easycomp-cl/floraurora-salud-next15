@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -28,11 +28,7 @@ export function BlockedSlotsForm({
     reason: "",
   });
 
-  useEffect(() => {
-    loadBlockedSlots();
-  }, [professionalId]);
-
-  const loadBlockedSlots = async () => {
+  const loadBlockedSlots = useCallback(async () => {
     try {
       setLoading(true);
       const slots = await AvailabilityService.getBlockedSlots(professionalId);
@@ -42,7 +38,11 @@ export function BlockedSlotsForm({
     } finally {
       setLoading(false);
     }
-  };
+  }, [professionalId]);
+
+  useEffect(() => {
+    loadBlockedSlots();
+  }, [professionalId, loadBlockedSlots]);
 
   const handleInputChange = (field: keyof BlockedSlotForm, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -70,7 +70,7 @@ export function BlockedSlotsForm({
         professional_id: professionalId,
         starts_at: formData.starts_at,
         ends_at: formData.ends_at,
-        reason: formData.reason || null,
+        reason: formData.reason || undefined,
       });
 
       setBlockedSlots((prev) => [...prev, newBlockedSlot]);
