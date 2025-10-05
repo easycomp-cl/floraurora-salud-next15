@@ -45,8 +45,16 @@ const Footer = () => {
                 <Link
                   href="/signup-pro"
                   className="text-gray-300 hover:text-white"
-                  >
-                  contrata nuestros planes
+                >
+                  Contrata nuestros planes
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-gray-300 hover:text-white"
+                >
+                  Reportar problema
                 </Link>
               </li>
             </ul>
@@ -58,7 +66,6 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-300">
               <li>contacto@floraurorasalud.cl</li>
               <li>+1 (555) 123-4567</li>
-              
             </ul>
           </div>
         </div>

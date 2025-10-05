@@ -23,7 +23,7 @@ export default function AppointmentsPage() {
       <div className="max-w-7xl mx-auto px-4">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Agendar Cita Psicológica
+            Agendar Cita
           </h1>
           <p className="text-xl text-gray-600">
             Selecciona un profesional, servicio y horario disponible

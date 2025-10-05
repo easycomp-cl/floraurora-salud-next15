@@ -1,12 +1,8 @@
 import React from "react";
-import SignUpProForm from "@/components/acc-to-page/signup-pro/SignUpProForm";
+import ProfessionalSignupStepper from "@/components/acc-to-page/signup-pro/ProfessionalSignupStepper";
 
 const SignUpProPage = () => {
-  return (
-    <div className="flex h-svh items-center">
-      <SignUpProForm />
-    </div>
-  );
+  return <ProfessionalSignupStepper />;
 };
 
 export default SignUpProPage;

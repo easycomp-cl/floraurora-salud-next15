@@ -11,8 +11,8 @@ export default function HeroCompromiso() {
           <Image
             src={logoImge}
             alt="Logo FlorAurora Salud"
-            width={64}
-            height={64}
+            width={128}
+            height={128}
             className="mx-auto"
             priority
           />
@@ -21,7 +21,11 @@ export default function HeroCompromiso() {
           Comprometidos contigo
         </h2>
         <p className="text-lg text-primary-700">
-          FlorAurora Salud tiene el compromiso inquebrantable con el bienestar de las personas, por lo que pone a disposición un servicio online que conecta a consultantes con profesionales de la salud, a través de una plataforma confiable y segura, que entrega una experiencia única y cercana en el vínculo terapéutico. 
+          FlorAurora Salud tiene el compromiso inquebrantable con el bienestar
+          de las personas, por lo que pone a disposición un servicio online que
+          conecta a consultantes con profesionales de la salud, a través de una
+          plataforma confiable y segura, que entrega una experiencia única y
+          cercana en el vínculo terapéutico.
         </p>
         <button className="mt-4 bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 px-6 rounded shadow">
           Más información
