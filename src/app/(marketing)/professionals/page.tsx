@@ -5,11 +5,10 @@ export default function ProfessionalsPage() {
       <section className="bg-gradient-to-r from-green-600 to-teal-700 py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl font-bold text-white mb-6">
-            Nuestros Profesionales
+            Profesionales
           </h1>
           <p className="text-xl text-green-100 max-w-3xl mx-auto">
-            Conoce a nuestro equipo de psicólogos especializados, todos
-            certificados y con amplia experiencia en terapia online.
+            Conoce al equipo de profesionales de la salud, psicólogos especializados, todos certificados y con experiencia en terapia online.
           </p>
         </div>
       </section>

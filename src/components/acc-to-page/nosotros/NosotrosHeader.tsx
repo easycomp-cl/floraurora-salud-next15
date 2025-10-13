@@ -28,7 +28,7 @@ export default function NosotrosHeader() {
           Nosotros
         </h1>
         <p className="mt-4 max-w-3xl text-base md:text-lg text-gray-700">
-          FlorAurora Salud es el servicio online de atención psicológica y médica más confiable del país. Contamos con un equipo de expertos altamente capacitados, plataformas modernas y un compromiso inquebrantable con el bienestar de nuestros pacientes.
+          FlorAurora Salud es un servicio online que conecta a consultantes con profesionales de la salud, a través de una plataforma confiable y segura, que entrega una experiencia única y cercana en el vínculo terapéutico, con un compromiso inquebrantable con el bienestar de aquellos que más lo necesitan.
         </p>
       </div>
     </div>
