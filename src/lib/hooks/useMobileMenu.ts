@@ -4,11 +4,21 @@ import { useRouteChange } from './useRouteChange';
 export function useMobileMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isDropdownClosing, setIsDropdownClosing] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const closeMenu = useCallback(() => {
     setIsOpen(false);
     setOpenDropdown(null);
+    setIsDropdownClosing(false);
+  }, []);
+
+  const handleCloseDropdown = useCallback(() => {
+    setIsDropdownClosing(true);
+    setTimeout(() => {
+      setOpenDropdown(null);
+      setIsDropdownClosing(false);
+    }, 200); // Duración de la animación
   }, []);
 
   // Cerrar menú cuando cambia la ruta
@@ -49,15 +59,21 @@ export function useMobileMenu() {
   };
 
   const toggleDropdown = (itemName: string) => {
-    setOpenDropdown(openDropdown === itemName ? null : itemName);
+    if (openDropdown === itemName) {
+      handleCloseDropdown();
+    } else {
+      setOpenDropdown(itemName);
+    }
   };
 
   return {
     isOpen,
     openDropdown,
+    isDropdownClosing,
     menuRef,
     toggleMenu,
     closeMenu,
     toggleDropdown,
+    handleCloseDropdown,
   };
 }

@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, User, Briefcase } from "lucide-react";
 import { navItems, getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useMobileMenu } from "@/lib/hooks/useMobileMenu";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
+import { useState } from "react";
 
 const MobileNav = () => {
   const { user, isAuthenticated, signOut } = useAuthState();
@@ -12,11 +13,15 @@ const MobileNav = () => {
   const {
     isOpen,
     openDropdown,
+    isDropdownClosing,
     menuRef,
     toggleMenu,
     closeMenu,
     toggleDropdown,
+    handleCloseDropdown,
   } = useMobileMenu();
+  const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
+  const [isLoginClosing, setIsLoginClosing] = useState(false);
 
   // Obtener elementos de navegación basados en el rol del usuario
   const authenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
@@ -34,27 +39,45 @@ const MobileNav = () => {
     closeMenu();
   };
 
+  const handleToggleLoginDropdown = () => {
+    if (isLoginDropdownOpen) {
+      setIsLoginClosing(true);
+      setTimeout(() => {
+        setIsLoginDropdownOpen(false);
+        setIsLoginClosing(false);
+      }, 200); // Duración de la animación
+    } else {
+      setIsLoginDropdownOpen(true);
+    }
+  };
+
   const renderNavItem = (item: NavItem) => {
     if (item.subItems) {
       return (
         <div key={item.label} className="border-b border-gray-200">
           <button
             onClick={() => toggleDropdown(item.label)}
-            className="flex items-center justify-between w-full py-3 px-4 text-left text-gray-700 hover:text-gray-900 hover:bg-gray-50"
+            className="flex items-center justify-between w-full py-3 px-4 text-left text-gray-700 hover:text-gray-900 hover:bg-gray-50 cursor-pointer"
           >
             <div className="flex items-center space-x-3">
               <item.icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
             </div>
             <ChevronDown
-              className={`w-4 h-4 transition-transform ${
+              className={`w-4 h-4 transition-transform duration-200 ${
                 openDropdown === item.label ? "rotate-180" : ""
               }`}
             />
           </button>
 
           {openDropdown === item.label && (
-            <div className="bg-gray-50 border-t border-gray-100">
+            <div
+              className={`bg-gray-50 border-t border-gray-100 ${
+                isDropdownClosing
+                  ? "animate-fade-out-up"
+                  : "opacity-0 animate-fade-in-down"
+              }`}
+            >
               {item.subItems.map((subItem) => (
                 <Link
                   key={subItem.label}
@@ -166,6 +189,7 @@ const MobileNav = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Botón simple de Iniciar Sesión */}
                   <Link
                     href="/login"
                     className="block w-full px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100 hover:border-gray-300 text-center"
@@ -173,13 +197,48 @@ const MobileNav = () => {
                   >
                     Iniciar Sesión
                   </Link>
-                  <Link
-                    href="/signup"
-                    className="block w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 text-center"
-                    onClick={closeMenu}
-                  >
-                    Registrarse
-                  </Link>
+
+                  {/* Dropdown de Registrarse para móvil */}
+                  <div>
+                    <button
+                      onClick={handleToggleLoginDropdown}
+                      className="flex items-center justify-center w-full px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-md hover:bg-blue-700 transition-all relative cursor-pointer"
+                    >
+                      <span>Registrarse</span>
+                      <ChevronDown
+                        className={`w-4 h-4 text-white transition-transform duration-200 absolute right-4 ${
+                          isLoginDropdownOpen ? "rotate-180" : ""
+                        }`}
+                      />
+                    </button>
+
+                    {isLoginDropdownOpen && (
+                      <div
+                        className={`mt-2 space-y-2 pl-2 ${
+                          isLoginClosing
+                            ? "animate-fade-out-up"
+                            : "opacity-0 animate-fade-in-down"
+                        }`}
+                      >
+                        <Link
+                          href="/signup"
+                          className="flex items-center space-x-3 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                          onClick={closeMenu}
+                        >
+                          <User className="w-4 h-4" />
+                          <span>Paciente</span>
+                        </Link>
+                        <Link
+                          href="/signup-pro"
+                          className="flex items-center space-x-3 w-full px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-md hover:bg-gray-50 hover:border-gray-300 transition-colors"
+                          onClick={closeMenu}
+                        >
+                          <Briefcase className="w-4 h-4" />
+                          <span>Profesional</span>
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
