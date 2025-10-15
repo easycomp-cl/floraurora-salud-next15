@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 const Footer = () => {
   return (
     <footer className="bg-gray-800 text-white mt-20">
@@ -24,25 +22,22 @@ const Footer = () => {
             <h3 className="text-lg font-semibold mb-4">Enlaces Rápidos</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="/" className="text-gray-300 hover:text-white">
+                <a href="/" className="text-gray-300 hover:text-white">
                   Inicio
-                </Link>
+                </a>
               </li>
               <li>
-                <Link href="/about" className="text-gray-300 hover:text-white">
+                <a href="/about" className="text-gray-300 hover:text-white">
                   Acerca de
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
-                  href="/contact"
-                  className="text-gray-300 hover:text-white"
-                >
+                <a href="/contact" className="text-gray-300 hover:text-white">
                   Contacto
-                </Link>
+                </a>
               </li>
               <li>
-                <Link
+                <a
                   href="/signup-pro"
                   className="text-gray-300 hover:text-white"
                 >
@@ -66,6 +61,7 @@ const Footer = () => {
             <ul className="space-y-2 text-gray-300">
               <li>contacto@floraurorasalud.cl</li>
               <li>+1 (555) 123-4567</li>
+              
             </ul>
           </div>
         </div>
