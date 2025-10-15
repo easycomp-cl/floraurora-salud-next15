@@ -41,8 +41,16 @@ const Footer = () => {
                   href="/signup-pro"
                   className="text-gray-300 hover:text-white"
                 >
-                  contrata nuestros planes
-                </a>
+                  Contrata nuestros planes
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/contact"
+                  className="text-gray-300 hover:text-white"
+                >
+                  Reportar problema
+                </Link>
               </li>
             </ul>
           </div>

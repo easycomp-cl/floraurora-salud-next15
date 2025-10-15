@@ -10,7 +10,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2">
+          <Link href="/" className="flex items-center space-x-2 mr-8">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">FA</span>
             </div>
@@ -21,7 +21,7 @@ const Navbar = () => {
           <DesktopNav />
 
           {/* Sección de Usuario */}
-          <div className="hidden lg:block">
+          <div className="hidden lg:block ml-8">
             <UserSection />
           </div>
 

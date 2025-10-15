@@ -27,6 +27,28 @@ export interface User {
   user_id: string; // UUID de Supabase Auth
 }
 
+// Interfaz para el resultado de la consulta de especialidades de Supabase
+interface ProfessionalSpecialtyQueryResult {
+  specialty_id: number;
+  specialties: {
+    id: number;
+    name: string;
+    title_id: number;
+    created_at: string;
+  } | null;
+}
+
+// Interfaz temporal para manejar la estructura real de datos de Supabase
+interface ProfessionalSpecialtyQuery {
+  specialty_id: number;
+  specialties: {
+    id: number;
+    name: string;
+    title_id: number;
+    created_at: string;
+  } | null;
+}
+
 export const profileService = {
   // Obtener perfil de usuario desde la tabla users
   async getUserProfile(id: number): Promise<User | null> {
@@ -140,7 +162,7 @@ export const profileService = {
       .from('professional_specialties')
       .select(`
         specialty_id,
-        specialties!inner(
+        specialties(
           id,
           name,
           title_id,
@@ -150,22 +172,44 @@ export const profileService = {
       .eq('professional_id', professionalId);
     
     console.log("getProfessionalSpecialties-data", data);
+    console.log("getProfessionalSpecialties-data length:", data?.length);
     if (error) {
       console.error('Error fetching professional specialties:', error);
       return [];
     }
     
-    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
-    const specialties = data?.map((item: { specialty_id: unknown; specialties: unknown[] }) => {
-      const specialty = (item.specialties as unknown[])[0] as { id: unknown; name: unknown; title_id: unknown; created_at: unknown };
-      return {
-        id: Number(specialty?.id || 0),
-        name: String(specialty?.name || ''),
-        title_id: Number(specialty?.title_id || 0),
-        created_at: String(specialty?.created_at || new Date().toISOString())
-      };
-    }) || [];
+    if (!data || data.length === 0) {
+      console.log('No specialties found for professional:', professionalId);
+      return [];
+    }
     
+    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
+    const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item, index) => {
+      console.log(`Processing item ${index}:`, item);
+      const { specialties: specialtyData } = item; // specialties es un objeto individual, no un array
+      console.log(`specialtyData for item ${index}:`, specialtyData);
+      
+      // Validar que el objeto de especialidad exista
+      if (!specialtyData || typeof specialtyData !== 'object') {
+        console.warn('No specialty found for item:', item);
+        return null;
+      }
+      
+      // Validar que tenga al menos la propiedad id
+      if (specialtyData.id === undefined || specialtyData.id === null) {
+        console.warn('Specialty data missing required id property:', specialtyData);
+        return null;
+      }
+      
+      return {
+        id: specialtyData.id,
+        name: specialtyData.name || '',
+        title_id: specialtyData.title_id || null,
+        created_at: specialtyData.created_at || new Date().toISOString()
+      };
+    }).filter((specialty): specialty is ProfessionalSpecialty => specialty !== null) || [];
+    
+    console.log("Mapped specialties:", specialties);
     return specialties;
   },
 

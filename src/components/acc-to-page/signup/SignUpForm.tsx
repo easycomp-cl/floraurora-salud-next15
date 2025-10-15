@@ -73,6 +73,16 @@ export function SignUpForm() {
             Iniciar sesión
           </Link>
         </div>
+
+        <div className="mt-3 text-center text-sm">
+          ¿Eres un profesional de la salud?{" "}
+          <Link
+            href="/signup-pro"
+            className="underline text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Regístrate como profesional
+          </Link>
+        </div>
       </CardContent>
     </Card>
   );

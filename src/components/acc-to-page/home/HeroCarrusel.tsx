@@ -24,47 +24,19 @@ const banners: Banner[] = [
         botonUrl: "/agenda",
         imagen: trabajoImg
     }
-    ,
-    {
-        titulo: "Bienvenido a FlorAurora Salud",
-        descripcion: "Esta es una prueba para el carrusel.",
-        botonTexto: "Ver más",
-        botonUrl: "/about",
-        imagen: logoImg
-    }
 ];
 
 export default function HeroCarrusel() {
     const [current, setCurrent] = useState(0);
-    const [sliding, setSliding] = useState(false);
 
-    const nextSlide = () => {
-        setSliding(true);
-        setTimeout(() => {
-            setCurrent((prev) => (prev + 1) % banners.length);
-            setSliding(false);
-        }, 400); // duración del efecto
-    };
-    const prevSlide = () => {
-        setSliding(true);
-        setTimeout(() => {
-            setCurrent((prev) => (prev - 1 + banners.length) % banners.length);
-            setSliding(false);
-        }, 400);
-    };
-
-    React.useEffect(() => {
-        const interval = setInterval(() => {
-            nextSlide();
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [current]);
+    const nextSlide = () => setCurrent((current + 1) % banners.length);
+    const prevSlide = () => setCurrent((current - 1 + banners.length) % banners.length);
 
     const banner = banners[current];
 
     return (
-    <section className="hero-carrusel-adapt" style={{ minHeight: '400px', height: '400px' }}>
-            <div className={`hero-carrusel-img-side${sliding ? ' sliding' : ''}`}>
+        <section className="hero-carrusel-adapt">
+            <div className="hero-carrusel-img-side">
                 <Image
                     src={banner.imagen}
                     alt="Equipo de trabajo FlorAurora"
@@ -74,7 +46,7 @@ export default function HeroCarrusel() {
                     priority
                 />
             </div>
-            <div className={`hero-carrusel-content-side${sliding ? ' sliding' : ''}`}>
+            <div className="hero-carrusel-content-side">
                 <div className="hero-logo">
                     <Image src={logoImg} alt="Logo FlorAurora Salud" width={64} height={64} priority />
                 </div>
@@ -93,8 +65,8 @@ export default function HeroCarrusel() {
                 .hero-carrusel-adapt {
                     position: relative;
                     width: 100%;
-                    min-height: 400px;
-                    height: 400px;
+                    min-height: 350px;
+                    height: 100%;
                     background: #d1f5f0;
                     overflow: hidden;
                     display: grid;
@@ -104,18 +76,14 @@ export default function HeroCarrusel() {
                 .hero-carrusel-img-side {
                     position: relative;
                     width: 100%;
-                    height: 400px;
-                    min-height: 400px;
+                    height: 100%;
+                    min-height: 350px;
                     overflow: hidden;
-                    transition: transform 0.4s cubic-bezier(.77,0,.18,1);
-                }
-                .hero-carrusel-img-side.sliding {
-                    transform: translateX(-40px);
                 }
                 .hero-carrusel-img :global(img) {
                     object-fit: cover;
                     width: 100% !important;
-                    height: 400px !important;
+                    height: 100% !important;
                 }
                 .hero-carrusel-content-side {
                     position: relative;
@@ -130,11 +98,6 @@ export default function HeroCarrusel() {
                     padding: 3rem 2rem;
                     margin: 2rem 0 2rem 2rem;
                     height: 100%;
-                    transition: transform 0.4s cubic-bezier(.77,0,.18,1);
-                }
-                .hero-carrusel-content-side.sliding {
-                    transform: translateX(-40px);
-                }
                 }
                 .hero-logo {
                     margin-bottom: 1.5rem;
@@ -167,55 +130,46 @@ export default function HeroCarrusel() {
                     font-size: 1.1rem;
                     transition: background 0.2s;
                 }
-                .carrusel-arrow:hover {
-    background: rgba(0,0,0,0.7);
-    opacity: 1;
-}
+                .carrusel-btn:hover {
+                    background: #00796b;
+                }
                 .carrusel-arrow {
                     position: absolute;
                     top: 50%;
                     transform: translateY(-50%);
-                    background: rgba(0,0,0,0.2);
+                    background: rgba(0,0,0,0.7);
                     color: #fff;
                     border: none;
                     font-size: 2rem;
-                    width: 48px;
-                    height: 48px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 0;
+                    padding: 0.5rem 1rem;
                     cursor: pointer;
                     z-index: 50;
-                    border-radius: 50%;
+                    border-radius: 12px;
                     pointer-events: auto;
-                    opacity: 0.3;
-                    transition: background 0.2s, opacity 0.2s;
-}
+                    opacity: 0.7;
+                    transition: background 0.2s;
+                }
                 .carrusel-arrow.left { left: 1rem; }
                 .carrusel-arrow.right { right: 1rem; }
                 @media (max-width: 900px) {
                     .hero-carrusel-adapt {
                         display: block;
-                        min-height: 220px;
-                        height: 220px;
+                        min-height: 350px;
+                        height: 100%;
                     }
                     .hero-carrusel-img-side {
                         position: absolute;
-                        top: 0; left: 0; width: 100%; height: 120px;
-                        max-height: 120px;
-                        z-index: 0;
-                        min-height: 120px;
+                        top: 0; left: 0; width: 100%; height: 60vh;
+                        max-height: 400px;
+                        z-index: 1;
+                        min-height: 200px;
                         overflow: hidden;
-                    }
-                    .hero-carrusel-img :global(img) {
-                        height: 120px !important;
                     }
                     .hero-carrusel-content-side {
                         width: 100%;
                         margin: 0;
                         border-radius: 0;
-                        padding: 4rem 2rem;
+                        padding: 2rem 1rem;
                         background: rgba(209,245,240,0.85);
                         position: relative;
                         z-index: 2;
@@ -224,15 +178,6 @@ export default function HeroCarrusel() {
                         flex-direction: column;
                         align-items: center;
                         justify-content: center;
-                       }
-                       .hero-carrusel-content-side h1 {
-                           font-size: 2rem;
-                       }
-                       .hero-carrusel-content-side h2 {
-                           font-size: 1.2rem;
-                       }
-                       .hero-carrusel-content-side p {
-                           font-size: 1.5rem;
                     }
                     .carrusel-arrow {
                         top: 50%;
@@ -242,7 +187,17 @@ export default function HeroCarrusel() {
                     .carrusel-arrow.left { left: 1rem; right: unset; }
                     .carrusel-arrow.right { right: 1rem; left: unset; }
                 }
-                    /* Eliminado el bloque de 600px para que el tamaño se mantenga igual en ambos media queries */
+                @media (max-width: 600px) {
+                    .hero-carrusel-content-side h1 {
+                        font-size: 2rem;
+                    }
+                    .hero-carrusel-content-side h2 {
+                        font-size: 1.2rem;
+                    }
+                    .hero-carrusel-content-side p {
+                        font-size: 1rem;
+                    }
+                }
             `}</style>
         </section>
     );

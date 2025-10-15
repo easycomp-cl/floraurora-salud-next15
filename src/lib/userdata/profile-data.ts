@@ -142,22 +142,23 @@ async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patien
  * Función principal: Combina las tres funciones para obtener toda la información del perfil del usuario.
  */
 export async function getFullUserProfileData(): Promise<UserProfileData | null> {
+  
   try {
     // Paso 1: Obtener el ID del usuario autenticado
     const userId = await getAuthenticatedUserId();
     if (!userId) {
       return null;
     }
-
+    console.log("getFullUserProfileData-userId", userId);
     // Paso 2: Obtener los datos detallados del usuario de la base de datos
     const detailedUser = await getDetailedUserFromDatabase(userId);
     if (!detailedUser) {
       return null;
     }
-
+    console.log("getFullUserProfileData-detailedUser", detailedUser);
     // Paso 3: Obtener el perfil específico (paciente/profesional)
     const specificProfile = await getSpecificProfile(detailedUser);
-
+    console.log("getFullUserProfileData-specificProfile", specificProfile);
     return {
       user: detailedUser,
       profile: specificProfile,
