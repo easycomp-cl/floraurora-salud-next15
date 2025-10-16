@@ -1,9 +1,11 @@
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+
 export const config = {
   // Configuración de la aplicación
   app: {
     name: "FlorAurora Salud",
     description: "Plataforma de psicología y video llamadas",
-    url: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+    url: appUrl,
   },
 
   // Configuración de Supabase
@@ -96,7 +98,7 @@ export const config = {
   google: {
     clientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    redirectUri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || "http://localhost:3000/auth/callback",
+    redirectUri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `${appUrl}/callback`,
   },
 
   // Configuración de desarrollo
@@ -109,14 +111,14 @@ export const config = {
 
 // Función para verificar si una ruta está protegida
 export function isProtectedRoute(pathname: string): boolean {
-  return config.auth.protectedRoutes.some(route => 
+  return config.auth.protectedRoutes.some((route: string) => 
     pathname.startsWith(route)
   );
 }
 
 // Función para verificar si una ruta es pública
 export function isPublicRoute(pathname: string): boolean {
-  return config.auth.publicRoutes.some(route => 
+  return config.auth.publicRoutes.some((route: string) => 
     pathname === route || pathname.startsWith(route)
   );
 }

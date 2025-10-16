@@ -18,7 +18,6 @@ const MobileNav = () => {
     toggleMenu,
     closeMenu,
     toggleDropdown,
-    handleCloseDropdown,
   } = useMobileMenu();
   const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
   const [isLoginClosing, setIsLoginClosing] = useState(false);

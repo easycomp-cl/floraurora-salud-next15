@@ -4,6 +4,7 @@ import React from "react";
 import GoogleOAuthButton from "@/components/google/GoogleOAuthButton";
 import WorkingGoogleOAuthButton from "@/components/google/WorkingGoogleOAuthButton";
 import { supabase } from "@/utils/supabase/client";
+import { config } from "@/lib/config";
 
 export default function TestPage() {
   const handleSimpleGoogleAuth = async () => {
@@ -13,7 +14,7 @@ export default function TestPage() {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${config.app.url}/callback`,
         },
       });
 

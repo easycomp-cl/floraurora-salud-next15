@@ -2,6 +2,7 @@
 
 import { supabase } from "@/utils/supabase/client";
 import { clearSessionCookies } from "@/utils/supabase/cookie-utils";
+import { config } from "@/lib/config";
 
 // Función para iniciar sesión con email y password
 export async function clientLogin(email: string, password: string) {
@@ -173,7 +174,7 @@ export async function clientSignInWithGoogle() {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/callback`,
+        redirectTo: `${config.app.url}/callback`,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

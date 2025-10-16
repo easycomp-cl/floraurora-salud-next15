@@ -13,14 +13,12 @@ import { CheckCircle, XCircle, Clock, ArrowLeft } from "lucide-react";
 
 interface PaymentConfirmationStepProps {
   onPrevious: () => void;
-  onRetry: () => void;
 }
 
 type ConfirmationStatus = "processing" | "success" | "failed";
 
 export default function PaymentConfirmationStep({
   onPrevious,
-  onRetry,
 }: PaymentConfirmationStepProps) {
   const [confirmationStatus, setConfirmationStatus] =
     useState<ConfirmationStatus>("processing");
@@ -38,18 +36,6 @@ export default function PaymentConfirmationStep({
 
     return () => clearTimeout(timer);
   }, []);
-
-  // Simular el proceso de envío
-  const simulateSubmission = () => {
-    setConfirmationStatus("processing");
-
-    // Simular tiempo de procesamiento
-    setTimeout(() => {
-      // Simular éxito o fallo aleatorio (en producción esto vendría del servidor)
-      const success = Math.random() > 0.1; // 90% de éxito
-      setConfirmationStatus(success ? "success" : "failed");
-    }, 2000);
-  };
 
   const handleRetrySubmission = () => {
     setConfirmationStatus("processing");

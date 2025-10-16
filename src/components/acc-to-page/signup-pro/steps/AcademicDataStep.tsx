@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  academicDataSchema,
-  AcademicDataFormData,
-} from "@/lib/validations/professional-signup";
+import { AcademicDataFormData } from "@/lib/validations/professional-signup";
 
 interface AcademicDataStepProps {
   data: AcademicDataFormData;

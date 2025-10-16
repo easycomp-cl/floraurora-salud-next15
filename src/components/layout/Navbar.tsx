@@ -1,20 +1,29 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import DesktopNav from "./DesktopNav";
 import MobileNav from "./MobileNav";
 import UserSection from "./UserSection";
+import logoImg from "../Fotos/logo.png";
 
 const Navbar = () => {
   return (
-    <nav className="bg-white mb-20 shadow-sm border-b border-gray-200 relative">
+    <nav className="bg-white mb-20 shadow-sm border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 mr-8">
-            <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">FA</span>
-            </div>
-            <span className="text-xl font-bold text-gray-900">FlorAurora</span>
+          <Link href="/" className="flex items-center space-x-3 mr-8">
+            <Image
+              src={logoImg}
+              alt="Logo FlorAurora Salud"
+              width={48}
+              height={48}
+              className="w-12 h-12"
+              priority
+            />
+            <span className="text-xl font-bold text-gray-900">
+              FlorAurora Salud
+            </span>
           </Link>
 
           {/* Navegación Desktop */}

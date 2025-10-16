@@ -27,16 +27,6 @@ export interface User {
   user_id: string; // UUID de Supabase Auth
 }
 
-// Interfaz para el resultado de la consulta de especialidades de Supabase
-interface ProfessionalSpecialtyQueryResult {
-  specialty_id: number;
-  specialties: {
-    id: number;
-    name: string;
-    title_id: number;
-    created_at: string;
-  } | null;
-}
 
 // Interfaz temporal para manejar la estructura real de datos de Supabase
 interface ProfessionalSpecialtyQuery {

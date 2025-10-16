@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -9,10 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  paymentPlanSchema,
-  PaymentPlanFormData,
-} from "@/lib/validations/professional-signup";
+import { PaymentPlanFormData } from "@/lib/validations/professional-signup";
 
 interface PaymentPlanStepProps {
   data: PaymentPlanFormData;

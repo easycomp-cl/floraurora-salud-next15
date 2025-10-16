@@ -139,10 +139,6 @@ export default function ProfessionalSignupStepper() {
     setCurrentStep((prev) => Math.max(prev - 1, 1) as Step);
   };
 
-  const handleRetry = () => {
-    setCurrentStep(4); // Volver al paso de selección de plan
-  };
-
   const updateStepData = <K extends keyof StepData>(
     stepKey: K,
     data: StepData[K]
@@ -195,12 +191,7 @@ export default function ProfessionalSignupStepper() {
           />
         );
       case 5:
-        return (
-          <PaymentConfirmationStep
-            onPrevious={handlePrevious}
-            onRetry={handleRetry}
-          />
-        );
+        return <PaymentConfirmationStep onPrevious={handlePrevious} />;
       default:
         return null;
     }

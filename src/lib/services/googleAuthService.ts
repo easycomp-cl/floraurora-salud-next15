@@ -1,4 +1,5 @@
 import { supabase } from "@/utils/supabase/client";
+import { config } from "@/lib/config";
 
 export interface GoogleUserData {
   id: string;
@@ -25,7 +26,7 @@ export class GoogleAuthService {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/callback`,
+          redirectTo: `${config.app.url}/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
