@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { PaymentPlanFormData } from "@/lib/validations/professional-signup";
+import Link from "next/link";
 
 interface PaymentPlanStepProps {
   data: PaymentPlanFormData;
@@ -267,6 +268,53 @@ export default function PaymentPlanStep({
               </Card>
             )}
 
+            {/* Checkbox de Términos y Condiciones */}
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  id="accept_terms"
+                  checked={data.accept_terms}
+                  onChange={(e) =>
+                    onChange({ ...data, accept_terms: e.target.checked })
+                  }
+                  className="mt-1 h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <div className="flex-1">
+                  <label
+                    htmlFor="accept_terms"
+                    className="text-sm text-gray-700 cursor-pointer"
+                  >
+                    He leído y acepto los{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:text-primary/80 underline font-medium"
+                    >
+                      Términos y Condiciones
+                    </Link>{" "}
+                    de FlorAurora Salud
+                  </label>
+                  {errors.accept_terms && (
+                    <p className="text-sm text-red-600 mt-1">
+                      {errors.accept_terms}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>📋 Información importante:</strong> Al aceptar los
+                  términos y condiciones, confirmas que has leído y comprendido
+                  las condiciones de uso de la plataforma, incluyendo las
+                  modalidades de pago, responsabilidades y el tratamiento de
+                  datos personales.
+                </p>
+              </div>
+            </div>
+
             <div className="flex gap-4">
               <Button
                 type="button"
@@ -279,7 +327,7 @@ export default function PaymentPlanStep({
               <Button
                 type="submit"
                 className="flex-1"
-                disabled={!data.plan_type}
+                disabled={!data.plan_type || !data.accept_terms}
               >
                 Continuar con el Registro
               </Button>

@@ -72,12 +72,22 @@ export async function clientSignout() {
       clearSessionCookies();
     }
     
-    // Desconectar de Supabase
-    const { error } = await supabase.auth.signOut();
+    // Limpiar localStorage primero
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sb-auth-token');
+      localStorage.removeItem('supabase.auth.token');
+    }
     
-    if (error) {
-      console.error("❌ Error durante la desconexión:", error);
-      return { error };
+    // Intentar desconectar de Supabase de manera silenciosa
+    // Solo si hay una sesión activa para evitar errores innecesarios
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Solo intentar cerrar sesión si hay una sesión válida
+        await supabase.auth.signOut();
+      }
+    } catch (signOutError) {
+      // Ignorar errores silenciosamente - ya limpiamos todo localmente
     }
     
     console.log("✅ Desconexión exitosa del cliente");
@@ -171,10 +181,17 @@ export async function clientSignInWithGoogle() {
     
     console.log('✅ Variables de entorno configuradas correctamente');
     
+    // Detectar dinámicamente la URL actual del navegador
+    const currentUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : config.app.url;
+    
+    console.log('🌐 URL de callback:', `${currentUrl}/callback`);
+    
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${config.app.url}/callback`,
+        redirectTo: `${currentUrl}/callback`,
         queryParams: {
           access_type: "offline",
           prompt: "consent",

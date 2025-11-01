@@ -277,9 +277,27 @@ export async function login(prevState: { message?: string; error?: string } | nu
 }
 
 export async function signup(formData: FormData) {
+  // Validar variables de entorno críticas
+  console.log("🔍 Validando configuración de Supabase:", {
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    hasServiceRoleKey: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
+    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  });
+
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    console.error("❌ Variables de entorno de Supabase no configuradas");
+    redirect("/auth/signup?error=config-error");
+  }
+
   const supabase = await createClient();
   const admin = createAdminServer();
-  console.log("🔍 formData:", formData);
+  console.log("🔍 formData recibido:", {
+    hasFirstName: !!formData.get("first-name"),
+    hasLastName: !!formData.get("last-name"),
+    hasEmail: !!formData.get("email"),
+    hasPassword: !!formData.get("password")
+  });
   const firstName = formData.get("first-name") as string;
   const lastName = formData.get("last-name") as string;
   const email = (formData.get("email") as string)?.toLowerCase().trim() || "";
@@ -315,8 +333,16 @@ export async function signup(formData: FormData) {
   }
 
   // 3. Registrar el usuario en Supabase Auth
-  console.log("Email a registrar en Supabase:", email);
+  console.log("🔍 Iniciando registro en Supabase Auth:", {
+    email,
+    firstName,
+    lastName,
+    hasPassword: !!password
+  });
+  
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+  console.log("🔍 URL de redirección configurada:", `${baseUrl}/confirm`);
+  
   const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
     email: email,
     password: password,
@@ -328,37 +354,82 @@ export async function signup(formData: FormData) {
       },
     },
   });
-  console.log("🔍 signUpData:", signUpData);
+  
+  console.log("🔍 Resultado del registro Supabase:", {
+    hasError: !!signUpError,
+    error: signUpError,
+    hasUser: !!signUpData.user,
+    user: signUpData.user,
+    hasSession: !!signUpData.session,
+    emailSent: signUpData.user ? !signUpData.user.email_confirmed_at : false,
+    emailConfirmed: signUpData.user?.email_confirmed_at,
+    needsConfirmation: signUpData.user ? !signUpData.user.email_confirmed_at : false
+  });
+
+  // Logging específico para debugging de correos
+  if (signUpData.user && !signUpData.user.email_confirmed_at) {
+    console.log("📧 CORREO DEBE HABERSE ENVIADO:", {
+      userId: signUpData.user.id,
+      email: signUpData.user.email,
+      emailConfirmed: signUpData.user.email_confirmed_at,
+      redirectUrl: `${baseUrl}/confirm`,
+      userMetadata: signUpData.user.user_metadata
+    });
+  } else if (signUpData.user && signUpData.user.email_confirmed_at) {
+    console.log("⚠️ CORREO YA CONFIRMADO (caso inesperado):", {
+      userId: signUpData.user.id,
+      email: signUpData.user.email,
+      emailConfirmed: signUpData.user.email_confirmed_at
+    });
+  }
 
   if (signUpError) {
-    console.error("Error al registrar usuario en Supabase Auth:", signUpError);
+    console.error("❌ Error al registrar usuario en Supabase Auth:", {
+      message: signUpError.message,
+      status: signUpError.status,
+      name: signUpError.name,
+      fullError: signUpError
+    });
+    
     if (signUpError.message.includes("User already registered")) {
+      console.log("🔍 Usuario ya registrado, redirigiendo...");
       redirect("/auth/signup?error=user-exists");
     }
+    
+    if (signUpError.message.includes("Invalid email")) {
+      console.log("🔍 Email inválido");
+      redirect("/auth/signup?error=invalid-email");
+    }
+    
+    if (signUpError.message.includes("Password should be at least")) {
+      console.log("🔍 Contraseña muy corta");
+      redirect("/auth/signup?error=weak-password");
+    }
+    
+    console.log("🔍 Error genérico de registro, redirigiendo...");
     redirect("/auth/signup?error=signup-failed");
   }
 
-  // 4. Insertar datos del usuario en la tabla 'users' si el registro fue exitoso en Auth
-  // La lógica de inserción en la tabla 'users' se moverá a la función de confirmación de email.
-  // if (signUpData.user) {
-  //   const { error: insertError } = await supabase.from("users").insert({
-  //     user_id: signUpData.user.id,
-  //     name: firstName,
-  //     last_name: lastName,
-  //     email: email,
-  //     is_active: true,
-  //     role: 2, 
-  //   });
-  //
-  //   if (insertError) {
-  //     console.error("Error al insertar el usuario en la tabla 'users':", insertError);
-  //     redirect("/error");
-  //   }
-  // } else {
-  //   console.error("Error: signUpData.user es nulo después de un registro exitoso sin error.");
-  //   redirect("/auth/signup?error=unexpected-error");
-  // }
+  // 4. Verificar que el registro fue exitoso
+  if (signUpData.user) {
+    console.log("✅ Usuario registrado exitosamente en Supabase Auth:", {
+      userId: signUpData.user.id,
+      email: signUpData.user.email,
+      emailConfirmed: signUpData.user.email_confirmed_at,
+      needsConfirmation: !signUpData.user.email_confirmed_at
+    });
+
+    if (!signUpData.user.email_confirmed_at) {
+      console.log("📧 Correo de confirmación enviado. Usuario necesita confirmar su email.");
+    } else {
+      console.log("✅ Email ya confirmado (caso inesperado en registro nuevo)");
+    }
+  } else {
+    console.error("❌ Error: signUpData.user es nulo después de un registro exitoso sin error.");
+    redirect("/auth/signup?error=unexpected-error");
+  }
   
+  console.log("🔍 Redirigiendo a página de confirmación...");
   revalidatePath("/", "layout");
   redirect("/confirm");
 }

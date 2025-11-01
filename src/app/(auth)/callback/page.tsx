@@ -19,12 +19,21 @@ export default function AuthCallback() {
   useEffect(() => {
     let mounted = true;
     let redirectAttempted = false;
+    let processingStarted = false;
 
     const processUserProfile = async (user: {
       id: string;
       email?: string;
       user_metadata?: { full_name?: string };
     }) => {
+      // Prevenir múltiples ejecuciones simultáneas
+      if (processingStarted) {
+        console.log("⚠️ Procesamiento ya en curso, saltando...");
+        return;
+      }
+
+      processingStarted = true;
+
       try {
         // Verificar si el usuario existe en la tabla users
         const userExists = await UserService.userExists(user.id);
@@ -47,8 +56,38 @@ export default function AuthCallback() {
             is_active: true,
           };
 
-          await UserService.createUser(userData);
-          console.log("✅ Usuario creado exitosamente");
+          const result = await UserService.createUser(userData);
+
+          // Verificar si la creación fue exitosa
+          if (result && result.success) {
+            console.log("✅ Usuario creado exitosamente");
+
+            // Si es un nuevo usuario (rol 2 = paciente), crear perfil de paciente básico
+            if (userData.role === 2 && !result.isExisting) {
+              console.log("📋 Creando perfil de paciente básico...");
+              try {
+                const { profileService } = await import(
+                  "@/lib/services/profileService"
+                );
+                await profileService.createPatientProfile(user.id, {
+                  emergency_contact_name: "",
+                  emergency_contact_phone: "",
+                  health_insurances_id: 1, // ID por defecto
+                });
+                console.log("✅ Perfil de paciente creado exitosamente");
+              } catch (profileError) {
+                console.error(
+                  "⚠️ Error al crear perfil de paciente:",
+                  profileError
+                );
+                // No es crítico, el usuario puede completar su perfil después
+              }
+            }
+          } else {
+            console.log(
+              "⚠️ Usuario ya existía o hubo un error, continuando..."
+            );
+          }
         } else {
           console.log("📋 Usuario ya existe en tabla users");
         }
@@ -80,7 +119,7 @@ export default function AuthCallback() {
     };
 
     // Cuando se detecte la autenticación
-    if (isAuthenticated && user && !redirectAttempted) {
+    if (isAuthenticated && user && !redirectAttempted && !processingStarted) {
       console.log("✅ Usuario autenticado detectado:", user.email);
       setStatus("Usuario autenticado, verificando perfil...");
 

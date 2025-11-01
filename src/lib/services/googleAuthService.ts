@@ -23,10 +23,17 @@ export class GoogleAuthService {
     try {
       console.log("🔐 Iniciando autenticación con Google...");
       
+      // Detectar dinámicamente la URL actual del navegador
+      const currentUrl = typeof window !== 'undefined' 
+        ? window.location.origin 
+        : config.app.url;
+      
+      console.log("🌐 URL detectada:", currentUrl);
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${config.app.url}/callback`,
+          redirectTo: `${currentUrl}/callback`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

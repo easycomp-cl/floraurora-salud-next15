@@ -53,6 +53,7 @@ const initialStepData: StepData = {
   },
   paymentPlan: {
     plan_type: "light" as "light" | "monthly",
+    accept_terms: false,
   },
 };
 

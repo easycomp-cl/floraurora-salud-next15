@@ -192,6 +192,11 @@ export const paymentPlanSchema = z.object({
     .refine((val) => val !== undefined, {
       message: "⚠️ Debes seleccionar un plan de pago"
     }),
+  accept_terms: z
+    .boolean()
+    .refine((val) => val === true, {
+      message: "⚠️ Debes aceptar los términos y condiciones para continuar"
+    }),
 });
 
 // Esquema completo

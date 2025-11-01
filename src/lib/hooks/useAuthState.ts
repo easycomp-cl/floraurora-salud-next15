@@ -126,13 +126,25 @@ export function useAuthState() {
         isLoading: false
       }));
 
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        //console.error("❌ useAuthState: Error al cerrar sesión:", error);
-        throw error;
+      // Limpiar localStorage primero
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('sb-auth-token');
+        localStorage.removeItem('supabase.auth.token');
+      }
+
+      // Intentar cerrar sesión en Supabase de manera silenciosa
+      // Solo si hay una sesión activa para evitar errores innecesarios
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          // Solo intentar cerrar sesión si hay una sesión válida
+          await supabase.auth.signOut();
+        }
+      } catch (signOutError) {
+        // Ignorar errores silenciosamente - ya limpiamos todo localmente
       }
       
-      //console.log("✅ useAuthState: Sesión cerrada exitosamente");
+      console.log("✅ useAuthState: Sesión cerrada exitosamente");
       
       // Redirigir inmediatamente después del cierre de sesión
       router.push("/");

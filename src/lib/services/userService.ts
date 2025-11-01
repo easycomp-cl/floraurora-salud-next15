@@ -74,6 +74,18 @@ export class UserService {
         .single();
 
       if (error) {
+        // Si es un error de duplicación, considerarlo como éxito
+        if (error.code === '23505' && error.message.includes('duplicate key')) {
+          console.log("⚠️ Usuario ya existe (duplicate key), obteniendo datos existentes...");
+          
+          // Intentar obtener el usuario existente
+          const existingUser = await this.getUserById(userData.user_id);
+          if (existingUser.success) {
+            console.log("✅ Usuario existente obtenido:", existingUser.data);
+            return { success: true, data: existingUser.data, isExisting: true };
+          }
+        }
+        
         console.error("❌ Error al crear usuario:", error);
         throw error;
       }
