@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +29,23 @@ export function LoginForm() {
     error: null,
     loading: false,
   });
+  const [showResetSuccess, setShowResetSuccess] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    // Verificar si viene de un password reset exitoso
+    if (searchParams.get("passwordReset") === "success") {
+      setShowResetSuccess(true);
+      // Remover el parámetro de la URL sin recargar
+      router.replace("/login");
+      // Ocultar el mensaje después de 5 segundos
+      const timer = setTimeout(() => {
+        setShowResetSuccess(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -136,10 +152,36 @@ export function LoginForm() {
               </p>
             )}
 
+            {/* Mostrar mensaje de éxito de reseteo de contraseña */}
+            {showResetSuccess && (
+              <div className="bg-green-50 border border-green-200 text-green-800 text-sm text-center p-3 rounded-lg flex items-center justify-center gap-2">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="font-medium">
+                  Contraseña reestablecida correctamente
+                </span>
+              </div>
+            )}
+
             <SignInWithGoogleButton />
           </div>
           <div className="flex justify-center mt-4">
-            <Link href="#" className="inline-block text-sm underline">
+            <Link
+              href="/forgot-password"
+              className="inline-block text-sm underline"
+            >
               ¿Olvidaste tu contraseña?
             </Link>
           </div>

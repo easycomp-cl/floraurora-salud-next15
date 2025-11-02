@@ -35,6 +35,8 @@ export const config = {
       confirm: "/confirm",
       confirmed: "/confirmed",
       logout: "/logout",
+      forgotPassword: "/forgot-password",
+      resetPassword: "/reset-password",
     },
 
     // Rutas protegidas
@@ -83,6 +85,8 @@ export const config = {
       "/callback",
       "/confirm",
       "/confirmed",
+      "/forgot-password",
+      "/reset-password",
     ],
 
     // Rutas de redirección después de autenticación

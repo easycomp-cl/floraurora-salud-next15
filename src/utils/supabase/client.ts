@@ -24,7 +24,7 @@ export const supabase = (() => {
         persistSession: true,
         detectSessionInUrl: true, // Habilitar para OAuth
         flowType: 'pkce',
-        debug: false, // Deshabilitar debug en producción
+        debug: false, // Debug deshabilitado
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         storageKey: 'sb-auth-token'
       },

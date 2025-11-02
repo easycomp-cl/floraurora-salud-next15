@@ -5,7 +5,6 @@ import logoImge from "../../Fotos/logo2.png";
 export default function HeroCompromiso() {
   return (
     <section className="relative py-12 px-4 md:px-16 text-center bg-white">
-      <div className="absolute inset-0 w-full h-full z-0 bg-no-repeat bg-cover bg-center bg-fixed md:bg-[url('/ruta/fondo-escritorio.jpg')] bg-[url('/ruta/fondo-movil.jpg')] opacity-20 pointer-events-none" />
       <div className="relative z-10 flex flex-col items-center gap-4 max-w-3xl mx-auto">
         <div className="mb-2">
           <Image

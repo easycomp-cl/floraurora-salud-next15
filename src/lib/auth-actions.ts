@@ -8,6 +8,8 @@ import { createClient, createAdminServer } from "@/utils/supabase/server";
 import { logAccountProvider } from "@/utils/supabase/accountProvider";
 
 import { z } from "zod";
+import { resetPasswordSchema } from "@/lib/validations/password";
+import { config } from "@/lib/config";
 
 const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
@@ -521,4 +523,134 @@ export async function signInWithGoogle() {
   }
 
   redirect(data.url);
+}
+
+/**
+ * Solicita un email de reset de contraseña
+ */
+export async function requestPasswordReset(formData: FormData) {
+  const email = (formData.get("email") as string)?.trim() || "";
+
+  if (!email) {
+    return {
+      success: false,
+      error: "El email es requerido",
+    };
+  }
+
+  const supabase = await createClient();
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${config.app.url}/reset-password`,
+    });
+
+    if (error) {
+      console.error("❌ Error solicitando reset de contraseña:", error);
+      return {
+        success: false,
+        error: error.message || "Error al solicitar el reset de contraseña",
+      };
+    }
+
+    console.log("✅ Email de reset de contraseña enviado a:", email);
+    return {
+      success: true,
+      message: "Se ha enviado un email con instrucciones para resetear tu contraseña",
+    };
+  } catch (error) {
+    console.error("💥 Error inesperado solicitando reset de contraseña:", error);
+    return {
+      success: false,
+      error: "Error inesperado al solicitar el reset de contraseña",
+    };
+  }
+}
+
+/**
+ * Resetea la contraseña usando el token de Supabase
+ */
+export async function resetPassword(formData: FormData) {
+  const password = (formData.get("password") as string)?.trim() || "";
+  const confirmPassword = (formData.get("confirmPassword") as string)?.trim() || "";
+
+  // Validar con Zod
+  const parsed = resetPasswordSchema.safeParse({
+    password,
+    confirmPassword,
+  });
+
+  if (!parsed.success) {
+    console.error("❌ Error de validación:", parsed.error.flatten());
+    return {
+      success: false,
+      error: "Datos de formulario inválidos",
+      details: parsed.error.flatten(),
+    };
+  }
+
+  const supabase = await createClient();
+
+  try {
+    const { error } = await supabase.auth.updateUser({
+      password: parsed.data.password,
+    });
+
+    if (error) {
+      console.error("❌ Error actualizando contraseña:", error);
+      return {
+        success: false,
+        error: error.message || "Error al actualizar la contraseña",
+      };
+    }
+
+    console.log("✅ Contraseña actualizada exitosamente");
+    
+    // Redirigir al login después de éxito
+    revalidatePath("/", "layout");
+    redirect("/login?passwordReset=success");
+  } catch (error) {
+    console.error("💥 Error inesperado actualizando contraseña:", error);
+    return {
+      success: false,
+      error: "Error inesperado al actualizar la contraseña",
+    };
+  }
+}
+
+/**
+ * Verifica si el token de reset de contraseña es válido
+ */
+export async function verifyResetToken() {
+  const supabase = await createClient();
+
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+
+    if (error) {
+      console.error("❌ Error verificando token:", error);
+      return {
+        valid: false,
+        error: error.message || "Error al verificar el token",
+      };
+    }
+
+    // Si hay sesión, significa que el token es válido
+    if (session) {
+      return {
+        valid: true,
+      };
+    }
+
+    return {
+      valid: false,
+      error: "Token inválido o expirado",
+    };
+  } catch (error) {
+    console.error("💥 Error inesperado verificando token:", error);
+    return {
+      valid: false,
+      error: "Error inesperado al verificar el token",
+    };
+  }
 }
