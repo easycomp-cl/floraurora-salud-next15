@@ -140,7 +140,7 @@ export function useAuthState() {
           // Solo intentar cerrar sesión si hay una sesión válida
           await supabase.auth.signOut();
         }
-      } catch (signOutError) {
+      } catch {
         // Ignorar errores silenciosamente - ya limpiamos todo localmente
       }
       

@@ -45,7 +45,7 @@ export async function diagnoseEmailIssues() {
   console.log("2️⃣ Verificando conexión a Supabase...");
   try {
     const supabase = await createClient();
-    const { data: { user }, error } = await supabase.auth.getUser();
+    const { error } = await supabase.auth.getUser();
     
     if (error) {
       diagnosis.issues.push(`Error de conexión a Supabase: ${error.message}`);
@@ -125,7 +125,7 @@ export async function testEmailConfiguration(email: string) {
     
     // Test 1: Verificar que Supabase puede acceder a la configuración
     console.log("Test 1: Verificando acceso a configuración...");
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { error: userError } = await supabase.auth.getUser();
     
     if (userError) {
       console.log("❌ Error obteniendo usuario:", userError);

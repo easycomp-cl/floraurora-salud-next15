@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { resetPassword } from "@/lib/auth-actions";
+// Removed unused import: resetPassword
 import { createClient } from "@/utils/supabase/browser";
 
 type ResetState = {
@@ -155,7 +155,7 @@ export function ResetPasswordForm() {
       
       // Redirigir al login después de éxito
       router.push("/login?passwordReset=success");
-    } catch (error) {
+    } catch {
       setState({
         success: false,
         error: "Error inesperado al resetear la contraseña",

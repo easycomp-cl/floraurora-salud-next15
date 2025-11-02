@@ -23,7 +23,7 @@ export async function debugEmailConfiguration() {
   // Verificar conexión a Supabase
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.auth.getSession();
+    const { error } = await supabase.auth.getSession();
     
     if (error) {
       console.error("❌ Error de conexión a Supabase:", error);
@@ -84,8 +84,6 @@ export async function testEmailDelivery(email: string) {
   }
   
   try {
-    const supabase = await createClient();
-    
     // Simular envío de correo de confirmación
     console.log("📧 Simulando envío de correo a:", email);
     
