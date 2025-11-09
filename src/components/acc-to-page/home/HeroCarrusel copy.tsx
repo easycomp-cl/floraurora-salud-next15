@@ -1,19 +1,9 @@
 "use client";
 import logoImg from "../../Fotos/logo.png";
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 import trabajoImg from "../../Fotos/trabajo.jpg";
 import bienestarImg from "../../Fotos/bienestar.jpg";
-
-// Import Swiper React components
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, EffectFade, Autoplay } from 'swiper/modules';
-
-// Import Swiper styles
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/effect-fade';
-import './HeroCarrusel.css';
 
 // Estructura de un banner
 import { StaticImageData } from "next/image";
@@ -61,82 +51,177 @@ const banners: Banner[] = [
 ];
 
 export default function HeroCarrusel() {
+  const [current, setCurrent] = useState(0);
+  const [pending, setPending] = useState<number | null>(null);
+  const [direction, setDirection] = useState<'left' | 'right' | ''>('');
+
+  const nextSlide = () => {
+    if (pending !== null) return; // ignore while animating
+    const next = (current + 1) % banners.length;
+    setPending(next);
+    setDirection('left');
+    // after animation, commit
+    setTimeout(() => {
+      setCurrent(next);
+      setPending(null);
+      setDirection('');
+    }, 500);
+  };
+
+  const prevSlide = () => {
+    if (pending !== null) return;
+    const prev = (current - 1 + banners.length) % banners.length;
+    setPending(prev);
+    setDirection('right');
+    setTimeout(() => {
+      setCurrent(prev);
+      setPending(null);
+      setDirection('');
+    }, 500);
+  };
+
+  const banner = banners[current];
+
   return (
     <section className="hero-carrusel-adapt">
-      <Swiper
-        modules={[Navigation, EffectFade, Autoplay]}
-        navigation={{
-          prevEl: '.swiper-button-prev',
-          nextEl: '.swiper-button-next',
-        }}
-        effect="fade"
-        speed={800}
-        autoplay={{
-          delay: 5000,
-          disableOnInteraction: false,
-        }}
-        loop={true}
-        className="mySwiper"
+      {/* Render either a single slide (idle) or two slides when animating (pending !== null) */}
+      {pending === null ? (
+        // idle: single slide
+        !banner.isQuote ? (
+          <>
+            <div className="hero-carrusel-img-side">
+              <Image
+                src={banner.imagen}
+                alt="Equipo de trabajo FlorAurora"
+                fill
+                style={{ objectFit: "cover" }}
+                className="hero-carrusel-img"
+                priority
+              />
+            </div>
+            <div className="hero-carrusel-content-side">
+              <div className="hero-logo">
+                <Image
+                  src={logoImg}
+                  alt="Logo FlorAurora Salud"
+                  width={64}
+                  height={64}
+                  priority
+                />
+              </div>
+              <h1>{banner.titulo}</h1>
+              {banner.subtitulo && <h2>{banner.subtitulo}</h2>}
+              {banner.descripcion && <p>{banner.descripcion}</p>}
+              {banner.botonTexto && banner.botonUrl && (
+                <a href={banner.botonUrl} className="carrusel-btn">
+                  {banner.botonTexto}
+                </a>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="hero-carrusel-img-side" style={{ gridColumn: '1 / -1' }}>
+              <Image
+                src={banner.imagen}
+                alt="Imagen de bienestar"
+                fill
+                style={{ objectFit: "cover" }}
+                className="hero-carrusel-img"
+                priority
+              />
+            </div>
+            <div className={`quote-slide`}>
+              <div className="quote-container">
+                <h2 className="quote-text">{banner.titulo}</h2>
+              </div>
+            </div>
+          </>
+        )
+      ) : (
+        // animating: render both current (from) and pending (to)
+        (() => {
+          const from = banners[current];
+          const to = banners[pending];
+          const dirClass = direction === 'left' ? 'left' : 'right';
+          return (
+            <div className="slides-layer">
+              <div className={`slide from ${dirClass}`}>
+                {!from.isQuote ? (
+                  <>
+                    <div className="hero-carrusel-img-side">
+                      <Image
+                        src={from.imagen}
+                        alt="slide from image"
+                        fill
+                        style={{ objectFit: "cover" }}
+                        className="hero-carrusel-img"
+                        priority
+                      />
+                    </div>
+                    <div className="hero-carrusel-content-side">
+                      <div className="hero-logo">
+                        <Image src={logoImg} alt="Logo" width={64} height={64} priority />
+                      </div>
+                      <h1>{from.titulo}</h1>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="hero-carrusel-img-side" style={{ gridColumn: '1 / -1' }}>
+                      <Image src={from.imagen} alt="from quote bg" fill style={{ objectFit: 'cover' }} className="hero-carrusel-img" priority />
+                    </div>
+                    <div className="quote-slide">
+                      <div className="quote-container">
+                        <h2 className="quote-text">{from.titulo}</h2>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className={`slide to ${dirClass}`}>
+                {!to.isQuote ? (
+                  <>
+                    <div className="hero-carrusel-img-side">
+                      <Image
+                        src={to.imagen}
+                        alt="slide to image"
+                        fill
+                        style={{ objectFit: "cover" }}
+                        className="hero-carrusel-img"
+                        priority
+                      />
+                    </div>
+                    <div className="hero-carrusel-content-side">
+                      <div className="hero-logo">
+                        <Image src={logoImg} alt="Logo" width={64} height={64} priority />
+                      </div>
+                      <h1>{to.titulo}</h1>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="hero-carrusel-img-side" style={{ gridColumn: '1 / -1' }}>
+                      <Image src={to.imagen} alt="to quote bg" fill style={{ objectFit: 'cover' }} className="hero-carrusel-img" priority />
+                    </div>
+                    <div className="quote-slide">
+                      <div className="quote-container">
+                        <h2 className="quote-text">{to.titulo}</h2>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })()
+      )}
+      <button
+        className="carrusel-arrow left"
+        onClick={prevSlide}
+        aria-label="Anterior"
       >
-        {banners.map((banner, index) => (
-          <SwiperSlide key={index} className={banner.isQuote ? 'quote-slide' : ''}>
-            {!banner.isQuote ? (
-              <>
-                <div className="hero-carrusel-content-side">
-                  <div className="hero-logo">
-                    <Image
-                      src={logoImg}
-                      alt="Logo FlorAurora Salud"
-                      width={64}
-                      height={64}
-                      priority
-                    />
-                  </div>
-                  <h1>{banner.titulo}</h1>
-                  {banner.subtitulo && <h2>{banner.subtitulo}</h2>}
-                  {banner.descripcion && <p>{banner.descripcion}</p>}
-                  {banner.botonTexto && banner.botonUrl && (
-                    <a href={banner.botonUrl} className="carrusel-btn">
-                      {banner.botonTexto}
-                    </a>
-                  )}
-                </div>
-                <div className="hero-carrusel-img-side">
-                  <Image
-                    src={banner.imagen}
-                    alt="Equipo de trabajo FlorAurora"
-                    fill
-                    style={{ objectFit: "cover" }}
-                    className="hero-carrusel-img"
-                    priority
-                  />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="hero-carrusel-img-side" style={{ gridColumn: '1 / -1' }}>
-                  <Image
-                    src={banner.imagen}
-                    alt="Imagen de bienestar"
-                    fill
-                    style={{ objectFit: "cover" }}
-                    className="hero-carrusel-img"
-                    priority
-                  />
-                </div>
-                <div className={`quote-slide`}>
-                  <div className="quote-container">
-                    <h2 className="quote-text">{banner.titulo}</h2>
-                  </div>
-                </div>
-              </>
-            )}
-          </SwiperSlide>
-        ))}
-      </Swiper>
-      
-      {/* Botones de navegación personalizados */}
-      <button className="carrusel-arrow left swiper-button-prev" aria-label="Anterior">
         <svg
           width="24"
           height="24"
@@ -150,7 +235,11 @@ export default function HeroCarrusel() {
           <path d="m15 18-6-6 6-6" />
         </svg>
       </button>
-      <button className="carrusel-arrow right swiper-button-next" aria-label="Siguiente">
+      <button
+        className="carrusel-arrow right"
+        onClick={nextSlide}
+        aria-label="Siguiente"
+      >
         <svg
           width="24"
           height="24"
@@ -172,11 +261,8 @@ export default function HeroCarrusel() {
           height: 100%;
           background: #d1f5f0;
           overflow: hidden;
-        }
-        /* Cada slide controla su propio layout: evita que el contenedor padre se divida en dos columnas */
-        .swiper-slide {
           display: grid;
-          grid-template-columns: 55% 45%; /* contenido a la izquierda, imagen a la derecha */
+          grid-template-columns: 1fr 1fr;
           align-items: stretch;
         }
         .hero-carrusel-img-side {
@@ -204,13 +290,13 @@ export default function HeroCarrusel() {
           text-align: center;
           padding: 3rem 2rem;
           margin: 2rem 0 2rem 2rem;
-          height: 80%;
+          height: 100%;
         }
         .hero-logo {
           margin-bottom: 1.5rem;
         }
         .hero-carrusel-content-side h1 {
-          font-size: 5rem;
+          font-size: 3rem;
           font-weight: bold;
           margin-bottom: 1rem;
           color: #002b2b;
@@ -343,13 +429,8 @@ export default function HeroCarrusel() {
           backdrop-filter: blur(4px);
           width: 80%;
           max-width: 1000px;
-          max-height: 70vh; /* no ocupar todo el alto, limitar altura */
-          height: auto;
-          overflow: auto; /* si el contenido crece, permitir scroll dentro de la caja */
           border-radius: 1rem;
           z-index: 3;
-          padding: 2rem;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
         }
         .quote-container {
           padding: 3rem;

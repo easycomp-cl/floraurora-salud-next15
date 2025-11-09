@@ -1,0 +1,99 @@
+.hero-carrusel-adapt {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.hero-carrusel-adapt .swiper {
+  width: 100%;
+  height: 100%;
+}
+
+.hero-carrusel-adapt .swiper-slide {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+/* Ocultar los botones de navegación por defecto de Swiper */
+.hero-carrusel-adapt .swiper-button-next,
+.hero-carrusel-adapt .swiper-button-prev {
+  display: none;
+}
+
+/* Mantener los estilos de los botones personalizados */
+.carrusel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.carrusel-arrow:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.carrusel-arrow.left {
+  left: 20px;
+}
+
+.carrusel-arrow.right {
+  right: 20px;
+}
+
+/* Efecto fade para las transiciones */
+.swiper-fade .swiper-slide {
+  opacity: 0 !important;
+  transition: opacity 0.8s ease;
+}
+
+.swiper-fade .swiper-slide-active {
+  opacity: 1 !important;
+}
+
+/* Mantener los estilos existentes para el contenido */
+.hero-carrusel-img-side {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-carrusel-content-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Estilo para las diapositivas de citas */
+.quote-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.quote-container {
+  max-width: 800px;
+  padding: 2rem;
+  text-align: center;
+  color: white;
+}

@@ -2,6 +2,7 @@
 
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useEffect } from "react";
+import PatientDatatable from "@/components/acc-to-page/dashboard/PatientDatatable";
 
 export default function DashboardPage() {
   const { user, session, isLoading, isAuthenticated } = useAuthState();
@@ -50,8 +51,43 @@ export default function DashboardPage() {
             Dashboard de FlorAurora Salud
           </h1>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Información del usuario */}
+          <div className="mb-6">
+            {/* Acciones rápidas */}
+            <div className="w-full">
+              <div className="bg-purple-50 p-6 rounded-lg">
+                <h2 className="text-xl font-semibold text-purple-900 mb-4">
+                  Acciones Rápidas
+                </h2>
+                <div className="flex gap-6 justify-between">
+                  <a
+                    href="/dashboard/appointments" 
+                    className="flex-1 bg-purple-600 text-white py-1.5 px-3 rounded text-sm hover:bg-purple-700 text-center"
+                  >
+                    Ver Citas
+                  </a>
+                  <a
+                    href="/dashboard/sessions"
+                    className="flex-1 bg-purple-600 text-white py-1.5 px-3 rounded text-sm hover:bg-purple-700 text-center"
+                  >
+                    Ver Sesiones
+                  </a>
+                  <a
+                    href="/dashboard/profile"
+                    className="flex-1 bg-purple-600 text-white py-1.5 px-3 rounded text-sm hover:bg-purple-700 text-center"
+                  >
+                    Editar Perfil
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* separar según rol */}
+          <PatientDatatable />
+
+
+          {/*<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+             Información del usuario 
             <div className="bg-blue-50 p-6 rounded-lg">
               <h2 className="text-xl font-semibold text-blue-900 mb-4">
                 Información del Usuario
@@ -74,7 +110,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Estado de la sesión */}
+             Estado de la sesión 
             <div className="bg-green-50 p-6 rounded-lg">
               <h2 className="text-xl font-semibold text-green-900 mb-4">
                 Estado de la Sesión
@@ -100,35 +136,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Acciones rápidas */}
-            <div className="bg-purple-50 p-6 rounded-lg">
-              <h2 className="text-xl font-semibold text-purple-900 mb-4">
-                Acciones Rápidas
-              </h2>
-              <div className="space-y-3">
-                <a
-                  href="/dashboard/appointments"
-                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
-                >
-                  Ver Citas
-                </a>
-                <a
-                  href="/dashboard/sessions"
-                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
-                >
-                  Ver Sesiones
-                </a>
-                <a
-                  href="/dashboard/profile"
-                  className="block w-full bg-purple-600 text-white py-2 px-4 rounded hover:bg-purple-700 text-center"
-                >
-                  Editar Perfil
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Debug adicional */}
+          {/* Debug adicional 
           <div className="mt-8 p-4 bg-gray-100 rounded-lg">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               Información de Debug
@@ -160,6 +168,7 @@ export default function DashboardPage() {
               )}
             </pre>
           </div>
+          */}
         </div>
       </div>
     </div>
