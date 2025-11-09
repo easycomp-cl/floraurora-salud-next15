@@ -99,7 +99,6 @@ export default function PatientDatatable() {
       globalFilter,
       sorting,
     },
-    onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
