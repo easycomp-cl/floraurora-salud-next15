@@ -1,5 +1,19 @@
 import React from "react";
-import { Home, User, HeartPulse, Briefcase, AtSign, Settings, Calendar, MonitorCog, Clock } from "lucide-react";
+import {
+  Home,
+  User,
+  HeartPulse,
+  Briefcase,
+  AtSign,
+  LayoutDashboard,
+  Calendar,
+  MonitorCog,
+  Clock,
+  Users,
+  BarChart3,
+  ShieldCheck,
+  Settings2,
+} from "lucide-react";
 
 export interface NavSubItem {
   label: string;
@@ -71,32 +85,91 @@ export const navItems: NavItem[] = [
   },
 ];
 
+const dashboardNavItem: NavItem = {
+  label: "Dashboard",
+  href: "/dashboard",
+  icon: LayoutDashboard,
+  description: "Panel principal",
+};
+
+const appointmentsNavItem: NavItem = {
+  label: "Agendar Cita",
+  href: "/dashboard/appointments",
+  icon: Calendar,
+  description: "Gestiona tus citas",
+};
+
+const sessionsNavItem: NavItem = {
+  label: "Citas programadas",
+  href: "/dashboard/sessions",
+  icon: Calendar,
+  description: "Historial de citas",
+};
+
+const profileNavItem: NavItem = {
+  label: "Perfil",
+  href: "/dashboard/profile",
+  icon: User,
+  description: "Tu perfil personal",
+};
+
 export const baseAuthenticatedNavItems: NavItem[] = [
+  dashboardNavItem,
+  sessionsNavItem,
+  profileNavItem,
+];
+
+export const adminNavigationItems: NavItem[] = [
+
   {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: Settings,
-    description: "Panel principal",
+    label: "Usuarios",
+    href: "/admin/users",
+    icon: Users,
+    description: "Gestiona pacientes, profesionales y administradores",
   },
   {
-    label: "Citas",
-    href: "/dashboard/appointments",
-    icon: Calendar,
-    description: "Gestiona tus citas",
+    label: "Profesionales",
+    href: "/admin/professionals",
+    icon: Briefcase,
+    description: "Administra perfiles y disponibilidad de profesionales",
   },
   {
-    label: "Sesiones",
-    href: "/dashboard/sessions",
-    icon: Calendar,
-    description: "Historial de sesiones",
+    label: "Servicios",
+    href: "/admin/services",
+    icon: MonitorCog,
+    description: "Configura servicios y tarifas ofrecidas",
   },
   {
-    label: "Perfil",
-    href: "/dashboard/profile",
-    icon: User,
-    description: "Tu perfil personal",
+    label: "Reportes",
+    href: "/admin/reports",
+    icon: BarChart3,
+    description: "Estadísticas y reportes descargables",
+  },
+  {
+    label: "Configuración",
+    href: "/admin/settings",
+    icon: Settings2,
+    description: "Plantillas, horarios y carrusel del sitio",
+  },
+  {
+    label: "Auditoría",
+    href: "/admin/audit",
+    icon: ShieldCheck,
+    description: "Registro de acciones administrativas",
   },
 ];
+
+const adminMenuNavItem: NavItem = {
+  label: "Panel administrativo",
+  href: "/admin",
+  icon: LayoutDashboard,
+  description: "Accesos rápidos a herramientas administrativas",
+  subItems: adminNavigationItems.map((item) => ({
+    label: item.label,
+    href: item.href,
+    description: item.description,
+  })),
+};
 
 // Elementos adicionales para profesionales
 export const professionalNavItems: NavItem[] = [
@@ -110,7 +183,15 @@ export const professionalNavItems: NavItem[] = [
 
 // Función para obtener elementos de navegación basados en el rol
 export function getAuthenticatedNavItems(userRole?: number): NavItem[] {
+  if (userRole === 1) {
+    return [dashboardNavItem, adminMenuNavItem, profileNavItem];
+  }
+
   const items = [...baseAuthenticatedNavItems];
+  
+  if (userRole === 2) {
+    items.splice(1, 0, appointmentsNavItem);
+  }
   
   // Agregar elementos específicos para profesionales
   if (userRole === 3) {

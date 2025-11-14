@@ -6,14 +6,14 @@ import trabajoImg from "../../Fotos/trabajo.jpg";
 import bienestarImg from "../../Fotos/bienestar.jpg";
 
 // Import Swiper React components
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Navigation, EffectFade, Autoplay } from 'swiper/modules';
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Navigation, EffectFade, Autoplay } from "swiper/modules";
 
 // Import Swiper styles
-import 'swiper/css';
-import 'swiper/css/navigation';
-import 'swiper/css/effect-fade';
-import './HeroCarrusel.css';
+import "swiper/css";
+import "swiper/css/navigation";
+import "swiper/css/effect-fade";
+import "./HeroCarrusel.css";
 
 // Estructura de un banner
 import { StaticImageData } from "next/image";
@@ -27,6 +27,19 @@ type Banner = {
   isQuote?: boolean; // Indica si es una diapositiva de frase
 };
 
+type RemoteCarouselItem = {
+  id: number;
+  title: string | null;
+  message: string | null;
+  image_url: string | null;
+  cta_label: string | null;
+  cta_link: string | null;
+};
+
+type CarouselResponse = {
+  data?: RemoteCarouselItem[];
+};
+
 // Array de frases de bienestar y psicología
 const frasesBienestar = [
   "La mente es como un jardín: lo que cultives es lo que florecerá",
@@ -38,36 +51,91 @@ const frasesBienestar = [
   "Respira profundo: el presente es tu mejor aliado",
   "Tu bienestar emocional marca el ritmo de tu vida",
   "La transformación personal comienza con la autoconciencia",
-  "Cultivar la paz interior es el camino hacia la felicidad"
-];
-
-// Selecciona una frase aleatoria
-const fraseAleatoria = frasesBienestar[Math.floor(Math.random() * frasesBienestar.length)];
-
-// Ejemplo de banners administrables (puedes reemplazar por props o datos dinámicos)
-const banners: Banner[] = [
-  {
-    titulo: "FlorAurora Salud",
-    descripcion: "Cuidamos el bienestar de las personas, desde la raíz",
-    botonTexto: "Agenda una consulta",
-    botonUrl: "/agenda",
-    imagen: trabajoImg,
-  },
-  {
-    titulo: fraseAleatoria,
-    imagen: bienestarImg,
-    isQuote: true,
-  },
+  "Cultivar la paz interior es el camino hacia la felicidad",
 ];
 
 export default function HeroCarrusel() {
+  const [fraseSeleccionada, setFraseSeleccionada] = React.useState<string>(
+    frasesBienestar[0]
+  );
+  const [remoteBanners, setRemoteBanners] = React.useState<Banner[]>([]);
+
+  React.useEffect(() => {
+    if (frasesBienestar.length < 2) {
+      setFraseSeleccionada(frasesBienestar[0] ?? "");
+      return;
+    }
+
+    setFraseSeleccionada((fraseActual) => {
+      let nuevaFrase = fraseActual;
+
+      while (nuevaFrase === fraseActual) {
+        nuevaFrase =
+          frasesBienestar[Math.floor(Math.random() * frasesBienestar.length)];
+      }
+
+      return nuevaFrase;
+    });
+  }, []);
+
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const loadCarousel = async () => {
+      try {
+        const response = await fetch("/api/public/carousel", { cache: "no-store" });
+        if (!response.ok) return;
+        const payload: CarouselResponse = await response.json();
+        if (!isMounted) return;
+        const mapped: Banner[] = (payload.data ?? []).map((item) => ({
+          titulo: item.title ?? "FlorAurora Salud",
+          descripcion: item.message ?? undefined,
+          botonTexto: item.cta_label ?? undefined,
+          botonUrl: item.cta_link ?? undefined,
+          imagen: item.image_url ?? trabajoImg,
+        }));
+        setRemoteBanners(mapped);
+      } catch (error) {
+        console.warn("[HeroCarrusel] No se pudo cargar el carrusel dinámico", error);
+      }
+    };
+
+    loadCarousel();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const banners: Banner[] = React.useMemo(() => {
+    const baseBanners =
+      remoteBanners.length > 0
+        ? remoteBanners
+        : [
+            {
+              titulo: "FlorAurora Salud",
+              descripcion: "Cuidamos el bienestar de las personas, desde la raíz",
+              botonTexto: "Agenda una consulta",
+              botonUrl: "/agenda",
+              imagen: trabajoImg,
+            },
+          ];
+    return [
+      ...baseBanners,
+      {
+        titulo: fraseSeleccionada,
+        imagen: bienestarImg,
+        isQuote: true,
+      },
+    ];
+  }, [remoteBanners, fraseSeleccionada]);
+
   return (
     <section className="hero-carrusel-adapt">
       <Swiper
         modules={[Navigation, EffectFade, Autoplay]}
         navigation={{
-          prevEl: '.swiper-button-prev',
-          nextEl: '.swiper-button-next',
+          prevEl: ".swiper-button-prev",
+          nextEl: ".swiper-button-next",
         }}
         effect="fade"
         speed={800}
@@ -79,7 +147,10 @@ export default function HeroCarrusel() {
         className="mySwiper"
       >
         {banners.map((banner, index) => (
-          <SwiperSlide key={index} className={banner.isQuote ? 'quote-slide' : ''}>
+          <SwiperSlide
+            key={index}
+            className={banner.isQuote ? "quote-slide" : ""}
+          >
             {!banner.isQuote ? (
               <>
                 <div className="hero-carrusel-content-side">
@@ -106,22 +177,27 @@ export default function HeroCarrusel() {
                     src={banner.imagen}
                     alt="Equipo de trabajo FlorAurora"
                     fill
+                    sizes="(max-width: 900px) 100vw, 45vw"
                     style={{ objectFit: "cover" }}
                     className="hero-carrusel-img"
-                    priority
+                    priority={index === 0}
                   />
                 </div>
               </>
             ) : (
               <>
-                <div className="hero-carrusel-img-side" style={{ gridColumn: '1 / -1' }}>
+                <div
+                  className="hero-carrusel-img-side"
+                  style={{ gridColumn: "1 / -1" }}
+                >
                   <Image
                     src={banner.imagen}
                     alt="Imagen de bienestar"
                     fill
+                    sizes="(max-width: 900px) 100vw, 80vw"
                     style={{ objectFit: "cover" }}
                     className="hero-carrusel-img"
-                    priority
+                    priority={index === 0}
                   />
                 </div>
                 <div className={`quote-slide`}>
@@ -134,9 +210,12 @@ export default function HeroCarrusel() {
           </SwiperSlide>
         ))}
       </Swiper>
-      
+
       {/* Botones de navegación personalizados */}
-      <button className="carrusel-arrow left swiper-button-prev" aria-label="Anterior">
+      <button
+        className="carrusel-arrow left swiper-button-prev"
+        aria-label="Anterior"
+      >
         <svg
           width="24"
           height="24"
@@ -150,7 +229,10 @@ export default function HeroCarrusel() {
           <path d="m15 18-6-6 6-6" />
         </svg>
       </button>
-      <button className="carrusel-arrow right swiper-button-next" aria-label="Siguiente">
+      <button
+        className="carrusel-arrow right swiper-button-next"
+        aria-label="Siguiente"
+      >
         <svg
           width="24"
           height="24"
@@ -178,6 +260,7 @@ export default function HeroCarrusel() {
           display: grid;
           grid-template-columns: 55% 45%; /* contenido a la izquierda, imagen a la derecha */
           align-items: stretch;
+          min-height: 500px;
         }
         .hero-carrusel-img-side {
           position: relative;
@@ -308,6 +391,12 @@ export default function HeroCarrusel() {
             flex-direction: column;
             align-items: center;
             justify-content: center;
+            position: relative;
+          }
+          .swiper-slide {
+            display: block;
+            min-height: 420px;
+            position: relative;
           }
           .carrusel-arrow {
             top: 50%;
@@ -349,7 +438,7 @@ export default function HeroCarrusel() {
           border-radius: 1rem;
           z-index: 3;
           padding: 2rem;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
         }
         .quote-container {
           padding: 3rem;
@@ -423,20 +512,44 @@ export default function HeroCarrusel() {
         }
 
         @keyframes outToLeft {
-          0% { transform: translateX(0); opacity: 1; }
-          100% { transform: translateX(-100%); opacity: 0; }
+          0% {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
         }
         @keyframes inFromRight {
-          0% { transform: translateX(100%); opacity: 0; }
-          100% { transform: translateX(0); opacity: 1; }
+          0% {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          100% {
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
         @keyframes outToRight {
-          0% { transform: translateX(0); opacity: 1; }
-          100% { transform: translateX(100%); opacity: 0; }
+          0% {
+            transform: translateX(0);
+            opacity: 1;
+          }
+          100% {
+            transform: translateX(100%);
+            opacity: 0;
+          }
         }
         @keyframes inFromLeft {
-          0% { transform: translateX(-100%); opacity: 0; }
-          100% { transform: translateX(0); opacity: 1; }
+          0% {
+            transform: translateX(-100%);
+            opacity: 0;
+          }
+          100% {
+            transform: translateX(0);
+            opacity: 1;
+          }
         }
       `}</style>
     </section>

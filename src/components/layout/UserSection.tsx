@@ -3,7 +3,11 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { ChevronDown, LogOut, User, Briefcase } from "lucide-react";
 import { useAuthState } from "@/lib/hooks/useAuthState";
-import { getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
+import {
+  adminNavigationItems,
+  getAuthenticatedNavItems,
+  NavItem,
+} from "@/lib/navigation";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
 
 export default function UserSection() {
@@ -14,7 +18,15 @@ export default function UserSection() {
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Obtener elementos de navegación basados en el rol del usuario
-  const authenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
+  // Para admin, filtrar el item "Panel administrativo" ya que se mostrará en sección separada
+  const allAuthenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
+  const authenticatedNavItems =
+    userProfile?.role === 1
+      ? allAuthenticatedNavItems.filter(
+          (item) => item.label !== "Panel administrativo"
+        )
+      : allAuthenticatedNavItems;
+  const adminNavItems = userProfile?.role === 1 ? adminNavigationItems : [];
 
   const handleCloseDropdown = () => {
     setIsClosing(true);
@@ -175,6 +187,25 @@ export default function UserSection() {
               <span>{item.label}</span>
             </Link>
           ))}
+
+          {adminNavItems.length > 0 && (
+            <>
+              <div className="px-4 pt-3 pb-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                Panel administrativo
+              </div>
+              {adminNavItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={handleNavItemClick}
+                >
+                  <item.icon className="w-4 h-4" />
+                  <span>{item.label}</span>
+                </Link>
+              ))}
+            </>
+          )}
 
           <div className="border-t border-gray-100 mt-2 pt-2">
             <button

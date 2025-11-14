@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { Menu, X, ChevronDown, User, Briefcase } from "lucide-react";
-import { navItems, getAuthenticatedNavItems, NavItem } from "@/lib/navigation";
+import { navItems, getAuthenticatedNavItems, adminNavigationItems, NavItem } from "@/lib/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useMobileMenu } from "@/lib/hooks/useMobileMenu";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
@@ -24,6 +24,7 @@ const MobileNav = () => {
 
   // Obtener elementos de navegación basados en el rol del usuario
   const authenticatedNavItems = getAuthenticatedNavItems(userProfile?.role);
+  const isAdmin = userProfile?.role === 1;
 
   const handleSignOut = async () => {
     try {
@@ -51,6 +52,12 @@ const MobileNav = () => {
   };
 
   const renderNavItem = (item: NavItem) => {
+    // Para items con subItems en navegación de marketing, mantener dropdown
+    // Para "Panel administrativo" en autenticado, mostrar como sección con título
+    if (item.subItems && item.label === "Panel administrativo") {
+      return null; // Se manejará por separado
+    }
+
     if (item.subItems) {
       return (
         <div key={item.label} className="border-b border-gray-200">
@@ -148,14 +155,42 @@ const MobileNav = () => {
 
             {/* Separador para usuarios autenticados */}
             {isAuthenticated && (
-              <div className="border-b border-gray-200">
-                <div className="px-4 py-3 bg-gray-50">
-                  <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                    Mi Cuenta
-                  </span>
+              <>
+                <div className="border-b border-gray-200">
+                  <div className="px-4 py-3 bg-gray-50">
+                    <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                      Mi Cuenta
+                    </span>
+                  </div>
+                  {authenticatedNavItems
+                    .filter(item => item.label !== "Panel administrativo")
+                    .map(renderNavItem)}
                 </div>
-                {authenticatedNavItems.map(renderNavItem)}
-              </div>
+                
+                {/* Panel administrativo como sección separada para admin */}
+                {isAdmin && (
+                  <div className="border-b border-gray-200">
+                    <div className="px-4 py-3 bg-gray-50">
+                      <span className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+                        Panel administrativo
+                      </span>
+                    </div>
+                    {adminNavigationItems.map((item, index) => (
+                      <Link
+                        key={item.label}
+                        href={item.href}
+                        className={`flex items-center space-x-3 py-3 px-4 text-gray-700 hover:text-gray-900 hover:bg-gray-50 ${
+                          index < adminNavigationItems.length - 1 ? "border-b border-gray-200" : ""
+                        }`}
+                        onClick={handleNavItemClick}
+                      >
+                        <item.icon className="w-5 h-5" />
+                        <span className="font-medium">{item.label}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* Botones de autenticación */}

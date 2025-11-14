@@ -437,60 +437,345 @@ export async function signup(formData: FormData) {
 }
 
 export async function signupPro(formData: FormData) {
-  const supabase = await createClient();
-  // Aquí solo haremos parsing y guardaremos la solicitud en una tabla
-  // Ej: professional_requests con estado "pending". El admin aprobará/rechazará.
+  const admin = createAdminServer();
 
-  const full_name = (formData.get("full_name") as string)?.trim() || "";
+  // Obtener datos del formulario
+  const first_name = (formData.get("first_name") as string)?.trim() || "";
+  const last_name_p = (formData.get("last_name_p") as string)?.trim() || "";
+  const last_name_m = (formData.get("last_name_m") as string)?.trim() || "";
+  const full_name = `${first_name} ${last_name_p} ${last_name_m}`.trim();
   const rut = (formData.get("rut") as string)?.trim() || "";
   const birth_date = (formData.get("birth_date") as string) || "";
+  const email = (formData.get("email") as string)?.toLowerCase().trim() || "";
+  const phone_number = (formData.get("phone_number") as string)?.trim() || "";
   const university = (formData.get("university") as string)?.trim() || "";
+  const profession = (formData.get("profession") as string)?.trim() || "";
   const study_year_start = (formData.get("study_year_start") as string)?.trim() || "";
   const study_year_end = (formData.get("study_year_end") as string)?.trim() || "";
   const extra_studies = (formData.get("extra_studies") as string)?.trim() || "";
   const superintendence_number = (formData.get("superintendence_number") as string)?.trim() || "";
 
-  // Subir archivo al storage (si está configurado). Bucket: 'docs'
-  const degree_copy = formData.get("degree_copy") as File | null;
-  let degree_copy_url: string | null = null;
-  if (degree_copy && degree_copy.size) {
-    const arrayBuffer = await degree_copy.arrayBuffer();
-    const fileBytes = new Uint8Array(arrayBuffer);
-    const ext = degree_copy.type.includes("pdf") ? "pdf" : degree_copy.type.includes("png") ? "png" : "jpg";
-    const path = `professional-degrees/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from("docs")
-      .upload(path, fileBytes, {
-        contentType: degree_copy.type,
-        upsert: false,
-      });
-    if (!uploadError && uploadData) {
-      const { data: publicUrl } = supabase.storage.from("docs").getPublicUrl(uploadData.path);
-      degree_copy_url = publicUrl.publicUrl;
+  // Validar que tenemos email
+  if (!email) {
+    console.error("Email es requerido");
+    redirect("/signup-pro?error=email-required");
+  }
+
+  // Verificar si ya existe una solicitud para este email
+  const { data: existingRequest } = await admin
+    .from("professional_requests")
+    .select("id, status, email, user_id")
+    .eq("email", email)
+    .maybeSingle();
+  
+  // Solo bloquear si hay una solicitud pendiente (en revisión activa)
+  // Permitir actualizar si está rechazada o reenviada
+  if (existingRequest && existingRequest.status === "pending") {
+    console.error("Ya existe una solicitud pendiente para este email:", email);
+    redirect("/signup-pro?error=request-pending");
+  }
+  
+  // Si existe una solicitud rechazada o reenviada, la actualizaremos en lugar de crear una nueva
+  const isResubmission = existingRequest && (existingRequest.status === "rejected" || existingRequest.status === "resubmitted");
+
+  let userId: string;
+  
+  // Si es un reenvío, usar el usuario existente y actualizar datos
+  if (isResubmission && existingRequest?.user_id) {
+    userId = existingRequest.user_id;
+    console.log("Reenvío de solicitud rechazada, usando usuario existente:", userId);
+    
+    // Actualizar datos del usuario en public.users
+    const { error: userUpdateError } = await admin.from("users")
+      .update({
+        name: first_name,
+        last_name: `${last_name_p} ${last_name_m}`.trim(),
+        phone_number,
+        rut,
+        is_active: false, // Mantener inactivo hasta nueva aprobación
+      })
+      .eq("user_id", userId);
+    
+    if (userUpdateError) {
+      console.error("Error al actualizar usuario en reenvío:", userUpdateError);
+      redirect("/signup-pro?error=user-update-failed");
+    }
+  } else {
+    // Verificar si el usuario ya existe en public.users primero (más rápido)
+    const { data: existingPublicUser } = await admin
+      .from("users")
+      .select("id, email, role")
+      .eq("email", email)
+      .maybeSingle();
+    
+    if (existingPublicUser) {
+      console.error("Usuario ya existe en public.users:", email);
+      redirect("/signup-pro?error=user-exists");
+    }
+    
+    // También verificar en auth.users antes de crear
+    // Listar usuarios y buscar por email (más eficiente que intentar crear y fallar)
+    try {
+      const { data: authUsers } = await admin.auth.admin.listUsers();
+      const existingAuthUser = authUsers?.users?.find(
+        (user) => user.email?.toLowerCase() === email.toLowerCase()
+      );
+      
+      if (existingAuthUser) {
+        console.error("Usuario ya existe en auth.users:", email);
+        redirect("/signup-pro?error=user-exists");
+      }
+    } catch (error) {
+      console.error("Error al verificar usuarios en auth:", error);
+      // Continuar con el registro si no podemos verificar
+    }
+
+    // Generar contraseña temporal (el usuario la cambiará después de aprobación)
+    const tempPassword = `Temp${Math.random().toString(36).slice(2, 15)}!${Math.random().toString(36).slice(2, 8)}`;
+
+    // 1. Crear usuario en auth.users
+    const { data: signUpData, error: signUpError } = await admin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: false, // No confirmado hasta que admin apruebe
+      user_metadata: {
+        full_name,
+        email,
+        role: "professional",
+      },
+    });
+
+    if (signUpError || !signUpData.user) {
+      console.error("Error al crear usuario en auth:", signUpError);
+      // Si el error es que el usuario ya existe, redirigir con ese mensaje
+      if (signUpError?.message?.includes("already registered") || signUpError?.message?.includes("already exists")) {
+        redirect("/signup-pro?error=user-exists");
+      }
+      redirect("/signup-pro?error=signup-failed");
+    }
+
+    userId = signUpData.user.id;
+
+    // 2. Crear registro en public.users con role=3 (profesional) y estado pendiente
+    // Usar admin client para bypass RLS
+    const { error: userInsertError } = await admin.from("users").insert({
+      user_id: userId,
+      email,
+      name: first_name,
+      last_name: `${last_name_p} ${last_name_m}`.trim(),
+      role: 3, // Profesional
+      is_active: false, // Inactivo hasta aprobación
+      phone_number,
+      rut,
+    });
+
+    if (userInsertError) {
+      console.error("Error al crear usuario en public.users:", userInsertError);
+      // Intentar eliminar el usuario de auth si falla la inserción
+      await admin.auth.admin.deleteUser(userId);
+      redirect("/signup-pro?error=user-creation-failed");
     }
   }
 
-  const { error } = await supabase.from("professional_requests").insert({
-    full_name,
-    rut,
-    birth_date,
-    university,
-    study_year_start,
-    study_year_end,
-    extra_studies,
-    superintendence_number,
-    degree_copy_url,
-    status: "pending",
-    created_at: new Date().toISOString(),
-  });
+  // 3. Obtener URLs de archivos (ya subidos desde el cliente) o archivos directamente
+  const temp_user_id = (formData.get("temp_user_id") as string) || "";
+  const degree_copy_url = (formData.get("degree_copy_url") as string) || null;
+  const id_copy_url = (formData.get("id_copy_url") as string) || null;
+  const professional_certificate_url = (formData.get("professional_certificate_url") as string) || null;
+  
+  // Obtener URLs de certificados adicionales (JSON array)
+  let additional_certificates_urls: string[] = [];
+  try {
+    const additionalCertsJson = formData.get("additional_certificates_urls");
+    if (additionalCertsJson && typeof additionalCertsJson === "string") {
+      additional_certificates_urls = JSON.parse(additionalCertsJson);
+    }
+  } catch (error) {
+    console.error("Error al parsear certificados adicionales:", error);
+  }
 
-  if (error) {
-    console.error("Error al guardar solicitud profesional:", error);
-    redirect("/error");
+  // 4. Si los archivos fueron subidos con temp_user_id, reorganizarlos a la carpeta del usuario real
+  let final_degree_copy_url: string | null = degree_copy_url;
+  let final_id_copy_url: string | null = id_copy_url;
+  let final_professional_certificate_url: string | null = professional_certificate_url;
+
+  if (temp_user_id && userId) {
+    const reorganizeFile = async (url: string | null, folder: string, fileType: string): Promise<string | null> => {
+      if (!url) return url;
+      
+      try {
+        // Extraer el path del archivo desde la URL (puede ser pública o firmada)
+        const urlObj = new URL(url);
+        let oldPath: string | undefined;
+        
+        // Intentar extraer de URL pública
+        if (urlObj.pathname.includes("/storage/v1/object/public/documents/")) {
+          oldPath = urlObj.pathname.split("/storage/v1/object/public/documents/")[1];
+        }
+        // Intentar extraer de URL firmada (signed URL)
+        else if (urlObj.pathname.includes("/storage/v1/object/sign/documents/")) {
+          oldPath = urlObj.pathname.split("/storage/v1/object/sign/documents/")[1];
+          // Remover parámetros de query si existen
+          if (oldPath.includes("?")) {
+            oldPath = oldPath.split("?")[0];
+          }
+        }
+        
+        if (!oldPath) {
+          console.warn("No se pudo extraer el path de la URL:", url);
+          return url;
+        }
+        
+        // Crear nuevo path con estructura organizada: folder/userId/tipo-documento_userId_timestamp.ext
+        const pathParts = oldPath.split("/");
+        const oldFileName = pathParts[pathParts.length - 1];
+        const ext = oldFileName.split(".").pop() || "pdf";
+        
+        // Nombre descriptivo del archivo: tipo-documento_userId_timestamp.ext
+        const timestamp = Date.now();
+        const newFileName = `${fileType}_${userId}_${timestamp}.${ext}`;
+        const newPath = `${folder}/${userId}/${newFileName}`;
+        
+        // Mover el archivo (copiar y luego eliminar el original)
+        // Usar admin client para bypass RLS en storage
+        const { data: copyData, error: copyError } = await admin.storage
+          .from("documents")
+          .copy(oldPath, newPath);
+        
+        if (!copyError && copyData) {
+          // Eliminar el archivo original
+          await admin.storage.from("documents").remove([oldPath]);
+          
+          // Obtener URL firmada (signed URL) con expiración de 1 año
+          // Las URLs públicas no funcionan si el bucket no es público
+          const { data: signedUrlData, error: signedUrlError } = await admin.storage
+            .from("documents")
+            .createSignedUrl(newPath, 31536000); // 1 año en segundos
+          
+          if (!signedUrlError && signedUrlData?.signedUrl) {
+            return signedUrlData.signedUrl;
+          }
+          
+          // Si falla la URL firmada, intentar URL pública como fallback
+          const { data: publicUrl } = admin.storage.from("documents").getPublicUrl(newPath);
+          return publicUrl.publicUrl;
+        }
+        
+        // Si falla la reorganización, mantener la URL original
+        return url;
+      } catch (error) {
+        console.error("Error al reorganizar archivo:", error);
+        return url; // Mantener URL original si falla
+      }
+    };
+
+    // Reorganizar archivos en paralelo con nombres descriptivos
+    const [reorganized_degree_url, reorganized_id_url, reorganized_cert_url] = await Promise.all([
+      reorganizeFile(degree_copy_url, "professional-degrees", "titulo-universitario"),
+      reorganizeFile(id_copy_url, "id-copies", "cedula-identidad"),
+      reorganizeFile(professional_certificate_url, "professional-certificates", "certificado-profesional"),
+    ]);
+
+    // Usar URLs reorganizadas
+    final_degree_copy_url = reorganized_degree_url;
+    final_id_copy_url = reorganized_id_url;
+    final_professional_certificate_url = reorganized_cert_url;
+    
+    // Reorganizar certificados adicionales
+    if (additional_certificates_urls.length > 0) {
+      const reorganizedAdditionalCerts = await Promise.all(
+        additional_certificates_urls.map((url, index) =>
+          reorganizeFile(url, "additional-certificates", `certificado-adicional-${index + 1}`)
+        )
+      );
+      additional_certificates_urls = reorganizedAdditionalCerts.filter((url): url is string => url !== null);
+    }
+  }
+
+  // 5. Guardar o actualizar solicitud en professional_requests
+  // Usar admin client para bypass RLS
+  if (isResubmission && existingRequest?.id) {
+    // Actualizar solicitud existente rechazada o reenviada
+    // Siempre cambiar a "resubmitted" para indicar que fue actualizada
+    const { error: requestError } = await admin.from("professional_requests")
+      .update({
+        full_name,
+        rut,
+        birth_date,
+        phone_number,
+        university,
+        profession,
+        study_year_start,
+        study_year_end,
+        extra_studies,
+        superintendence_number,
+        degree_copy_url: final_degree_copy_url,
+        id_copy_url: final_id_copy_url,
+        professional_certificate_url: final_professional_certificate_url,
+        additional_certificates_urls: additional_certificates_urls.length > 0 ? JSON.stringify(additional_certificates_urls) : null,
+        status: "resubmitted", // Cambiar estado a reenviada (siempre, incluso si ya estaba en resubmitted)
+        rejection_reason: null, // Limpiar motivo de rechazo anterior
+        reviewed_by: null, // Limpiar revisión anterior
+        reviewed_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", existingRequest.id);
+
+    if (requestError) {
+      console.error("Error al actualizar solicitud profesional:", requestError);
+      redirect("/signup-pro?error=request-update-failed");
+    }
+  } else {
+    // Crear nueva solicitud
+    const { error: requestError } = await admin.from("professional_requests").insert({
+      user_id: userId,
+      full_name,
+      rut,
+      birth_date,
+      email,
+      phone_number,
+      university,
+      profession,
+      study_year_start,
+      study_year_end,
+      extra_studies,
+      superintendence_number,
+      degree_copy_url: final_degree_copy_url,
+      id_copy_url: final_id_copy_url,
+      professional_certificate_url: final_professional_certificate_url,
+      additional_certificates_urls: additional_certificates_urls.length > 0 ? JSON.stringify(additional_certificates_urls) : null,
+      status: "pending",
+    });
+
+    if (requestError) {
+      console.error("Error al guardar solicitud profesional:", requestError);
+      // Limpiar: eliminar usuario creado solo si no es reenvío
+      if (!isResubmission) {
+        await admin.auth.admin.deleteUser(userId);
+        await admin.from("users").delete().eq("user_id", userId);
+      }
+      redirect("/signup-pro?error=request-creation-failed");
+    }
+  }
+
+  // 6. Enviar correo de notificación (se hará en background)
+  try {
+    const { sendProfessionalRequestReceivedEmail } = await import("@/lib/services/emailService");
+    await sendProfessionalRequestReceivedEmail({
+      to: email,
+      professionalName: full_name,
+    });
+  } catch (emailError) {
+    console.error("Error al enviar correo (no crítico):", emailError);
+    // No redirigir por error de email, solo loguear
   }
 
   revalidatePath("/", "layout");
-  redirect("/auth/confirm");
+  // Redirigir con parámetro si es reenvío
+  const successUrl = isResubmission 
+    ? "/signup-pro/success?resubmitted=true"
+    : "/signup-pro/success";
+  redirect(successUrl);
 }
 
 export async function signout() {

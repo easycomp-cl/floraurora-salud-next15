@@ -75,7 +75,7 @@ export default function DocumentsStep({
         <CardTitle className="text-xl">Documentos Requeridos</CardTitle>
         <CardDescription>
           Sube los documentos necesarios para verificar tu identidad y
-          formación. El título universitario es obligatorio.
+          formación. El título universitario, copia de cédula de identidad y certificado profesional son obligatorios.
         </CardDescription>
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-2">
           <p className="text-sm text-blue-800">
@@ -115,7 +115,7 @@ export default function DocumentsStep({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="id_copy">Copia de cédula de identidad</Label>
+              <Label htmlFor="id_copy">Copia de cédula de identidad *</Label>
               <Input
                 id="id_copy"
                 type="file"
@@ -140,7 +140,7 @@ export default function DocumentsStep({
 
             <div className="grid gap-2">
               <Label htmlFor="professional_certificate">
-                Certificado profesional
+                Certificado profesional *
               </Label>
               <Input
                 id="professional_certificate"

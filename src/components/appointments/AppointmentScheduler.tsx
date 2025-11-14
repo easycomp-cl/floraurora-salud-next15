@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   Professional,
   Service,
@@ -7,6 +8,7 @@ import {
   AppointmentSummary,
 } from "@/lib/types/appointment";
 import { appointmentService } from "@/lib/services/appointmentService";
+import { profileService } from "@/lib/services/profileService";
 import ProfessionalsList from "./ProfessionalsList";
 import ServicesList from "./ServicesList";
 import Calendar from "./Calendar";
@@ -30,11 +32,34 @@ export default function AppointmentScheduler() {
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [patientId, setPatientId] = useState<number | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const router = useRouter();
 
   // Cargar áreas al montar el componente
   useEffect(() => {
     loadAreas();
   }, []);
+
+  useEffect(() => {
+    const loadPatientId = async () => {
+      if (!user) {
+        setPatientId(null);
+        return;
+      }
+
+      try {
+        const profile = await profileService.getUserProfileByUuid(user.id);
+        setPatientId(profile?.id ?? null);
+      } catch (error) {
+        console.error("Error loading patient profile:", error);
+        setPatientId(null);
+      }
+    };
+
+    loadPatientId();
+  }, [user]);
 
   // Cargar profesionales cuando se selecciona un área
   useEffect(() => {
@@ -171,31 +196,107 @@ export default function AppointmentScheduler() {
       !selectedDate ||
       !selectedTime
     ) {
+      setErrorMessage(
+        "Debes seleccionar el área, profesional, servicio, fecha y horario para continuar."
+      );
+      return;
+    }
+
+    if (!patientId) {
+      setErrorMessage(
+        "No se pudo identificar tu perfil de paciente. Por favor, actualiza tu perfil e inténtalo nuevamente."
+      );
       return;
     }
 
     try {
-      // Crear la cita
-      const appointmentData = {
+      setErrorMessage(null);
+      setIsProcessingPayment(true);
+
+      const scheduledDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
+      const requiresConfirmation =
+        scheduledDateTime.getTime() - Date.now() >= 24 * 60 * 60 * 1000;
+
+      // Crear la cita primero
+      const appointment = await appointmentService.createAppointment({
         professional_id: selectedProfessional.id,
         service_id: selectedService.id,
         date: selectedDate,
         time: selectedTime,
-        user_id: user.id,
-      };
+        patient_id: patientId,
+        service_name: selectedService.name,
+        area: selectedArea?.title_name,
+        duration_minutes: selectedService.duration_minutes,
+        requires_confirmation: requiresConfirmation,
+      });
 
-      await appointmentService.createAppointment(appointmentData);
+      if (!appointment || !appointment.id) {
+        throw new Error("No se pudo obtener la cita creada.");
+      }
 
-      // Resetear selecciones
-      setSelectedProfessional(null);
-      setSelectedService(null);
-      setSelectedDate(null);
-      setSelectedTime(null);
+      // Generar buy_order único (máximo 26 caracteres según Transbank)
+      // Formato: apt{id} donde id es solo números del appointment.id
+      // Extraer solo los dígitos del ID para evitar caracteres especiales
+      const appointmentIdStr = String(appointment.id).replace(/\D/g, '');
+      if (!appointmentIdStr) {
+        throw new Error("No se pudo generar un identificador válido para la orden de compra.");
+      }
+      // Limitar a 23 caracteres para el ID (26 - 3 para "apt")
+      const maxIdLength = 23;
+      const truncatedId = appointmentIdStr.length > maxIdLength 
+        ? appointmentIdStr.slice(-maxIdLength) 
+        : appointmentIdStr.padStart(1, '0');
+      const buyOrder = `apt${truncatedId}`;
+      
+      // Generar session_id único (máximo 61 caracteres según Transbank)
+      // Usar el UUID del usuario o un timestamp corto
+      const sessionId = user.id || `s${Date.now()}`;
 
-      alert("¡Cita agendada exitosamente!");
+      // Crear transacción de Webpay
+      const webpayResponse = await fetch("/api/payments/webpay/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          appointmentId: String(appointment.id),
+          amount: selectedService.price,
+          buyOrder,
+          sessionId,
+        }),
+      });
+
+      if (!webpayResponse.ok) {
+        const errorData = await webpayResponse.json();
+        console.error("Error creando transacción de Webpay:", errorData);
+        throw new Error(
+          errorData.error || "Error al iniciar el proceso de pago. Por favor, intenta nuevamente."
+        );
+      }
+
+      const webpayData = await webpayResponse.json();
+
+      if (!webpayData.success || !webpayData.token || !webpayData.url) {
+        throw new Error("No se pudo obtener la información de pago de Webpay.");
+      }
+
+      // Redirigir a Webpay usando el componente de redirección
+      // Guardar información en sessionStorage para recuperarla después
+      sessionStorage.setItem("pendingAppointment", JSON.stringify({
+        appointmentId: String(appointment.id),
+        requiresConfirmation,
+      }));
+
+      // Redirigir a página de redirección a Webpay
+      router.push(`/dashboard/appointments/payment?token=${webpayData.token}&url=${encodeURIComponent(webpayData.url)}`);
     } catch (error) {
-      console.error("Error creating appointment:", error);
-      alert("Error al agendar la cita. Por favor, intenta nuevamente.");
+      console.error("Error creating appointment with payment:", error);
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un problema al confirmar la cita. Por favor, intenta nuevamente en unos minutos."
+      );
+      setIsProcessingPayment(false);
     }
   };
 
@@ -218,6 +319,14 @@ export default function AppointmentScheduler() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      {errorMessage && (
+        <div className="lg:col-span-3 space-y-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            {errorMessage}
+          </div>
+        </div>
+      )}
+
       {/* Columna izquierda: Área, Profesionales y Servicios */}
       <div className="lg:col-span-2 space-y-8">
         {/* Selector de Área */}
@@ -285,6 +394,8 @@ export default function AppointmentScheduler() {
               selectedTime
             )
           }
+          isProcessing={isProcessingPayment}
+          processingLabel="Iniciando pago con Webpay..."
         />
       </div>
     </div>

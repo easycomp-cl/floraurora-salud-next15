@@ -80,7 +80,7 @@ export const profileService = {
       .from('patients')
       .select('*')
       .eq('id', user.id) // Usar el id de la tabla users para la relación
-      .single();
+      .maybeSingle();
     
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching patient profile:', error);

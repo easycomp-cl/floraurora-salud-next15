@@ -47,8 +47,8 @@ const initialStepData: StepData = {
   },
   documents: {
     degree_copy: new File([], "placeholder.pdf", { type: "application/pdf" }),
-    id_copy: undefined,
-    professional_certificate: undefined,
+    id_copy: new File([], "placeholder.pdf", { type: "application/pdf" }),
+    professional_certificate: new File([], "placeholder.pdf", { type: "application/pdf" }),
     additional_certificates: [],
   },
   paymentPlan: {
@@ -63,6 +63,14 @@ export default function ProfessionalSignupStepper() {
   const [errors, setErrors] = useState<Record<string, Record<string, string>>>(
     {}
   );
+  const [isCheckingRequest, setIsCheckingRequest] = useState(false);
+  const [pendingRequestMessage, setPendingRequestMessage] = useState<{
+    show: boolean;
+    type?: "pending_request" | "existing_user_rut" | "existing_user_email";
+    email?: string;
+    created_at?: string;
+    userRut?: string;
+  }>({ show: false });
 
   const steps = [
     { number: 1, title: "Datos Personales", description: "Información básica" },
@@ -130,8 +138,78 @@ export default function ProfessionalSignupStepper() {
     return true;
   };
 
-  const handleNext = () => {
-    if (validateStep(currentStep)) {
+  const handleNext = async () => {
+    // Validar el paso actual
+    if (!validateStep(currentStep)) {
+      return;
+    }
+
+    // Si estamos en el paso 1, verificar si existe una solicitud pendiente o usuario existente
+    if (currentStep === 1) {
+      const rut = stepData.personalData.rut?.trim();
+      const email = stepData.personalData.email?.trim();
+      
+      if (!rut) {
+        return; // Ya se validó en validateStep
+      }
+
+      setIsCheckingRequest(true);
+      setPendingRequestMessage({ show: false });
+
+      try {
+        // Construir URL con RUT y email si está disponible
+        const url = new URL("/api/check-professional-request", window.location.origin);
+        url.searchParams.append("rut", rut);
+        if (email) {
+          url.searchParams.append("email", email);
+        }
+
+        const response = await fetch(url.toString());
+        const data = await response.json();
+
+        if (data.exists) {
+          // Hay un problema, mostrar mensaje apropiado según el tipo
+          if (data.type === "pending_request" && data.request) {
+            // Solicitud pendiente o reenviada
+            setPendingRequestMessage({
+              show: true,
+              type: "pending_request",
+              email: data.request.email,
+              created_at: data.request.created_at,
+            });
+          } else if (data.type === "existing_user_rut" && data.user) {
+            // Usuario existente por RUT
+            setPendingRequestMessage({
+              show: true,
+              type: "existing_user_rut",
+              email: data.user.email,
+              userRut: rut,
+            });
+          } else if (data.type === "existing_user_email" && data.user) {
+            // Usuario existente por email
+            setPendingRequestMessage({
+              show: true,
+              type: "existing_user_email",
+              email: data.user.email,
+              userRut: data.user.rut || undefined,
+            });
+          }
+          setIsCheckingRequest(false);
+          return;
+        }
+
+        // No hay problemas, continuar al siguiente paso
+        setPendingRequestMessage({ show: false });
+        setCurrentStep((prev) => Math.min(prev + 1, 5) as Step);
+      } catch (error) {
+        console.error("Error al verificar solicitud:", error);
+        // En caso de error, permitir continuar (no bloquear por error de red)
+        setCurrentStep((prev) => Math.min(prev + 1, 5) as Step);
+      } finally {
+        setIsCheckingRequest(false);
+      }
+    } else {
+      // Para otros pasos, avanzar normalmente
       setCurrentStep((prev) => Math.min(prev + 1, 5) as Step);
     }
   };
@@ -159,6 +237,9 @@ export default function ProfessionalSignupStepper() {
             onChange={(data) => updateStepData("personalData", data)}
             errors={errors.personalData || {}}
             onNext={handleNext}
+            isCheckingRequest={isCheckingRequest}
+            pendingRequestMessage={pendingRequestMessage}
+            onDismissMessage={() => setPendingRequestMessage({ show: false })}
           />
         );
       case 2:
@@ -192,7 +273,7 @@ export default function ProfessionalSignupStepper() {
           />
         );
       case 5:
-        return <PaymentConfirmationStep onPrevious={handlePrevious} />;
+        return <PaymentConfirmationStep onPrevious={handlePrevious} stepData={stepData} />;
       default:
         return null;
     }

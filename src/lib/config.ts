@@ -105,6 +105,13 @@ export const config = {
     redirectUri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `${appUrl}/callback`,
   },
 
+  // Configuración de Transbank Webpay Plus
+  transbank: {
+    commerceCode: process.env.TRANSBANK_COMMERCE_CODE,
+    apiKey: process.env.TRANSBANK_API_KEY,
+    environment: process.env.NODE_ENV === "production" ? "production" : "integration",
+  },
+
   // Configuración de desarrollo
   development: {
     isDev: process.env.NODE_ENV === "development",

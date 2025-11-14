@@ -1,9 +1,189 @@
 import supabase from '@/utils/supabase/client';
 import type { Professional, Service, TimeSlot } from '@/lib/types/appointment';
 import type { BlockedSlot } from '@/lib/types/availability';
+import { DateTime } from 'luxon';
 import { AvailabilityService } from './availabilityService';
 
+type RawAppointmentRow = {
+  id: number;
+  patient_id: number | null;
+  professional_id: number | null;
+  scheduled_at: string;
+  duration_minutes: number | null;
+  status: string | null;
+  payment_status: string | null;
+  note: string | null;
+  area: string | null;
+  service: string | null;
+  meet_link: string | null;
+};
+
+export type AppointmentWithUsers = RawAppointmentRow & {
+  patient: BasicUserInfo | null;
+  professional: BasicUserInfo | null;
+  meeting_url: string | null;
+  amount: number | null;
+  invoice_url: string | null;
+};
+
+export type BasicUserInfo = {
+  id: number;
+  name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone_number: string | null;
+};
+
+const mapUserRecord = (user: Record<string, unknown>): BasicUserInfo => ({
+  id: Number(user.id),
+  name: (user.name as string) ?? null,
+  last_name: (user.last_name as string) ?? null,
+  email: (user.email as string) ?? null,
+  phone_number: (user.phone_number as string) ?? null,
+});
+
+const fetchUsersMap = async (userIds: number[]) => {
+  if (userIds.length === 0) {
+    return new Map<number, BasicUserInfo>();
+  }
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, name, last_name, email, phone_number')
+    .in('id', userIds);
+
+  if (error) {
+    console.error('Error fetching users for appointments:', error);
+    throw error;
+  }
+
+  const records = (data ?? []).map(mapUserRecord);
+  return new Map(records.map((user) => [user.id, user]));
+};
+
+type PaymentRow = {
+  appointment_id: string;
+  amount: number | null;
+  receipt_url: string | null;
+};
+
+type CreatedPayment = {
+  id: string;
+  appointment_id: string;
+  amount: number | null;
+  receipt_url: string | null;
+  provider_payment_id: string | null;
+  created_at?: string;
+};
+
+const fetchPaymentsMap = async (appointmentIds: (string | number)[]) => {
+  if (appointmentIds.length === 0) {
+    return new Map<string, PaymentRow>();
+  }
+
+  const ids = Array.from(
+    new Set(appointmentIds.map((id) => String(id)))
+  );
+
+  const { data, error } = await supabase
+    .from('payments')
+    .select('appointment_id, amount, receipt_url')
+    .in('appointment_id', ids);
+
+  if (error) {
+    console.error('Error fetching payments for appointments:', error);
+    return new Map<string, PaymentRow>();
+  }
+
+  const payments = (data ?? []) as PaymentRow[];
+  return new Map(payments.map((payment) => [String(payment.appointment_id), payment]));
+};
+
+const fetchAppointmentsWithUsers = async (filters: {
+  patientId?: number;
+  professionalId?: number;
+  appointmentId?: string | number;
+} = {}): Promise<AppointmentWithUsers[]> => {
+  let query = supabase
+    .from('appointments')
+    .select(
+      'id, patient_id, professional_id, scheduled_at, duration_minutes, status, payment_status, note, area, service, meet_link'
+    )
+    .order('scheduled_at', { ascending: false });
+
+  if (typeof filters.patientId === 'number') {
+    query = query.eq('patient_id', filters.patientId);
+  }
+
+  if (typeof filters.professionalId === 'number') {
+    query = query.eq('professional_id', filters.professionalId);
+  }
+
+  if (filters.appointmentId !== undefined && filters.appointmentId !== null) {
+    query = query.eq('id', filters.appointmentId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error('Error fetching appointments:', error);
+    throw error;
+  }
+
+  const rows = (data ?? []) as RawAppointmentRow[];
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const userIds = Array.from(
+    new Set(
+      rows
+        .flatMap((row) => [row.patient_id, row.professional_id])
+        .filter((id): id is number => typeof id === 'number')
+    )
+  );
+
+  const usersMap = await fetchUsersMap(userIds);
+  const paymentsMap = await fetchPaymentsMap(rows.map((row) => row.id));
+
+  return rows.map((row) => ({
+    ...row,
+    patient: row.patient_id ? usersMap.get(row.patient_id) ?? null : null,
+    professional: row.professional_id ? usersMap.get(row.professional_id) ?? null : null,
+    meeting_url: row.meet_link ?? null,
+    amount: paymentsMap.get(String(row.id))?.amount ?? null,
+    invoice_url: paymentsMap.get(String(row.id))?.receipt_url ?? null,
+  }));
+};
+
 export const appointmentService = {
+  async getAppointmentsForPatient(patientId: number): Promise<AppointmentWithUsers[]> {
+    if (typeof patientId !== 'number') {
+      return [];
+    }
+    return fetchAppointmentsWithUsers({ patientId });
+  },
+
+  async getAppointmentsForProfessional(professionalId: number): Promise<AppointmentWithUsers[]> {
+    if (typeof professionalId !== 'number') {
+      return [];
+    }
+    return fetchAppointmentsWithUsers({ professionalId });
+  },
+
+  async getAllAppointments(): Promise<AppointmentWithUsers[]> {
+    return fetchAppointmentsWithUsers();
+  },
+
+  async getAppointmentById(appointmentId: string | number): Promise<AppointmentWithUsers | null> {
+    if (appointmentId === undefined || appointmentId === null || appointmentId === '') {
+      return null;
+    }
+    const [appointment] = await fetchAppointmentsWithUsers({ appointmentId });
+    return appointment ?? null;
+  },
+
   // Obtener todas las áreas disponibles (professional_titles)
   async getAreas(): Promise<{ id: number; title_name: string }[]> {
     try {
@@ -111,10 +291,11 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
     try {
       console.log(`\n=== CONSULTANDO SERVICIOS PARA PROFESIONAL ${professionalId} ===`);
       
-      // Primero obtener todas las especialidades disponibles
+      // Primero obtener todas las especialidades disponibles (solo las activas)
       const { data: allSpecialties, error: specialtiesError } = await supabase
         .from('specialties')
         .select('*')
+        .eq('is_active', true)
         .order('name');
 
       if (specialtiesError) {
@@ -345,12 +526,12 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
     date: string, 
     blockedSlots: BlockedSlot[]
   ): boolean {
-    const slotStart = new Date(`${date}T${startTime}:00`);
-    const slotEnd = new Date(`${date}T${endTime}:00`);
+    const slotStart = DateTime.fromISO(`${date}T${startTime}`, { zone: 'America/Santiago' }).toUTC();
+    const slotEnd = DateTime.fromISO(`${date}T${endTime}`, { zone: 'America/Santiago' }).toUTC();
     
     return blockedSlots.some(blocked => {
-      const blockedStart = new Date(blocked.starts_at);
-      const blockedEnd = new Date(blocked.ends_at);
+      const blockedStart = DateTime.fromISO(blocked.starts_at).toUTC();
+      const blockedEnd = DateTime.fromISO(blocked.ends_at).toUTC();
       
       // Verificar si hay solapamiento
       return slotStart < blockedEnd && slotEnd > blockedStart;
@@ -430,23 +611,34 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
     service_id: number;
     date: string;
     time: string;
-    user_id: string;
+    patient_id: number;
     notes?: string;
+    service_name?: string;
+    area?: string;
+    duration_minutes?: number;
+    requires_confirmation?: boolean;
   }) {
     try {
-      // Crear el timestamp combinando fecha y hora
-      const scheduledAt = new Date(`${appointmentData.date}T${appointmentData.time}:00.000Z`);
+      const scheduledAt = DateTime.fromISO(
+        `${appointmentData.date}T${appointmentData.time}`,
+        { zone: 'America/Santiago' }
+      ).toUTC();
+
+      if (!scheduledAt.isValid) {
+        throw new Error('Fecha u hora inválida para la zona horaria de Chile');
+      }
+      const requiresConfirmation = Boolean(appointmentData.requires_confirmation);
       
       const appointmentRecord = {
-        patient_id: parseInt(appointmentData.user_id),
+        patient_id: appointmentData.patient_id,
         professional_id: appointmentData.professional_id,
-        scheduled_at: scheduledAt.toISOString(),
-        duration_minutes: 55, // Duración por defecto
-        status: 'confirmed',
+        scheduled_at: scheduledAt.toISO(),
+        duration_minutes: appointmentData.duration_minutes ?? 55,
+        status: requiresConfirmation ? 'pending_confirmation' : 'confirmed',
         payment_status: 'pending',
         note: appointmentData.notes || null,
-        area: 'Psicología', // Por ahora hardcodeado
-        service: 'Consulta Individual' // Por ahora hardcodeado
+        area: appointmentData.area || 'Psicología',
+        service: appointmentData.service_name || 'Consulta Individual'
       };
 
       console.log('Creando cita:', appointmentRecord);
@@ -470,20 +662,81 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
     }
   },
 
+  async createTestPayment(paymentData: {
+    appointmentId: string;
+    patientId: number;
+    professionalId?: number | null;
+    amount: number;
+    currency?: string;
+  }): Promise<CreatedPayment | null> {
+    try {
+      const providerPaymentId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `test-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+
+      const paymentRecord = {
+        appointment_id: String(paymentData.appointmentId),
+        patient_id: paymentData.patientId,
+        professional_id: paymentData.professionalId ?? null,
+        provider: 'test_provider',
+        provider_payment_id: providerPaymentId,
+        provider_payment_status: 'succeeded',
+        amount: paymentData.amount,
+        currency: paymentData.currency ?? 'CLP',
+        receipt_url: `https://payments.example.com/receipt/${providerPaymentId}`,
+        raw_response: {
+          simulated: true,
+          approved_at: new Date().toISOString(),
+        },
+        metadata: {
+          source: 'test_payment_flow',
+        },
+      };
+
+      const { data: payment, error: paymentError } = await supabase
+        .from('payments')
+        .insert(paymentRecord)
+        .select('id, appointment_id, amount, receipt_url, provider_payment_id, created_at')
+        .single<CreatedPayment>();
+
+      if (paymentError) {
+        console.error('Error creando pago simulado:', paymentError);
+        throw paymentError;
+      }
+
+      const { error: updateError } = await supabase
+        .from('appointments')
+        .update({ payment_status: 'succeeded' })
+        .eq('id', paymentRecord.appointment_id);
+
+      if (updateError) {
+        console.error(
+          'Pago registrado pero hubo un problema al actualizar el estado de la cita:',
+          updateError
+        );
+      }
+
+      return payment;
+    } catch (error) {
+      console.error('Error simulando pago:', error);
+      throw error;
+    }
+  },
+
   // Obtener citas existentes para un profesional en una fecha específica
   async getExistingAppointments(professionalId: number, date: string): Promise<{ time: string }[]> {
     try {
-      // Crear rango de fechas para el día completo
-      const startOfDay = new Date(`${date}T00:00:00.000Z`);
-      const endOfDay = new Date(`${date}T23:59:59.999Z`);
+      const startOfDay = DateTime.fromISO(date, { zone: 'America/Santiago' }).startOf('day').toUTC();
+      const endOfDay = startOfDay.plus({ days: 1 }).minus({ milliseconds: 1 });
       
       const { data, error } = await supabase
         .from('appointments')
         .select('scheduled_at')
         .eq('professional_id', professionalId)
-        .gte('scheduled_at', startOfDay.toISOString())
-        .lte('scheduled_at', endOfDay.toISOString())
-        .eq('status', 'confirmed'); // Solo citas confirmadas
+        .gte('scheduled_at', startOfDay.toISO())
+        .lte('scheduled_at', endOfDay.toISO())
+        .in('status', ['confirmed', 'pending_confirmation']); // Considerar citas sin confirmar aún
 
       if (error) {
         console.error('Error al obtener citas existentes:', error);
@@ -493,10 +746,9 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
       console.log(`Citas existentes para ${date}:`, data);
       
       // Extraer solo la hora de scheduled_at
-      return (data || []).map(appointment => {
-        const scheduledAt = new Date(String(appointment.scheduled_at));
-        const timeString = scheduledAt.toTimeString().substring(0, 5); // HH:MM
-        return { time: timeString };
+      return (data || []).map((appointment) => {
+        const scheduledAt = DateTime.fromISO(String(appointment.scheduled_at)).setZone('America/Santiago');
+        return { time: scheduledAt.toFormat('HH:mm') };
       });
     } catch (error) {
       console.error('Error inesperado al obtener citas:', error);
@@ -559,8 +811,8 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
 
   // Función auxiliar para agregar una hora
   addOneHour(time: string): string {
-    const [hours, minutes] = time.split(':').map(Number);
-    const newHours = (hours + 1) % 24;
-    return `${newHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    return DateTime.fromFormat(time, 'HH:mm', { zone: 'America/Santiago' })
+      .plus({ hours: 1 })
+      .toFormat('HH:mm');
   }
 };

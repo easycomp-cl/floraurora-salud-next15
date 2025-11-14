@@ -8,12 +8,16 @@ interface AppointmentSummaryCardProps {
   summary: AppointmentSummary;
   onConfirm: () => void;
   canConfirm: boolean;
+  isProcessing?: boolean;
+  processingLabel?: string;
 }
 
 export default function AppointmentSummaryCard({
   summary,
   onConfirm,
   canConfirm,
+  isProcessing = false,
+  processingLabel = "Procesando...",
 }: AppointmentSummaryCardProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("es-CL", {
@@ -136,20 +140,46 @@ export default function AppointmentSummaryCard({
           {/* Botón de Confirmar */}
           <button
             onClick={onConfirm}
-            disabled={!canConfirm}
+            disabled={!canConfirm || isProcessing}
             className={`
               w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2
               ${
-                canConfirm
+                isProcessing
+                  ? "bg-blue-600 text-white cursor-wait"
+                  : canConfirm
                   ? "bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }
             `}
           >
-            {canConfirm ? (
+            {isProcessing ? (
+              <>
+                <svg
+                  className="w-5 h-5 animate-spin text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  ></circle>
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16 8 8 0 01-8-8z"
+                  ></path>
+                </svg>
+                <span>{processingLabel}</span>
+              </>
+            ) : canConfirm ? (
               <>
                 <CheckCircle className="w-5 h-5" />
-                <span>Confirmar Cita</span>
+                <span>Pagar con Webpay</span>
               </>
             ) : (
               <span>Completa la selección</span>
@@ -158,8 +188,8 @@ export default function AppointmentSummaryCard({
 
           {/* Nota informativa */}
           <div className="text-xs text-gray-500 text-center">
-            <p>Al confirmar, se reservará tu horario y recibirás</p>
-            <p>una confirmación por email y WhatsApp.</p>
+            <p>Al hacer clic, serás redirigido a Webpay para</p>
+            <p>completar el pago de forma segura.</p>
           </div>
         </div>
       )}

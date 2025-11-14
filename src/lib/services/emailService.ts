@@ -3,6 +3,13 @@ import { render } from '@react-email/render';
 import ContactEmail from '@/components/email_templates/ContactEmail';
 import ContactConfirmationEmail from '@/components/email_templates/ContactConfirmationEmail';
 import NotificationEmail from '@/components/email_templates/NotificationEmail';
+import {
+  PatientAppointmentEmail,
+  ProfessionalAppointmentEmail,
+  PatientAppointmentReminderEmail,
+  ProfessionalRequestApprovedEmail,
+  ProfessionalRequestRejectedEmail,
+} from "@/components/email_templates";
 import { createElement } from 'react';
 
 // Configurar la API key de SendGrid
@@ -84,6 +91,20 @@ export async function sendEmail({
     };
 
     const response = await sgMail.send(msg);
+    const [sendGridResponse] = response;
+    const headers =
+      (sendGridResponse?.headers as Record<string, unknown>) ?? {};
+    const statusCode = sendGridResponse?.statusCode;
+    const messageId =
+      (headers["x-message-id"] as string | undefined) ??
+      (headers["X-Message-Id"] as string | undefined);
+
+    console.log(
+      `[emailService] Email enviado | to=${to} | subject="${subject}" | status=${statusCode ?? "desconocido"}${
+        messageId ? ` | messageId=${messageId}` : ""
+      }`
+    );
+
     return { success: true, response };
   } catch (error: unknown) {
     console.error('Error al enviar email:', error);
@@ -185,6 +206,211 @@ export async function sendNotificationEmail({
   return await sendEmail({
     to,
     subject,
+    html,
+  });
+}
+
+interface PatientAppointmentEmailParams {
+  to: string;
+  patientName: string;
+  professionalName: string;
+  serviceName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  price: string;
+  meetLink?: string;
+  supportEmail: string;
+  supportPhone?: string;
+}
+
+export async function sendPatientAppointmentEmail(
+  data: PatientAppointmentEmailParams
+) {
+  const html = await render(
+    createElement(PatientAppointmentEmail, {
+      patientName: data.patientName,
+      professionalName: data.professionalName,
+      serviceName: data.serviceName,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime,
+      price: data.price,
+      meetLink: data.meetLink,
+      supportEmail: data.supportEmail,
+      supportPhone: data.supportPhone,
+    })
+  );
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Cita confirmada",
+    html,
+  });
+}
+
+interface ProfessionalAppointmentEmailParams {
+  to: string;
+  professionalName: string;
+  patientName: string;
+  patientEmail: string;
+  patientPhone?: string;
+  serviceName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  price: string;
+  meetLink: string;
+  notes?: string;
+  supportEmail: string;
+}
+
+export async function sendProfessionalAppointmentEmail(
+  data: ProfessionalAppointmentEmailParams
+) {
+  const html = await render(
+    createElement(ProfessionalAppointmentEmail, {
+      professionalName: data.professionalName,
+      patientName: data.patientName,
+      patientEmail: data.patientEmail,
+      patientPhone: data.patientPhone,
+      serviceName: data.serviceName,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime,
+      price: data.price,
+      meetLink: data.meetLink,
+      notes: data.notes,
+      supportEmail: data.supportEmail,
+    })
+  );
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Nueva cita asignada",
+    html,
+  });
+}
+
+// Email para solicitud profesional recibida
+interface ProfessionalRequestReceivedEmailParams {
+  to: string;
+  professionalName: string;
+}
+
+export async function sendProfessionalRequestReceivedEmail(
+  data: ProfessionalRequestReceivedEmailParams
+) {
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Solicitud Recibida</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <img src="${getLogoUrl()}" alt="FlorAurora Salud" style="max-width: 200px;">
+      </div>
+      <h1 style="color: #2563eb;">¡Solicitud Recibida!</h1>
+      <p>Estimado/a <strong>${data.professionalName}</strong>,</p>
+      <p>Hemos recibido tu solicitud para registrarte como profesional en FlorAurora Salud.</p>
+      <p>Nuestro equipo de administradores revisará tu solicitud y los documentos adjuntos. Te notificaremos por correo electrónico cuando tu solicitud sea aprobada o si necesitamos información adicional.</p>
+      <p>Este proceso puede tomar entre 1 a 3 días hábiles.</p>
+      <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
+      <p>Saludos cordiales,<br>Equipo FlorAurora Salud</p>
+    </body>
+    </html>
+  `;
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Solicitud de registro recibida",
+    html,
+  });
+}
+
+// Email para solicitud aprobada
+interface ProfessionalRequestApprovedEmailParams {
+  to: string;
+  professionalName: string;
+  verificationLink: string;
+}
+
+export async function sendProfessionalRequestApprovedEmail(
+  data: ProfessionalRequestApprovedEmailParams
+) {
+  const html = await render(
+    createElement(ProfessionalRequestApprovedEmail, {
+      professionalName: data.professionalName,
+      verificationLink: data.verificationLink,
+      logoUrl: getLogoUrl(),
+    })
+  );
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Tu solicitud ha sido aprobada",
+    html,
+  });
+}
+
+// Email para solicitud rechazada
+interface ProfessionalRequestRejectedEmailParams {
+  to: string;
+  professionalName: string;
+  rejectionReason: string;
+}
+
+export async function sendProfessionalRequestRejectedEmail(
+  data: ProfessionalRequestRejectedEmailParams
+) {
+  const resubmitUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/signup-pro`;
+  
+  const html = await render(
+    createElement(ProfessionalRequestRejectedEmail, {
+      professionalName: data.professionalName,
+      rejectionReason: data.rejectionReason,
+      resubmitUrl,
+      logoUrl: getLogoUrl(),
+    })
+  );
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Actualización sobre tu solicitud",
+    html,
+  });
+}
+
+interface PatientAppointmentReminderEmailParams {
+  to: string;
+  patientName: string;
+  professionalName: string;
+  serviceName: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  meetLink: string;
+  supportEmail: string;
+  supportPhone?: string;
+}
+
+export async function sendPatientAppointmentReminderEmail(
+  data: PatientAppointmentReminderEmailParams
+) {
+  const html = await render(
+    createElement(PatientAppointmentReminderEmail, {
+      patientName: data.patientName,
+      professionalName: data.professionalName,
+      serviceName: data.serviceName,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime,
+      meetLink: data.meetLink,
+      supportEmail: data.supportEmail,
+      supportPhone: data.supportPhone,
+    })
+  );
+
+  return await sendEmail({
+    to: data.to,
+    subject: "FlorAurora Salud | Recordatorio de cita",
     html,
   });
 }

@@ -155,8 +155,7 @@ export const documentsSchema = z.object({
     .refine(
       (file) => ["application/pdf", "image/png", "image/jpeg", "image/jpg"].includes(file.type),
       "⚠️ Solo se permiten archivos PDF, PNG, JPG o JPEG"
-    )
-    .optional(),
+    ),
   
   professional_certificate: z
     .instanceof(File)
@@ -165,8 +164,7 @@ export const documentsSchema = z.object({
     .refine(
       (file) => ["application/pdf", "image/png", "image/jpeg", "image/jpg"].includes(file.type),
       "⚠️ Solo se permiten archivos PDF, PNG, JPG o JPEG"
-    )
-    .optional(),
+    ),
   
   additional_certificates: z
     .array(z.instanceof(File))

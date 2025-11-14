@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import logoImge from "../../Fotos/logo.png";
-import niceImg from "../../Fotos/Equipo.png";
+import niceImg from "../../Fotos/nosotros.jpg";
 
 export default function NosotrosHeader() {
   return (
