@@ -124,7 +124,14 @@ export default function ContactPage() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                       WhatsApp
                     </h3>
-                    <p className="text-gray-600">+56 9 9999 9999</p>
+                    <a
+                      href="https://wa.me/56958685129"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-gray-600 hover:text-green-600 transition-colors"
+                    >
+                      +56 9 5868 5129
+                    </a>
                   </div>
                 </div>
               </div>
@@ -156,7 +163,9 @@ export default function ContactPage() {
                   </a>
                   {/* Instagram */}
                   <a
-                    href="#"
+                    href="https://www.instagram.com/floraurorasalud?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-colors"
                     aria-label="Instagram"
                     style={{

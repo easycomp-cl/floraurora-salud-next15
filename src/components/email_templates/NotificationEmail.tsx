@@ -7,6 +7,7 @@ import {
   Heading,
   Text,
   Button,
+  Img,
 } from "@react-email/components";
 
 interface NotificationEmailProps {
@@ -29,6 +30,13 @@ export function NotificationEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
+            <Img
+              src={LOGO_URL}
+              alt="FlorAurora Salud"
+              width="150"
+              height="auto"
+              style={logoStyle}
+            />
             <Heading style={headerTitle}>{subject}</Heading>
           </Section>
 
@@ -58,6 +66,8 @@ export function NotificationEmail({
 }
 
 export default NotificationEmail;
+
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 // Styles
 const main = {
@@ -136,4 +146,11 @@ const footerText = {
   color: "#6b7280",
   fontSize: "12px",
   margin: "5px 0",
+};
+
+const logoStyle = {
+  display: "block",
+  margin: "0 auto 20px auto",
+  maxWidth: "150px",
+  height: "auto",
 };

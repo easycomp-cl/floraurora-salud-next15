@@ -80,7 +80,7 @@ export function ContactConfirmationEmail({
               <Text style={contactInfo}>
                 📧 Email: contacto@floraurorasalud.cl
                 <br />
-                📱 WhatsApp: +56 9 9999 9999
+                📱 WhatsApp: +56 9 5868 5129
               </Text>
             </Section>
           </Section>

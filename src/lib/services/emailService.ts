@@ -63,7 +63,7 @@ function getLogoUrl(): string {
 
   // Opción 2: Construir desde APP_URL
   // En Next.js, los archivos de /public se sirven desde la raíz, así que es /logo.png no /public/logo.png
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://floraurorasalud.cl';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.floraurorasalud.cl';
   return `${appUrl}/logo.png`;
 }
 

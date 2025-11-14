@@ -160,7 +160,7 @@ export function ProfessionalAppointmentEmail({
 export default ProfessionalAppointmentEmail;
 
 const LOGO_URL =
-  "https://floraurora-salud-next15-nine.vercel.app/logo.png";
+  "https://www.floraurorasalud.cl/logo.png";
 
 const main = {
   backgroundColor: "#f3f4f6",

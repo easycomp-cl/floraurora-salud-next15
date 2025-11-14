@@ -7,6 +7,7 @@ import {
   Heading,
   Text,
   Button,
+  Img,
 } from "@react-email/components";
 
 interface AppointmentConfirmationEmailProps {
@@ -31,6 +32,13 @@ export function AppointmentConfirmationEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
+            <Img
+              src={LOGO_URL}
+              alt="FlorAurora Salud"
+              width="150"
+              height="auto"
+              style={logoStyle}
+            />
             <Heading style={headerTitle}>✅ Cita Confirmada</Heading>
             <Text style={headerSubtitle}>FlorAurora Salud</Text>
           </Section>
@@ -91,6 +99,8 @@ export function AppointmentConfirmationEmail({
 }
 
 export default AppointmentConfirmationEmail;
+
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 // Styles
 const main = {
@@ -227,4 +237,11 @@ const footerNote = {
   color: "#9ca3af",
   fontSize: "11px",
   margin: "10px 0 0 0",
+};
+
+const logoStyle = {
+  display: "block",
+  margin: "0 auto 20px auto",
+  maxWidth: "150px",
+  height: "auto",
 };
