@@ -25,6 +25,7 @@ export interface User {
   created_at: string;
   address?: string;
   user_id: string; // UUID de Supabase Auth
+  avatar_url?: string;
 }
 
 

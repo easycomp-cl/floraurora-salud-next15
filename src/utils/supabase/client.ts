@@ -13,32 +13,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
   });
 }
 
-// Crear una única instancia del cliente para evitar múltiples instancias
-let supabaseInstance: ReturnType<typeof createClient> | null = null;
-
-export const supabase = (() => {
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true, // Habilitar para OAuth
-        flowType: 'pkce',
-        debug: false, // Debug deshabilitado
-        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-        storageKey: 'sb-auth-token'
-      },
-      global: {
-        headers: {
-          'X-Client-Info': 'floraurora-psychology-platform'
-        }
-      }
-    });
-  }
-  return supabaseInstance;
-})();
-
-// Tipos para las tablas de la base de datos
+// Tipos para las tablas de la base de datos (definidos antes de su uso)
 export interface Database {
   public: {
     Tables: {
@@ -154,23 +129,34 @@ export interface Database {
   }
 }
 
-// Cliente tipado con la interfaz de la base de datos y configuración de autenticación
-export const supabaseTyped = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true, // Habilitar para OAuth
-    flowType: 'pkce',
-    debug: false, // Deshabilitar debug en producción
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-    storageKey: 'sb-auth-token'
-  },
-  global: {
-    headers: {
-      'X-Client-Info': 'floraurora-psychology-platform'
-    }
+// Crear una única instancia del cliente para evitar múltiples instancias
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true, // Habilitar para OAuth
+        flowType: 'pkce',
+        debug: false, // Debug deshabilitado
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'sb-auth-token'
+      },
+      global: {
+        headers: {
+          'X-Client-Info': 'floraurora-psychology-platform'
+        }
+      }
+    });
   }
-});
+  return supabaseInstance;
+})();
+
+// Cliente tipado - reutiliza la misma instancia singleton para evitar múltiples instancias
+// Esto previene el warning de "Multiple GoTrueClient instances detected"
+export const supabaseTyped = supabase;
 
 // Funciones de utilidad para autenticación
 export const auth = {

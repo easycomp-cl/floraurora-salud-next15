@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { profileService } from "@/lib/services/profileService";
 import { redirect } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import Image from "next/image";
 import {
   UserProfile,
   PatientProfile,
@@ -44,6 +46,16 @@ type FormDataState = Partial<{
   professionalProfile: Partial<ProfessionalProfile>;
 }>;
 
+// Función para traducir el rol al español
+const translateRole = (role: string): string => {
+  const roleMap: Record<string, string> = {
+    admin: "Administrador",
+    professional: "Profesional",
+    patient: "Paciente",
+  };
+  return roleMap[role.toLowerCase()] || role;
+};
+
 export default function UserProfilePage() {
   const [profileData, setProfileData] = useState<UserProfileData>({
     user: null,
@@ -63,6 +75,8 @@ export default function UserProfilePage() {
   >([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<number[]>([]);
   const [specialtyError, setSpecialtyError] = useState<string>("");
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Mover fetchUserProfile fuera del useEffect para que sea accesible globalmente en el componente
   const fetchUserProfile = async () => {
@@ -93,19 +107,17 @@ export default function UserProfilePage() {
           nationality: data.user?.nationality || "",
           rut: data.user?.rut || "",
           patientProfile:
-            data.user?.role === "patient" && data.profile
+            data.user?.role === "patient"
               ? {
                   emergency_contact_name:
-                    (data.profile as PatientProfile).emergency_contact_name ||
+                    (data.profile as PatientProfile)?.emergency_contact_name ||
                     "",
                   emergency_contact_phone:
-                    (data.profile as PatientProfile).emergency_contact_phone ||
+                    (data.profile as PatientProfile)?.emergency_contact_phone ||
                     "",
-                  health_insurances_id:
-                    (data.profile as PatientProfile).health_insurances_id || 0,
                 }
               : undefined,
-          professionalProfile:
+                  professionalProfile:
             data.user?.role === "professional" && data.profile
               ? {
                   title_id:
@@ -113,8 +125,6 @@ export default function UserProfilePage() {
                   profile_description:
                     (data.profile as ProfessionalProfile).profile_description ||
                     "",
-                  resume_url:
-                    (data.profile as ProfessionalProfile).resume_url || "",
                 }
               : undefined,
         }));
@@ -195,12 +205,10 @@ export default function UserProfilePage() {
     let formattedValue = value;
     if (name === "rut") {
       formattedValue = formatRUT(value);
-    } else if (
-      name === "phone_number" ||
-      name === "patientProfile.emergency_contact_phone"
-    ) {
+    } else if (name === "phone_number") {
       formattedValue = formatPhone(value);
     }
+    // No formatear el teléfono de emergencia para permitir cualquier formato
 
     setFormData((prev) => {
       const [parent, child] = name.split(".");
@@ -276,6 +284,65 @@ export default function UserProfilePage() {
     });
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !profileData.user) return;
+
+    // Validar tipo de archivo
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Tipo de archivo no permitido. Solo PNG, JPG, JPEG o WEBP");
+      return;
+    }
+
+    // Validar tamaño (2MB máximo)
+    const maxSize = 2 * 1024 * 1024; // 2MB
+    if (file.size > maxSize) {
+      alert("El archivo excede el tamaño máximo de 2MB");
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("userId", profileData.user.user_id);
+
+      const response = await fetch("/api/upload/avatar", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Error al subir la imagen");
+      }
+
+      const data = await response.json();
+      
+      // Actualizar el avatar_url en la base de datos
+      await profileService.updateUserProfile(profileData.user.user_id, {
+        avatar_url: data.url,
+      });
+
+      // Recargar los datos del perfil
+      await fetchUserProfile();
+    } catch (error) {
+      console.error("Error al subir avatar:", error);
+      alert(error instanceof Error ? error.message : "Error al subir la imagen");
+    } finally {
+      setIsUploadingAvatar(false);
+      // Limpiar el input para permitir subir el mismo archivo nuevamente
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!profileData.user) return;
 
@@ -294,14 +361,12 @@ export default function UserProfilePage() {
       nationality: formData.nationality || "",
       rut: formData.rut || "",
       patientProfile:
-        profileData.user.role === "patient" && formData.patientProfile
+        profileData.user.role === "patient"
           ? {
               emergency_contact_name:
-                formData.patientProfile.emergency_contact_name || "",
+                formData.patientProfile?.emergency_contact_name || "",
               emergency_contact_phone:
-                formData.patientProfile.emergency_contact_phone || "",
-              health_insurances_id:
-                formData.patientProfile.health_insurances_id || 0,
+                formData.patientProfile?.emergency_contact_phone || "",
             }
           : undefined,
       professionalProfile:
@@ -310,7 +375,6 @@ export default function UserProfilePage() {
               title_id: formData.professionalProfile.title_id || 0,
               profile_description:
                 formData.professionalProfile.profile_description || "",
-              resume_url: formData.professionalProfile.resume_url || "",
             }
           : undefined,
     };
@@ -391,18 +455,32 @@ export default function UserProfilePage() {
         );
       }
 
-      if (profileData.user.role === "patient" && formData.patientProfile) {
+      if (profileData.user.role === "patient") {
         const patientUpdateData: Partial<PatientProfile> = {
           emergency_contact_name:
-            formData.patientProfile.emergency_contact_name,
+            formData.patientProfile?.emergency_contact_name || "",
           emergency_contact_phone:
-            formData.patientProfile.emergency_contact_phone,
-          health_insurances_id: formData.patientProfile.health_insurances_id,
+            formData.patientProfile?.emergency_contact_phone || "",
         };
-        await profileService.updatePatientProfile(
-          profileData.user.user_id, // Usar user_id (UUID) para la autenticación
-          patientUpdateData
-        );
+        
+        // Verificar si existe el perfil de paciente
+        if (profileData.profile) {
+          // Actualizar perfil existente
+          await profileService.updatePatientProfile(
+            profileData.user.user_id,
+            patientUpdateData
+          );
+        } else {
+          // Crear nuevo perfil de paciente
+          await profileService.createPatientProfile(
+            profileData.user.user_id,
+            {
+              emergency_contact_name: patientUpdateData.emergency_contact_name || "",
+              emergency_contact_phone: patientUpdateData.emergency_contact_phone || "",
+              health_insurances_id: 0, // Valor por defecto
+            }
+          );
+        }
       } else if (
         profileData.user.role === "professional" &&
         formData.professionalProfile
@@ -410,7 +488,6 @@ export default function UserProfilePage() {
         const professionalUpdateData: Partial<ProfessionalProfile> = {
           title_id: formData.professionalProfile.title_id,
           profile_description: formData.professionalProfile.profile_description,
-          resume_url: formData.professionalProfile.resume_url,
         };
         await profileService.updateProfessionalProfile(
           profileData.user.user_id,
@@ -447,38 +524,87 @@ export default function UserProfilePage() {
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Mi Perfil</h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">
-              {profileData.user.name?.[0] || profileData.user.email?.[0] || "U"}
-            </span>
+        <div className="flex items-center space-x-4 mb-8">
+          <div className="relative group">
+            <div className="w-24 h-24 bg-gradient-to-br from-blue-600 to-blue-700 rounded-full flex items-center justify-center shadow-lg overflow-hidden">
+              {profileData.user.avatar_url ? (
+                <Image
+                  src={profileData.user.avatar_url}
+                  alt={`${profileData.user.name || "Usuario"} avatar`}
+                  width={96}
+                  height={96}
+                  className="w-full h-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span className="text-white text-3xl font-bold">
+                  {profileData.user.name?.[0] || profileData.user.email?.[0] || "U"}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleAvatarClick}
+              disabled={isUploadingAvatar}
+              className="absolute bottom-0 right-0 w-8 h-8 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center shadow-lg transition-all opacity-90 hover:opacity-100 disabled:opacity-50 disabled:cursor-not-allowed z-10"
+              title="Cambiar foto de perfil"
+              type="button"
+            >
+              {isUploadingAvatar ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <Pencil className="w-4 h-4 text-white" />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              onChange={handleAvatarChange}
+              className="hidden"
+            />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
               {profileData.user.name && profileData.user.last_name
                 ? `${profileData.user.name} ${profileData.user.last_name}`
                 : profileData.user.email || "Usuario"}
             </h2>
-            <p className="text-gray-600">{profileData.user.email}</p>
-            <p className="text-gray-600 capitalize">
-              Rol: {profileData.user.role}
-            </p>
+            <p className="text-gray-600 mb-2">{profileData.user.email}</p>
+            <div className="flex items-center gap-3">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                {translateRole(profileData.user.role)}
+              </span>
+              <span className="text-gray-500 text-sm font-mono">
+                #{String(profileData.user.id || 0).padStart(2, '0')}
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-1 gap-6">
           <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">
-              Información Personal
-              {isEditing && (
-                <span className="text-sm text-gray-500 font-normal ml-2">
-                  (* Campos obligatorios)
-                </span>
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+              <h3 className="text-xl font-semibold text-gray-900">
+                Información Personal
+                {isEditing && (
+                  <span className="text-sm text-gray-500 font-normal ml-2">
+                    (* Campos obligatorios)
+                  </span>
+                )}
+              </h3>
+              {!isEditing && (
+                <Button
+                  onClick={() => setIsEditing(true)}
+                  className="bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                >
+                  <Pencil className="w-4 h-4 mr-2" />
+                  Editar Perfil
+                </Button>
               )}
-            </h3>
-            <div className="space-y-3">
+            </div>
+            <div className="grid md:grid-cols-2 gap-6 space-y-0">
               <div>
-                <Label htmlFor="name">Nombre *</Label>
+                <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-1.5 block">Nombre *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -496,13 +622,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.name || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="last_name">Apellido *</Label>
+                <Label htmlFor="last_name" className="text-sm font-medium text-gray-700 mb-1.5 block">Apellido *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -520,17 +646,17 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.last_name || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
-                <p className="text-gray-900">{profileData.user.email}</p>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700 mb-1.5 block">Email</Label>
+                <p className="text-gray-900 font-medium py-2">{profileData.user.email}</p>
               </div>
               <div>
-                <Label htmlFor="rut">RUT *</Label>
+                <Label htmlFor="rut" className="text-sm font-medium text-gray-700 mb-1.5 block">RUT *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -549,13 +675,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.rut || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="phone_number">Teléfono *</Label>
+                <Label htmlFor="phone_number" className="text-sm font-medium text-gray-700 mb-1.5 block">Teléfono *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -576,13 +702,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.phone_number || "No especificado"}
                   </p>
                 )}
               </div>
-              <div>
-                <Label htmlFor="address">Dirección *</Label>
+              <div className="md:col-span-2">
+                <Label htmlFor="address" className="text-sm font-medium text-gray-700 mb-1.5 block">Dirección *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -601,13 +727,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.address || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="birth_date">Fecha de Nacimiento *</Label>
+                <Label htmlFor="birth_date" className="text-sm font-medium text-gray-700 mb-1.5 block">Fecha de Nacimiento *</Label>
                 {isEditing ? (
                   <div>
                     <Input
@@ -625,13 +751,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.birth_date || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="gender">Género *</Label>
+                <Label htmlFor="gender" className="text-sm font-medium text-gray-700 mb-1.5 block">Género *</Label>
                 {isEditing ? (
                   <div>
                     <select
@@ -657,13 +783,13 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.gender || "No especificado"}
                   </p>
                 )}
               </div>
               <div>
-                <Label htmlFor="nationality">Nacionalidad *</Label>
+                <Label htmlFor="nationality" className="text-sm font-medium text-gray-700 mb-1.5 block">Nacionalidad *</Label>
                 {isEditing ? (
                   <div>
                     <select
@@ -691,16 +817,16 @@ export default function UserProfilePage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-900">
+                  <p className="text-gray-900 font-medium py-2">
                     {profileData.user.nationality || "No especificado"}
                   </p>
                 )}
               </div>
 
-              {profileData.user.role === "patient" && profileData.profile && (
+              {profileData.user.role === "patient" && (
                 <>
-                  <div>
-                    <Label htmlFor="patientProfile.emergency_contact_name">
+                  <div className="md:col-span-2">
+                    <Label htmlFor="patientProfile.emergency_contact_name" className="text-sm font-medium text-gray-700 mb-1.5 block">
                       Nombre de Contacto de Emergencia *
                     </Label>
                     {isEditing ? (
@@ -733,14 +859,14 @@ export default function UserProfilePage() {
                         )}
                       </div>
                     ) : (
-                      <p className="text-gray-900">
+                      <p className="text-gray-900 font-medium py-2">
                         {(profileData.profile as PatientProfile)
-                          .emergency_contact_name || "No especificado"}
+                          ?.emergency_contact_name || "No especificado"}
                       </p>
                     )}
                   </div>
                   <div>
-                    <Label htmlFor="patientProfile.emergency_contact_phone">
+                    <Label htmlFor="patientProfile.emergency_contact_phone" className="text-sm font-medium text-gray-700 mb-1.5 block">
                       Teléfono de Contacto de Emergencia *
                     </Label>
                     {isEditing ? (
@@ -774,42 +900,9 @@ export default function UserProfilePage() {
                         )}
                       </div>
                     ) : (
-                      <p className="text-gray-900">
+                      <p className="text-gray-900 font-medium py-2">
                         {(profileData.profile as PatientProfile)
-                          .emergency_contact_phone || "No especificado"}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="patientProfile.health_insurances_id">
-                      ID de Seguro de Salud
-                    </Label>
-                    {isEditing ? (
-                      <div>
-                        <Input
-                          id="patientProfile.health_insurances_id"
-                          name="patientProfile.health_insurances_id"
-                          type="number"
-                          value={
-                            formData.patientProfile?.health_insurances_id || ""
-                          }
-                          onChange={handleInputChange}
-                          className={
-                            formErrors["patientProfile.health_insurances_id"]
-                              ? "border-red-500"
-                              : ""
-                          }
-                        />
-                        {formErrors["patientProfile.health_insurances_id"] && (
-                          <p className="text-red-500 text-sm mt-1">
-                            {formErrors["patientProfile.health_insurances_id"]}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-gray-900">
-                        {(profileData.profile as PatientProfile)
-                          .health_insurances_id || "No especificado"}
+                          ?.emergency_contact_phone || "No especificado"}
                       </p>
                     )}
                   </div>
@@ -820,7 +913,7 @@ export default function UserProfilePage() {
                 profileData.profile && (
                   <>
                     <div>
-                      <Label htmlFor="professionalProfile.title_id">
+                      <Label htmlFor="professionalProfile.title_id" className="text-sm font-medium text-gray-700 mb-1.5 block">
                         Profesión *
                       </Label>
                       {isEditing ? (
@@ -850,14 +943,14 @@ export default function UserProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-gray-900">
+                        <p className="text-gray-900 font-medium py-2">
                           {(profileData.profile as ProfessionalProfile).title
                             ?.title_name || "No especificado"}
                         </p>
                       )}
                     </div>
-                    <div>
-                      <Label>Especialidades</Label>
+                    <div className="md:col-span-2">
+                      <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Especialidades</Label>
                       {isEditing ? (
                         <div className="space-y-2">
                           {professionalSpecialties.length > 0 ? (
@@ -923,8 +1016,8 @@ export default function UserProfilePage() {
                         </div>
                       )}
                     </div>
-                    <div>
-                      <Label htmlFor="professionalProfile.profile_description">
+                    <div className="md:col-span-2">
+                      <Label htmlFor="professionalProfile.profile_description" className="text-sm font-medium text-gray-700 mb-1.5 block">
                         Descripción del Perfil *
                       </Label>
                       {isEditing ? (
@@ -960,57 +1053,9 @@ export default function UserProfilePage() {
                           )}
                         </div>
                       ) : (
-                        <p className="text-gray-900">
+                        <p className="text-gray-900 font-medium py-2 whitespace-pre-wrap">
                           {(profileData.profile as ProfessionalProfile)
                             .profile_description || "No especificado"}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="professionalProfile.resume_url">
-                        URL del CV
-                      </Label>
-                      {isEditing ? (
-                        <div>
-                          <Input
-                            id="professionalProfile.resume_url"
-                            name="professionalProfile.resume_url"
-                            type="url"
-                            value={
-                              formData.professionalProfile?.resume_url || ""
-                            }
-                            onChange={handleInputChange}
-                            placeholder="https://ejemplo.com/mi-cv.pdf"
-                            className={
-                              formErrors["professionalProfile.resume_url"]
-                                ? "border-red-500"
-                                : ""
-                            }
-                          />
-                          {formErrors["professionalProfile.resume_url"] && (
-                            <p className="text-red-500 text-sm mt-1">
-                              {formErrors["professionalProfile.resume_url"]}
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-gray-900">
-                          {(profileData.profile as ProfessionalProfile)
-                            .resume_url ? (
-                            <a
-                              href={
-                                (profileData.profile as ProfessionalProfile)
-                                  .resume_url!
-                              }
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-600 hover:underline"
-                            >
-                              Ver CV
-                            </a>
-                          ) : (
-                            "No especificado"
-                          )}
                         </p>
                       )}
                     </div>
@@ -1018,88 +1063,12 @@ export default function UserProfilePage() {
                 )}
             </div>
           </div>
-
-          <div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">
-              Información de la Cuenta
-            </h3>
-            <div className="space-y-3">
-              <div>
-                <Label>ID de Usuario</Label>
-                <p className="text-gray-900 text-sm font-mono">
-                  {profileData.user.id}
-                </p>
-              </div>
-              <div>
-                <Label>UUID de Autenticación</Label>
-                <p className="text-gray-900 text-sm font-mono">
-                  {profileData.user.user_id}
-                </p>
-              </div>
-              <div>
-                <Label>Proveedor</Label>
-                <p className="text-gray-900">{"email"} </p>
-              </div>
-
-              {/* Elementos específicos por rol */}
-              {profileData.user.role === "admin" && (
-                <>
-                  <div className="bg-blue-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Panel de Administración</h4>
-                    <p className="text-sm text-blue-800">
-                      Acceso completo a la gestión de usuarios y reportes.
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Configuración Global</h4>
-                    <p className="text-sm text-blue-800">
-                      Gestionar configuraciones generales de la plataforma.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {profileData.user.role === "patient" && (
-                <>
-                  <div className="bg-green-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Mis Citas</h4>
-                    <p className="text-sm text-green-800">
-                      Ver y gestionar tus próximas citas.
-                    </p>
-                  </div>
-                  <div className="bg-green-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Historial de Sesiones</h4>
-                    <p className="text-sm text-green-800">
-                      Accede a tus sesiones anteriores y notas.
-                    </p>
-                  </div>
-                </>
-              )}
-
-              {profileData.user.role === "professional" && (
-                <>
-                  <div className="bg-purple-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Mi Calendario</h4>
-                    <p className="text-sm text-purple-800">
-                      Gestiona tu disponibilidad y horarios de citas.
-                    </p>
-                  </div>
-                  <div className="bg-purple-100 p-3 rounded-md">
-                    <h4 className="font-semibold">Pacientes Asignados</h4>
-                    <p className="text-sm text-purple-800">
-                      Consulta la lista de tus pacientes.
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
         </div>
 
         <div className="mt-6 flex justify-end">
-          {isEditing ? (
+          {isEditing && (
             <>
-              <Button onClick={handleSave} className="mr-2">
+              <Button onClick={handleSave} className="mr-2 bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white transition-all duration-200">
                 Guardar Cambios
               </Button>
               <Button
@@ -1121,18 +1090,14 @@ export default function UserProfilePage() {
                       nationality: profileData.user?.nationality || "",
                       rut: profileData.user?.rut || "",
                       patientProfile:
-                        profileData.user?.role === "patient" &&
-                        profileData.profile
+                        profileData.user?.role === "patient"
                           ? {
                               emergency_contact_name:
                                 (profileData.profile as PatientProfile)
-                                  .emergency_contact_name || "",
+                                  ?.emergency_contact_name || "",
                               emergency_contact_phone:
                                 (profileData.profile as PatientProfile)
-                                  .emergency_contact_phone || "",
-                              health_insurances_id:
-                                (profileData.profile as PatientProfile)
-                                  .health_insurances_id || 0,
+                                  ?.emergency_contact_phone || "",
                             }
                           : undefined,
                       professionalProfile:
@@ -1145,9 +1110,6 @@ export default function UserProfilePage() {
                               profile_description:
                                 (profileData.profile as ProfessionalProfile)
                                   .profile_description || "",
-                              resume_url:
-                                (profileData.profile as ProfessionalProfile)
-                                  .resume_url || "",
                             }
                           : undefined,
                     }));
@@ -1174,8 +1136,6 @@ export default function UserProfilePage() {
                 Cancelar
               </Button>
             </>
-          ) : (
-            <Button onClick={() => setIsEditing(true)}>Editar Perfil</Button>
           )}
         </div>
       </div>

@@ -10,16 +10,21 @@ import { PatientOverview } from "@/components/acc-to-page/dashboard/PatientOverv
 export default function DashboardPage() {
   const { user, isLoading, isAuthenticated } = useAuthState();
   const [role, setRole] = useState<number | null>(null);
+  const [isRoleLoading, setIsRoleLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     const fetchRole = async () => {
       if (!user) {
-        if (isMounted) setRole(null);
+        if (isMounted) {
+          setRole(null);
+          setIsRoleLoading(false);
+        }
         return;
       }
 
+      setIsRoleLoading(true);
       try {
         const profile = await profileService.getUserProfileByUuid(user.id);
         if (!isMounted) return;
@@ -27,6 +32,8 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("Error obteniendo el rol del usuario:", error);
         if (isMounted) setRole(null);
+      } finally {
+        if (isMounted) setIsRoleLoading(false);
       }
     };
 
@@ -72,7 +79,7 @@ export default function DashboardPage() {
     ];
   }, [isAdmin, isProfessional]);
 
-  if (isLoading) {
+  if (isLoading || isRoleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

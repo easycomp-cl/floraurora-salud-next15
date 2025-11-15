@@ -21,6 +21,7 @@ export interface DetailedUserData {
   address?: string;
   gender?: string;
   nationality?: string;
+  avatar_url?: string;
 }
 
 // Mapeo de roles numéricos a strings

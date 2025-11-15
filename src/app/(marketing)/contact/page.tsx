@@ -7,6 +7,10 @@ import {
   type ContactFormData,
 } from "@/lib/validations/contact";
 import { useState } from "react";
+import Image from "next/image";
+import { Mail, MessageCircle } from "lucide-react";
+import logoImge from "../../../components/Fotos/logo.png";
+import contactoImg from "../../../components/Fotos/contacto.jpg";
 
 export default function ContactPage() {
   const [submitStatus, setSubmitStatus] = useState<{
@@ -60,92 +64,112 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Header Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-purple-700 py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl font-bold text-white mb-6">Contáctanos</h1>
-          <p className="text-xl text-indigo-100 max-w-3xl mx-auto">
-            Estamos aquí para ayudarte. Contáctanos para cualquier consulta,
-            agendar una cita o resolver dudas sobre nuestros servicios.
-          </p>
+    <main className="min-h-screen bg-white">
+      {/* Header Section con estilo similar a Nosotros */}
+      <section className="relative h-[400px] md:h-[500px] lg:h-[600px] overflow-hidden">
+        <Image
+          src={contactoImg}
+          alt="Contacto FlorAurora"
+          fill
+          priority
+          className="object-cover brightness-90"
+        />
+        {/* Overlay oscuro pero balanceado para mejor legibilidad */}
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900/65 via-teal-900/70 to-gray-900/65" />
+        <div className="absolute inset-0 bg-black/20" />
+        
+        <div className="relative z-10 h-full max-w-6xl mx-auto px-6 md:px-8 flex flex-col items-center justify-center text-center">
+          {/* Logo */}
+          <Image
+            src={logoImge}
+            alt="Logo FlorAurora Salud"
+            width={80}
+            height={80}
+            className="absolute top-6 left-6 md:top-8 md:left-8 z-20 rounded-lg shadow-xl bg-white p-2"
+            priority
+          />
+          
+          {/* Contenido principal */}
+          <div className="space-y-6 md:space-y-8">
+            <div className="space-y-4">
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white tracking-tight drop-shadow-2xl">
+                Contáctanos
+              </h1>
+              <div className="w-32 h-1.5 bg-teal-400 mx-auto rounded-full shadow-lg"></div>
+            </div>
+            
+            <div className="max-w-4xl mx-auto">
+              <p className="text-lg md:text-xl lg:text-2xl text-white leading-relaxed drop-shadow-xl font-normal">
+                Estamos aquí para ayudarte. Contáctanos para cualquier consulta,
+                agendar una cita o resolver dudas sobre nuestros servicios.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* Contact Information & Form */}
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid lg:grid-cols-2 gap-16">
+      <section className="bg-gradient-to-br from-teal-50 via-teal-100/50 to-teal-200/30 py-16 md:py-20">
+        <div className="max-w-6xl mx-auto px-6 md:px-8">
+          <div className="grid lg:grid-cols-2 gap-12">
             {/* Contact Information */}
-            <div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-8">
+            <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
+              <h2 className="text-3xl md:text-4xl font-bold text-teal-900 mb-8 tracking-wide">
                 Información de Contacto
               </h2>
+              <div className="w-24 h-1 bg-teal-500 rounded-full mb-8"></div>
 
               <div className="space-y-8">
                 {/* Email */}
-                <div className="flex items-start">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mr-4">
-                    <svg
-                      className="w-6 h-6 text-blue-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                      />
-                    </svg>
+                <div className="flex items-start transform transition-all hover:translate-x-2">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full mr-6 shadow-lg flex-shrink-0">
+                    <Mail className="w-8 h-8 text-white" strokeWidth={2} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       Email
                     </h3>
-                    <p className="text-gray-600">contacto@floraurorasalud.cl</p>
+                    <a
+                      href="mailto:contacto@floraurorasalud.cl"
+                      className="text-gray-600 hover:text-teal-600 transition-colors text-lg"
+                    >
+                      contacto@floraurorasalud.cl
+                    </a>
                   </div>
                 </div>
 
                 {/* WhatsApp */}
-                <div className="flex items-start">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                    {/* WhatsApp icon */}
-                    <svg
-                      className="w-6 h-6 text-green-600"
-                      fill="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M20.52 3.48A11.93 11.93 0 0012 0C5.37 0 0 5.37 0 12c0 2.11.55 4.16 1.6 5.97L0 24l6.21-1.62A11.93 11.93 0 0012 24c6.63 0 12-5.37 12-12 0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.85 0-3.66-.5-5.23-1.44l-.37-.22-3.69.96.99-3.59-.24-.37A9.94 9.94 0 012 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.2-7.8c-.28-.14-1.65-.81-1.9-.9-.25-.09-.43-.14-.61.14-.18.28-.7.9-.86 1.08-.16.18-.32.2-.6.07-.28-.14-1.18-.44-2.25-1.41-.83-.74-1.39-1.65-1.55-1.93-.16-.28-.02-.43.12-.57.13-.13.28-.34.42-.51.14-.17.18-.29.28-.48.09-.19.05-.36-.02-.5-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.61-.47-.16-.01-.35-.01-.54-.01-.19 0-.5.07-.76.36-.26.29-1 1-.97 2.43.03 1.43 1.03 2.81 1.18 3 .15.19 2.03 3.1 4.93 4.22.69.28 1.23.45 1.65.58.69.22 1.32.19 1.81.12.55-.08 1.65-.67 1.88-1.32.23-.65.23-1.2.16-1.32-.07-.12-.25-.19-.53-.33z" />
-                    </svg>
+                <div className="flex items-start transform transition-all hover:translate-x-2">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-green-400 to-green-600 rounded-full mr-6 shadow-lg flex-shrink-0">
+                    <MessageCircle className="w-8 h-8 text-white" strokeWidth={2} />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
                       WhatsApp
                     </h3>
                     <a
                       href="https://wa.me/56958685129"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-gray-600 hover:text-green-600 transition-colors"
+                      className="text-gray-600 hover:text-green-600 transition-colors text-lg"
                     >
                       +56 9 5868 5129
                     </a>
                   </div>
                 </div>
+
               </div>
 
               {/* Social Media */}
-              <div className="mt-12">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              <div className="mt-12 pt-8 border-t border-gray-200">
+                <h3 className="text-xl font-bold text-gray-900 mb-6">
                   Síguenos
                 </h3>
                 <div className="flex space-x-4">
                   {/* Facebook */}
                   <a
                     href="#"
-                    className="w-10 h-10 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-900 transition-colors"
+                    className="w-12 h-12 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-900 transition-all transform hover:scale-110 shadow-md hover:shadow-lg"
                     aria-label="Facebook"
                   >
                     <svg
@@ -166,7 +190,7 @@ export default function ContactPage() {
                     href="https://www.instagram.com/floraurorasalud?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw=="
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full flex items-center justify-center hover:opacity-90 transition-colors"
+                    className="w-12 h-12 rounded-full flex items-center justify-center hover:opacity-90 transition-all transform hover:scale-110 shadow-md hover:shadow-lg"
                     aria-label="Instagram"
                     style={{
                       background:
@@ -189,7 +213,7 @@ export default function ContactPage() {
                   {/* TikTok */}
                   <a
                     href="#"
-                    className="w-10 h-10 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-all transform hover:scale-110 shadow-md hover:shadow-lg border border-gray-200"
                     aria-label="TikTok"
                   >
                     <svg
@@ -210,10 +234,11 @@ export default function ContactPage() {
             </div>
 
             {/* Contact Form */}
-            <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-100">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
+              <h2 className="text-3xl md:text-4xl font-bold text-teal-900 mb-6 tracking-wide">
                 Envíanos un Mensaje
               </h2>
+              <div className="w-24 h-1 bg-teal-500 rounded-full mb-8"></div>
 
               {/* Mensaje de estado */}
               {submitStatus.type && (
@@ -241,9 +266,9 @@ export default function ContactPage() {
                       type="text"
                       id="firstName"
                       {...register("firstName")}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.firstName ? "border-red-500" : "border-gray-300"
-                      }`}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
+                      errors.firstName ? "border-red-500" : "border-gray-300"
+                    }`}
                       placeholder="Tu nombre"
                     />
                     {errors.firstName && (
@@ -264,9 +289,9 @@ export default function ContactPage() {
                       type="text"
                       id="lastName"
                       {...register("lastName")}
-                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                        errors.lastName ? "border-red-500" : "border-gray-300"
-                      }`}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
+                      errors.lastName ? "border-red-500" : "border-gray-300"
+                    }`}
                       placeholder="Tu apellido"
                     />
                     {errors.lastName && (
@@ -288,7 +313,7 @@ export default function ContactPage() {
                     type="email"
                     id="email"
                     {...register("email")}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
                       errors.email ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="tu@email.com"
@@ -311,7 +336,7 @@ export default function ContactPage() {
                     type="tel"
                     id="phone"
                     {...register("phone")}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
                       errors.phone ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="+56 9 1234 5678"
@@ -333,7 +358,7 @@ export default function ContactPage() {
                   <select
                     id="subject"
                     {...register("subject")}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
                       errors.subject ? "border-red-500" : "border-gray-300"
                     }`}
                   >
@@ -362,7 +387,7 @@ export default function ContactPage() {
                     id="message"
                     rows={4}
                     {...register("message")}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all ${
                       errors.message ? "border-red-500" : "border-gray-300"
                     }`}
                     placeholder="Cuéntanos en qué podemos ayudarte..."
@@ -377,10 +402,10 @@ export default function ContactPage() {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full py-3 rounded-lg font-semibold transition-colors ${
+                  className={`w-full py-4 rounded-lg font-semibold text-lg transition-all shadow-md hover:shadow-lg ${
                     isSubmitting
-                      ? "bg-blue-400 cursor-not-allowed"
-                      : "bg-blue-600 hover:bg-blue-700"
+                      ? "bg-teal-400 cursor-not-allowed"
+                      : "bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800"
                   } text-white`}
                 >
                   {isSubmitting ? "Enviando..." : "Enviar Mensaje"}
@@ -390,6 +415,6 @@ export default function ContactPage() {
           </div>
         </div>
       </section>
-    </div>
+    </main>
   );
 }

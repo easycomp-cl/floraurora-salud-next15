@@ -1,6 +1,7 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ChevronDown, LogOut, User, Briefcase } from "lucide-react";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import {
@@ -145,10 +146,21 @@ export default function UserSection() {
         onClick={handleToggleDropdown}
         className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-100 transition-colors cursor-pointer"
       >
-        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-          <span className="text-white text-sm font-medium">
-            {user?.user_metadata?.name?.[0] || user?.email?.[0] || "U"}
-          </span>
+        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+          {userProfile?.avatar_url ? (
+            <Image
+              src={userProfile.avatar_url}
+              alt={`${userProfile.name || "Usuario"} avatar`}
+              width={32}
+              height={32}
+              className="w-full h-full object-cover"
+              unoptimized
+            />
+          ) : (
+            <span className="text-white text-sm font-medium">
+              {user?.user_metadata?.name?.[0] || user?.email?.[0] || "U"}
+            </span>
+          )}
         </div>
         <div className="hidden md:block text-left">
           <p className="text-sm font-medium text-gray-900">

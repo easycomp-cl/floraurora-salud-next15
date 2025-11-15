@@ -1,21 +1,11 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "./client";
 
 // Función para crear un cliente de Supabase con configuración optimizada
+// DEPRECATED: Usa directamente 'supabase' de '@/utils/supabase/client' en su lugar
+// Esta función ahora reutiliza la instancia singleton para evitar múltiples instancias
 export function createAuthClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce',
-      debug: false,
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      storageKey: 'sb-auth-token'
-    }
-  });
+  // Reutilizar la instancia singleton en lugar de crear una nueva
+  return supabase;
 }
 
 // Función para verificar si la sesión es válida

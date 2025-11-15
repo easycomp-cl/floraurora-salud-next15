@@ -108,7 +108,13 @@ export const patientProfileSchema = z.object({
   emergency_contact_phone: z
     .string()
     .min(1, "El teléfono de contacto de emergencia es obligatorio")
-    .refine(validatePhone, "El teléfono debe ser un número chileno válido (8-9 dígitos o formato WhatsApp: +569 1234 5678)"),
+    .refine((phone) => {
+      // Contar solo los dígitos en el teléfono
+      const digitsOnly = phone.replace(/\D/g, "");
+      return digitsOnly.length >= 8;
+    }, "El teléfono debe tener al menos 8 dígitos")
+    .max(12, "El teléfono no puede exceder 12 caracteres (formato: +569 1234 5678)")
+    .regex(/^[\d\s\+\-\(\)]+$/, "El teléfono solo puede contener números, espacios, +, - y paréntesis"),
   
   health_insurances_id: z
     .number()

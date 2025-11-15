@@ -9,6 +9,7 @@ interface UserProfile {
   email?: string;
   role: number; // 1=admin, 2=patient, 3=professional
   is_active?: boolean;
+  avatar_url?: string;
 }
 
 export function useUserProfile() {

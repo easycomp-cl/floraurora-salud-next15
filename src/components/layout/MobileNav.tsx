@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X, ChevronDown, User, Briefcase } from "lucide-react";
 import { navItems, getAuthenticatedNavItems, adminNavigationItems, NavItem } from "@/lib/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
@@ -127,10 +128,21 @@ const MobileNav = () => {
         ) : isAuthenticated ? (
           // Avatar del usuario cuando está autenticado
           <div className="flex items-center space-x-1">
-            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-xs font-medium">
-                {user?.user_metadata?.name?.[0] || user?.email?.[0] || "U"}
-              </span>
+            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+              {userProfile?.avatar_url ? (
+                <Image
+                  src={userProfile.avatar_url}
+                  alt={`${userProfile.name || "Usuario"} avatar`}
+                  width={24}
+                  height={24}
+                  className="w-full h-full object-cover"
+                  unoptimized
+                />
+              ) : (
+                <span className="text-white text-xs font-medium">
+                  {user?.user_metadata?.name?.[0] || user?.email?.[0] || "U"}
+                </span>
+              )}
             </div>
             {/* Nombre del usuario visible en tablets */}
             <div className="hidden md:block text-left">
@@ -198,12 +210,23 @@ const MobileNav = () => {
               {isAuthenticated ? (
                 <div className="space-y-3">
                   <div className="flex items-center space-x-3 px-2 py-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-medium">
-                        {user?.user_metadata?.name?.[0] ||
-                          user?.email?.[0] ||
-                          "U"}
-                      </span>
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+                      {userProfile?.avatar_url ? (
+                        <Image
+                          src={userProfile.avatar_url}
+                          alt={`${userProfile.name || "Usuario"} avatar`}
+                          width={32}
+                          height={32}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="text-white text-sm font-medium">
+                          {user?.user_metadata?.name?.[0] ||
+                            user?.email?.[0] ||
+                            "U"}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">

@@ -19,7 +19,6 @@ const Navbar = () => {
               width={48}
               height={48}
               className="w-12 h-12"
-              priority
             />
             <span className="text-xl font-bold text-gray-900">
               FlorAurora Salud

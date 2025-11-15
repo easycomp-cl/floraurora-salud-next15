@@ -51,22 +51,22 @@ export const navItems: NavItem[] = [
     subItems: [
       {
         label: "Psicoterapia Infanto Juvenil",
-        href: "/services",
+        href: "/services#psicoterapia-infanto-juvenil",
         description: "Terapia especializada para niños y adolescentes"
       },
       {
         label: "Psicoterapia Adultos",
-        href: "/services",
+        href: "/services#psicoterapia-adultos",
         description: "Terapia para adultos"
       },
       {
         label: "Terapia de Pareja",
-        href: "/services",
+        href: "/services#terapia-pareja",
         description: "Terapia de pareja y relaciones"
       },
       {
         label: "Evaluación y Psicodiagnóstico",
-        href: "/services",
+        href: "/services#evaluacion-psicodiagnostico",
         description: "Evaluaciones psicológicas completas"
       },
     ]
