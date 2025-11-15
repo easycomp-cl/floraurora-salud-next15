@@ -14,15 +14,15 @@ interface ContactConfirmationEmailProps {
   lastName: string;
   subject: string;
   message: string;
-  logoUrl?: string;
 }
+
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 export function ContactConfirmationEmail({
   firstName,
   lastName,
   subject,
   message,
-  logoUrl,
 }: ContactConfirmationEmailProps) {
   return (
     <Html>
@@ -31,15 +31,15 @@ export function ContactConfirmationEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            {logoUrl && (
+            <Section style={logoContainer}>
               <Img
-                src={logoUrl}
+                src={LOGO_URL}
                 alt="FlorAurora Salud"
                 width="150"
                 height="auto"
                 style={logoStyle}
               />
-            )}
+            </Section>
             <Heading style={headerTitle}>¡Gracias por contactarnos! 👋</Heading>
           </Section>
 
@@ -204,11 +204,21 @@ const footerNote = {
   margin: "10px 0 0 0",
 };
 
-const logoStyle = {
+const logoContainer = {
+  backgroundColor: "#ffffff",
+  padding: "12px 20px",
+  borderRadius: "8px",
+  display: "inline-block",
   margin: "0 auto 20px auto",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+};
+
+const logoStyle = {
   display: "block",
+  margin: "0 auto",
   maxWidth: "150px",
   height: "auto",
+  borderRadius: "4px",
 };
 
 const messageQuoteBox = {

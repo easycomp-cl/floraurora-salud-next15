@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CheckCircle, XCircle, Clock, ArrowLeft } from "lucide-react";
-import { signupPro } from "@/lib/auth-actions";
+// signupPro se importa dinámicamente para evitar problemas con hot reload
 import type {
   PersonalDataFormData,
   AcademicDataFormData,
@@ -70,10 +70,27 @@ export default function PaymentConfirmationStep({
   const [confirmationStatus, setConfirmationStatus] =
     useState<ConfirmationStatus>("processing");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const hasSubmittedRef = useRef(false); // Prevenir doble envío
 
   // Enviar formulario automáticamente al montar el componente
   useEffect(() => {
+    // Prevenir ejecución múltiple usando sessionStorage
+    const storageKey = `signup-pro-submitted-${stepData.personalData.email}`;
+    const submissionStatus = sessionStorage.getItem(storageKey);
+    
+    if (hasSubmittedRef.current || submissionStatus) {
+      // Si ya se envió, redirigir según el estado guardado
+      if (submissionStatus === "success") {
+        router.push("/signup-pro/success");
+      } else if (submissionStatus === "existing") {
+        router.push("/signup-pro/success?existing=true");
+      }
+      return;
+    }
+
     const submitForm = async () => {
+      // Marcar como enviado inmediatamente para prevenir doble ejecución
+      hasSubmittedRef.current = true;
       try {
         setConfirmationStatus("processing");
         setErrorMessage(null);
@@ -155,24 +172,81 @@ export default function PaymentConfirmationStep({
         }
         formData.append("temp_user_id", tempUserId); // Para reorganizar archivos después
 
-        // 3. Enviar formulario (solo datos y URLs, no archivos)
-        await signupPro(formData);
+        // 3. Verificar si ya existe una solicitud antes de enviar
+        // Esto previene el caso donde el usuario recarga o navega de vuelta
+        const checkUrl = new URL("/api/check-professional-request", window.location.origin);
+        checkUrl.searchParams.append("email", stepData.personalData.email);
+        if (stepData.personalData.rut) {
+          checkUrl.searchParams.append("rut", stepData.personalData.rut);
+        }
+
+        const checkResponse = await fetch(checkUrl.toString());
+        const checkData = await checkResponse.json();
+
+        if (checkData.exists && checkData.type === "pending_request") {
+          // Ya existe una solicitud pendiente, redirigir directamente
+          console.log("Ya existe una solicitud pendiente, redirigiendo...");
+          sessionStorage.setItem(storageKey, "existing");
+          router.push("/signup-pro/success?existing=true");
+          return;
+        }
+
+        // 4. Enviar formulario (solo datos y URLs, no archivos)
+        // Importar dinámicamente para evitar problemas con hot reload
+        const { signupPro: signupProAction } = await import("@/lib/auth-actions");
+        await signupProAction(formData);
 
         // Si llegamos aquí, fue exitoso (signupPro redirige)
+        // NOTA: Normalmente signupPro hace redirect() que lanza una excepción especial
+        // Si llegamos aquí es porque no hubo redirect, así que fue exitoso
+        sessionStorage.setItem(storageKey, "success");
         setConfirmationStatus("success");
-      } catch (error) {
+      } catch (error: unknown) {
+        // Verificar si es un redirect de Next.js (no es un error real)
+        // Next.js redirect() lanza un error especial con digest "NEXT_REDIRECT"
+        const errorWithDigest = error as { digest?: string };
+        const isRedirect = 
+          errorWithDigest?.digest === "NEXT_REDIRECT" ||
+          errorWithDigest?.digest?.includes("NEXT_REDIRECT") ||
+          (error instanceof Error && error.message.includes("NEXT_REDIRECT"));
+        
+        if (isRedirect) {
+          // Es un redirect exitoso, no mostrar error
+          // El redirect se procesará automáticamente por Next.js
+          sessionStorage.setItem(storageKey, "success");
+          setConfirmationStatus("success");
+          return;
+        }
+
+        // Si es un error de "ya existe solicitud", redirigir en lugar de mostrar error
+        if (error instanceof Error && error.message.includes("solicitud pendiente")) {
+          sessionStorage.setItem(storageKey, "existing");
+          router.push("/signup-pro/success?existing=true");
+          return;
+        }
+
+        // Es un error real
         console.error("Error al enviar formulario:", error);
         setConfirmationStatus("failed");
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Error al enviar la solicitud. Por favor intenta nuevamente."
-        );
+        
+        // Manejar específicamente el error de Server Action no encontrada
+        if (error instanceof Error && error.message.includes("Server Action")) {
+          setErrorMessage(
+            "Error de conexión con el servidor. Por favor, recarga la página e intenta nuevamente."
+          );
+        } else {
+          setErrorMessage(
+            error instanceof Error
+              ? error.message
+              : "Error al enviar la solicitud. Por favor intenta nuevamente."
+          );
+        }
       }
     };
 
     submitForm();
-  }, [stepData, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Sin dependencias para ejecutar solo una vez al montar
 
   const handleRetrySubmission = async () => {
     try {
@@ -257,17 +331,43 @@ export default function PaymentConfirmationStep({
       formData.append("temp_user_id", tempUserId); // Para reorganizar archivos después
 
       // 3. Enviar formulario (solo datos y URLs, no archivos)
-      await signupPro(formData);
+      // Importar dinámicamente para evitar problemas con hot reload
+      const { signupPro: signupProAction } = await import("@/lib/auth-actions");
+      await signupProAction(formData);
 
       setConfirmationStatus("success");
-    } catch (error) {
+    } catch (error: unknown) {
+      // Verificar si es un redirect de Next.js (no es un error real)
+      // Next.js redirect() lanza un error especial con digest "NEXT_REDIRECT"
+      const errorWithDigest = error as { digest?: string };
+      const isRedirect = 
+        errorWithDigest?.digest === "NEXT_REDIRECT" ||
+        errorWithDigest?.digest?.includes("NEXT_REDIRECT") ||
+        (error instanceof Error && error.message.includes("NEXT_REDIRECT"));
+      
+      if (isRedirect) {
+        // Es un redirect exitoso, no mostrar error
+        // El redirect se procesará automáticamente por Next.js
+        setConfirmationStatus("success");
+        return;
+      }
+
+      // Es un error real
       console.error("Error al reintentar envío:", error);
       setConfirmationStatus("failed");
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Error al enviar la solicitud. Por favor intenta nuevamente."
-      );
+      
+      // Manejar específicamente el error de Server Action no encontrada
+      if (error instanceof Error && error.message.includes("Server Action")) {
+        setErrorMessage(
+          "Error de conexión con el servidor. Por favor, recarga la página e intenta nuevamente."
+        );
+      } else {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Error al enviar la solicitud. Por favor intenta nuevamente."
+        );
+      }
     }
   };
 

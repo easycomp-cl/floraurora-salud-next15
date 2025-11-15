@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { UserService } from "@/lib/services/userService";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
+import type { User } from "@supabase/supabase-js";
 
 export default function AuthCallback() {
   const [status, setStatus] = useState<string>("Iniciando autenticación...");
@@ -21,11 +22,7 @@ export default function AuthCallback() {
     let redirectAttempted = false;
     let processingStarted = false;
 
-    const processUserProfile = async (user: {
-      id: string;
-      email?: string;
-      user_metadata?: { full_name?: string };
-    }) => {
+    const processUserProfile = async (user: User) => {
       // Prevenir múltiples ejecuciones simultáneas
       if (processingStarted) {
         console.log("⚠️ Procesamiento ya en curso, saltando...");
@@ -33,6 +30,23 @@ export default function AuthCallback() {
       }
 
       processingStarted = true;
+
+      // Verificar si el usuario está bloqueado
+      const isBlocked = (user.app_metadata as { blocked?: boolean } | null)?.blocked === true;
+      if (isBlocked) {
+        console.warn("🚫 AuthCallback: Usuario bloqueado detectado, cerrando sesión...");
+        setStatus("Tu cuenta ha sido bloqueada. Cerrando sesión...");
+        
+        // Cerrar sesión inmediatamente
+        const { clientSignout } = await import("@/lib/client-auth");
+        await clientSignout();
+        
+        // Redirigir a login con mensaje de error
+        setTimeout(() => {
+          router.push("/login?error=account_blocked");
+        }, 2000);
+        return;
+      }
 
       try {
         // Verificar si el usuario existe en la tabla users
@@ -42,7 +56,7 @@ export default function AuthCallback() {
           console.log("📋 Creando usuario en tabla users...");
           setStatus("Creando perfil de usuario...");
 
-          const fullName = user.user_metadata?.full_name || "Usuario";
+          const fullName = (user.user_metadata as { full_name?: string } | null)?.full_name || "Usuario";
           const nameParts = fullName.split(" ");
           const firstName = nameParts[0] || "Usuario";
           const lastName = nameParts.slice(1).join(" ") || "";

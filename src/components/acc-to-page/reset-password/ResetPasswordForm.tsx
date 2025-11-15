@@ -41,68 +41,121 @@ export function ResetPasswordForm() {
     processedRef.current = true;
 
     const initializeSession = async () => {
-      const { searchParams } = new URL(window.location.href);
-      const code = searchParams.get("code");
-
-      if (!code) {
-        setIsChecking(false);
-        setTokenValid(false);
-        setState({
-          success: false,
-          error: "Enlace inválido o expirado",
-          loading: false,
-          message: null,
-        });
-        return;
-      }
-      
-      // Crear cliente Supabase
       const supabase = createClient();
       
-      // Esperar a que detectSessionInUrl procese automáticamente
-      let attempts = 0;
-      const maxAttempts = 20;
-      const checkSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          setIsChecking(false);
-          setTokenValid(true);
-          return true;
-        }
-        
-        attempts++;
-        return false;
-      };
+      // Verificar si hay un hash en la URL (viene después del redirect de Supabase)
+      // Formato: #access_token=...&refresh_token=...&type=recovery
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get("access_token");
+      const type = hashParams.get("type");
+      
+      if (accessToken && type === "recovery") {
+        // Establecer la sesión con el token del hash
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: hashParams.get("refresh_token") || "",
+        });
 
-      // Verificar inmediatamente
-      if (await checkSession()) return;
-
-      // Intentar cada 500ms
-      const interval = setInterval(async () => {
-        if (await checkSession()) {
-          clearInterval(interval);
-        } else if (attempts >= maxAttempts) {
-          clearInterval(interval);
+        if (sessionError) {
+          console.error("Error estableciendo sesión:", sessionError);
           setIsChecking(false);
           setTokenValid(false);
           setState({
             success: false,
-            error: "El enlace ya fue utilizado o ha expirado. Solicita un nuevo enlace.",
+            error: "El enlace es inválido o ha expirado",
+            loading: false,
+            message: null,
+          });
+          return;
+        }
+
+        // Verificar que el usuario esté autenticado
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (user) {
+          setTokenValid(true);
+          setIsChecking(false);
+          return;
+        } else {
+          setIsChecking(false);
+          setTokenValid(false);
+          setState({
+            success: false,
+            error: "No se pudo verificar el usuario",
+            loading: false,
+            message: null,
+          });
+          return;
+        }
+      }
+      
+      // Si no hay hash, verificar si hay un código en los query params (flujo alternativo)
+      const { searchParams } = new URL(window.location.href);
+      const code = searchParams.get("code");
+
+      if (code) {
+        // Esperar a que detectSessionInUrl procese automáticamente el código
+        let attempts = 0;
+        const maxAttempts = 20;
+        const checkSession = async () => {
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (session) {
+            setIsChecking(false);
+            setTokenValid(true);
+            return true;
+          }
+          
+          attempts++;
+          return false;
+        };
+
+        // Verificar inmediatamente
+        if (await checkSession()) return;
+
+        // Intentar cada 500ms
+        const interval = setInterval(async () => {
+          if (await checkSession()) {
+            clearInterval(interval);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            setIsChecking(false);
+            setTokenValid(false);
+            setState({
+              success: false,
+              error: "El enlace ya fue utilizado o ha expirado. Solicita un nuevo enlace.",
+              loading: false,
+              message: null,
+            });
+          }
+        }, 500);
+
+        // Timeout final
+        setTimeout(() => {
+          clearInterval(interval);
+          if (isChecking) {
+            setIsChecking(false);
+            setTokenValid(false);
+          }
+        }, 10000);
+      } else {
+        // No hay ni hash ni código, verificar si ya hay una sesión activa
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          setTokenValid(true);
+          setIsChecking(false);
+        } else {
+          setIsChecking(false);
+          setTokenValid(false);
+          setState({
+            success: false,
+            error: "Enlace inválido o expirado. Por favor, solicita un nuevo enlace.",
             loading: false,
             message: null,
           });
         }
-      }, 500);
-
-      // Timeout final
-      setTimeout(() => {
-        clearInterval(interval);
-        if (isChecking) {
-          setIsChecking(false);
-          setTokenValid(false);
-        }
-      }, 10000);
+      }
     };
 
     initializeSession();

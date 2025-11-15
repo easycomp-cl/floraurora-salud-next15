@@ -22,6 +22,8 @@ interface ServicesResponse {
   total: number;
 }
 
+// formatDate se mantiene para referencia pero no se usa actualmente
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function formatDate(value: string | null | undefined) {
   if (!value) return "Sin fecha";
   try {
@@ -83,10 +85,21 @@ export default function ServicesManagement() {
     try {
       setIsSubmitting(true);
       setDialogError(null);
+      
+      // Generar slug si no existe
+      const slug = values.slug || values.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      
+      const valuesWithSlug = { ...values, slug };
+      
       const response = await fetch("/api/admin/services", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(valuesWithSlug),
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
@@ -110,16 +123,34 @@ export default function ServicesManagement() {
     try {
       setIsSubmitting(true);
       setDialogError(null);
+      
+      // Generar slug si no existe
+      const slug = values.slug || values.name
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      
+      const valuesWithSlug = { ...values, slug };
+      
       const response = await fetch(`/api/admin/services/${selectedService.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(valuesWithSlug),
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "No se pudo actualizar el servicio");
       }
+
+      // Log con la URL del slug
+      const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const slugUrl = `${baseUrl}/servicios/${slug}`;
+      console.log("🔗 URL del servicio:", slugUrl);
+      console.log("📝 Slug generado:", slug);
+      console.log("📋 Datos del servicio:", valuesWithSlug);
 
       setMessage("Servicio actualizado correctamente.");
       setIsEditOpen(false);
@@ -192,12 +223,11 @@ export default function ServicesManagement() {
         name: selectedService.name,
         slug: selectedService.slug,
         description: selectedService.description ?? "",
-        price: selectedService.price,
-        currency: selectedService.currency,
+        minimum_amount: selectedService.minimum_amount ?? null,
+        maximum_amount: selectedService.maximum_amount ?? null,
         duration_minutes: selectedService.duration_minutes,
         is_active: selectedService.is_active,
-        valid_from: selectedService.valid_from ?? undefined,
-        valid_to: selectedService.valid_to ?? undefined,
+        title_id: selectedService.title_id ?? null,
       }),
       id: selectedService.id,
     };
@@ -306,22 +336,32 @@ export default function ServicesManagement() {
                   )}
 
                   <div className="mt-4 grid gap-2 text-xs text-gray-600">
-                    {service.price !== undefined && service.price > 0 && (
+                    {((service.minimum_amount !== null && service.minimum_amount !== undefined) || 
+                      (service.maximum_amount !== null && service.maximum_amount !== undefined)) ? (
                       <div className="flex items-center gap-2">
                         <CircleDollarSign className="h-4 w-4 text-primary" />
                         <span>
-                          {service.price} {service.currency}
+                          {service.minimum_amount !== null && service.minimum_amount !== undefined && (
+                            <>
+                              ${service.minimum_amount.toLocaleString('es-CL')}
+                              {service.maximum_amount !== null && service.maximum_amount !== undefined && ' - '}
+                            </>
+                          )}
+                          {service.maximum_amount !== null && service.maximum_amount !== undefined && (
+                            <>
+                              {service.minimum_amount === null || service.minimum_amount === undefined
+                                ? `Hasta $${service.maximum_amount.toLocaleString('es-CL')}`
+                                : `$${service.maximum_amount.toLocaleString('es-CL')}`}
+                            </>
+                          )}
                         </span>
                       </div>
-                    )}
+                    ) : null}
                     {service.duration_minutes !== undefined && service.duration_minutes > 0 && (
                       <div className="flex items-center gap-2">
                         <CalendarClock className="h-4 w-4 text-primary" />
                         <span>
                           {service.duration_minutes} minutos
-                          {service.valid_from || service.valid_to ? (
-                            <> · {formatDate(service.valid_from)} → {formatDate(service.valid_to)}</>
-                          ) : null}
                         </span>
                       </div>
                     )}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   createColumnHelper,
   flexRender,
@@ -14,6 +14,7 @@ import type {
   AppointmentWithUsers,
   BasicUserInfo,
 } from "@/lib/services/appointmentService";
+import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
 
 type AppointmentsTableMode = "patient" | "professional" | "admin";
 
@@ -27,6 +28,7 @@ interface AppointmentsTableProps {
   mode: AppointmentsTableMode;
   isLoading?: boolean;
   emptyMessage?: string;
+  onAppointmentUpdate?: () => void;
 }
 
 const columnHelper = createColumnHelper<AppointmentRow>();
@@ -101,9 +103,95 @@ export default function AppointmentsTable({
   mode,
   isLoading = false,
   emptyMessage,
+  onAppointmentUpdate,
 }: AppointmentsTableProps) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [confirmationHours, setConfirmationHours] = useState<number>(24);
+  const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithUsers | null>(null);
+  const [confirmingAppointmentId, setConfirmingAppointmentId] = useState<string | number | null>(null);
+
+  // Cargar configuración de horas antes de confirmar
+  useEffect(() => {
+    const loadConfiguration = async () => {
+      try {
+        const response = await fetch("/api/system/configurations");
+        if (response.ok) {
+          const configs = await response.json();
+          const config = configs.find(
+            (c: { config_key: string }) =>
+              c.config_key === "appointment_confirmation_hours_before"
+          );
+          if (config) {
+            setConfirmationHours(config.value || 24);
+          }
+        }
+      } catch (error) {
+        console.error("Error cargando configuración:", error);
+      }
+    };
+    loadConfiguration();
+  }, []);
+
+  // Función para verificar si se puede confirmar asistencia
+  const canConfirmAppointment = (appointment: AppointmentWithUsers) => {
+    if (appointment.status !== "pending_confirmation") {
+      return false;
+    }
+
+    const scheduledDate = new Date(appointment.scheduled_at);
+    const now = new Date();
+    const hoursUntilAppointment =
+      (scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    const canConfirm = hoursUntilAppointment > 0 && hoursUntilAppointment <= confirmationHours;
+    
+    console.log("Verificación de confirmación:", {
+      appointmentId: appointment.id,
+      scheduledDate: appointment.scheduled_at,
+      hoursUntilAppointment: hoursUntilAppointment.toFixed(2),
+      confirmationHours,
+      canConfirm,
+    });
+
+    return canConfirm;
+  };
+
+  // Función para confirmar asistencia
+  const handleConfirmAppointment = async (appointmentId: string | number) => {
+    try {
+      setConfirmingAppointmentId(appointmentId);
+      const response = await fetch(`/api/appointments/${appointmentId}/confirm`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.error || "Error al confirmar la cita");
+        return;
+      }
+
+      // Recargar las citas
+      if (onAppointmentUpdate) {
+        onAppointmentUpdate();
+      } else {
+        // Recargar la página si no hay callback
+        window.location.reload();
+      }
+    } catch (error) {
+      console.error("Error confirmando cita:", error);
+      alert("Error al confirmar la cita");
+    } finally {
+      setConfirmingAppointmentId(null);
+    }
+  };
+
+  // Función para abrir modal de reagendar
+  const handleOpenRescheduleModal = (appointment: AppointmentWithUsers) => {
+    setSelectedAppointment(appointment);
+    setRescheduleModalOpen(true);
+  };
 
   const tableData = useMemo<AppointmentRow[]>(() => {
     return (data ?? []).map((item) => {
@@ -315,8 +403,65 @@ export default function AppointmentsTable({
       })
     );
 
+    // Agregar columna de acciones para pacientes con citas pending_confirmation
+    if (mode === "patient") {
+      baseColumns.push(
+        columnHelper.display({
+          id: "actions",
+          header: "Acciones",
+          cell: ({ row }) => {
+            const appointment = row.original;
+            const canConfirm = canConfirmAppointment(appointment);
+            const appointmentIdStr = typeof appointment.id === 'string' 
+              ? appointment.id
+              : `APT-${String(appointment.id).padStart(8, '0')}`;
+            const isConfirming = confirmingAppointmentId === appointmentIdStr || confirmingAppointmentId === appointment.id;
+
+            if (appointment.status !== "pending_confirmation") {
+              return <span className="text-sm text-gray-400">—</span>;
+            }
+
+            return (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => {
+                    // El ID es de tipo text con formato "APT-00000060"
+                    const appointmentId = typeof appointment.id === 'string' 
+                      ? appointment.id
+                      : `APT-${String(appointment.id).padStart(8, '0')}`;
+                    console.log("Confirmando cita con ID:", { original: appointment.id, formatted: appointmentId });
+                    handleConfirmAppointment(appointmentId);
+                  }}
+                  disabled={!canConfirm || isConfirming}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                    canConfirm && !isConfirming
+                      ? "bg-green-600 text-white hover:bg-green-700"
+                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                  }`}
+                  title={
+                    canConfirm
+                      ? "Confirmar asistencia"
+                      : `Solo puedes confirmar ${confirmationHours} horas antes de la cita`
+                  }
+                >
+                  {isConfirming ? "Confirmando..." : "Confirmar Asistencia"}
+                </button>
+                <button
+                  onClick={() => handleOpenRescheduleModal(appointment)}
+                  className="px-3 py-1 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  Reagendar Cita
+                </button>
+              </div>
+            );
+          },
+        })
+      );
+    }
+
     return baseColumns as ColumnDef<AppointmentRow>[];
-  }, [mode]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, confirmationHours, confirmingAppointmentId]);
 
   const table = useReactTable({
     data: tableData,
@@ -472,6 +617,24 @@ export default function AppointmentsTable({
           </select>
         </div>
       </div>
+
+      {/* Modal de reagendar */}
+      {selectedAppointment && (
+        <RescheduleAppointmentModal
+          appointment={selectedAppointment}
+          isOpen={rescheduleModalOpen}
+          onClose={() => {
+            setRescheduleModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+          onReschedule={(newDate, newTime) => {
+            console.log("Reagendar cita:", { newDate, newTime });
+            // Aquí se implementará la lógica de reagendamiento cuando esté lista
+            setRescheduleModalOpen(false);
+            setSelectedAppointment(null);
+          }}
+        />
+      )}
     </div>
   );
 }

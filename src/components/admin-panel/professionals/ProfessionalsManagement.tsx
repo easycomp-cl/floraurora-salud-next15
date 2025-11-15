@@ -609,12 +609,25 @@ export default function ProfessionalsManagement() {
                       No hay servicios activos configurados
                     </option>
                   ) : (
-                    activeServices.map((service) => (
-                      <option key={service.id} value={service.id}>
-                        {service.name} · {service.duration_minutes} min · $
-                        {service.price} {service.currency}
-                      </option>
-                    ))
+                    activeServices.map((service) => {
+                      const formatPrice = () => {
+                        if (service.minimum_amount !== null && service.minimum_amount !== undefined) {
+                          if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
+                            return `$${service.minimum_amount.toLocaleString('es-CL')} - $${service.maximum_amount.toLocaleString('es-CL')}`;
+                          }
+                          return `$${service.minimum_amount.toLocaleString('es-CL')}`;
+                        }
+                        if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
+                          return `Hasta $${service.maximum_amount.toLocaleString('es-CL')}`;
+                        }
+                        return 'Precio no definido';
+                      };
+                      return (
+                        <option key={service.id} value={service.id}>
+                          {service.name} · {service.duration_minutes} min · {formatPrice()}
+                        </option>
+                      );
+                    })
                   )}
                 </select>
               </div>
@@ -624,18 +637,32 @@ export default function ProfessionalsManagement() {
                   Resumen de servicios activos:
                 </p>
                 <ul className="mt-2 space-y-1">
-                  {services.map((service) => (
-                    <li key={service.id} className="flex items-center gap-2">
-                      <Clock className="h-3.5 w-3.5 text-primary" />
-                      <span className="flex-1">
-                        {service.name} ({service.duration_minutes} min)
-                      </span>
-                      <span className="flex items-center gap-1 text-gray-500">
-                        <DollarSign className="h-3 w-3" />
-                        {service.price} {service.currency}
-                      </span>
-                    </li>
-                  ))}
+                  {services.map((service) => {
+                    const formatPrice = () => {
+                      if (service.minimum_amount !== null && service.minimum_amount !== undefined) {
+                        if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
+                          return `$${service.minimum_amount.toLocaleString('es-CL')} - $${service.maximum_amount.toLocaleString('es-CL')}`;
+                        }
+                        return `$${service.minimum_amount.toLocaleString('es-CL')}`;
+                      }
+                      if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
+                        return `Hasta $${service.maximum_amount.toLocaleString('es-CL')}`;
+                      }
+                      return 'Precio no definido';
+                    };
+                    return (
+                      <li key={service.id} className="flex items-center gap-2">
+                        <Clock className="h-3.5 w-3.5 text-primary" />
+                        <span className="flex-1">
+                          {service.name} ({service.duration_minutes} min)
+                        </span>
+                        <span className="flex items-center gap-1 text-gray-500">
+                          <DollarSign className="h-3 w-3" />
+                          {formatPrice()}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 

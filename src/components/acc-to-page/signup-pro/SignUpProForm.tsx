@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { signupPro } from "@/lib/auth-actions";
+// signupPro se importa dinámicamente para evitar problemas con hot reload
 
 const rutRegex = /^(\d{1,2}\.??\d{3}\.??\d{3}-[\dkK])$|^(\d{7,8}-[\dkK])$/;
 
@@ -103,7 +103,9 @@ export default function SignUpProForm() {
       formData.set("full_name", fullName);
 
       // Enviar a la acción del servidor
-      await signupPro(formData);
+      // Importar dinámicamente para evitar problemas con hot reload
+      const { signupPro: signupProAction } = await import("@/lib/auth-actions");
+      await signupProAction(formData);
     } finally {
       setSubmitting(false);
     }

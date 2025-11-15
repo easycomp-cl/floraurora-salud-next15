@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,12 +12,10 @@ export interface ServiceFormValues {
   name: string;
   slug: string;
   description: string;
-  price: number;
-  currency: string;
+  minimum_amount: number | null;
+  maximum_amount: number | null;
   duration_minutes: number;
   is_active: boolean;
-  valid_from?: string | null;
-  valid_to?: string | null;
   title_id?: number | null;
 }
 
@@ -35,12 +33,10 @@ const defaultValues: ServiceFormValues = {
   name: "",
   slug: "",
   description: "",
-  price: 0,
-  currency: "CLP",
+  minimum_amount: null,
+  maximum_amount: null,
   duration_minutes: 50,
   is_active: true,
-  valid_from: undefined,
-  valid_to: undefined,
 };
 
 export function buildServiceDefaults(values?: Partial<ServiceFormValues>): ServiceFormValues {
@@ -74,10 +70,29 @@ export default function ServiceForm({
     register,
     handleSubmit,
     reset,
+    setValue,
+    control,
     formState: { errors },
   } = useForm<ServiceFormValues>({
     defaultValues: formDefaults,
   });
+
+  // Observar cambios en el nombre para generar el slug automáticamente
+  const nameValue = useWatch({ control, name: "name" });
+
+  useEffect(() => {
+    if (nameValue) {
+      // Generar slug desde el nombre: minúsculas, reemplazar espacios y caracteres especiales por guiones
+      const generatedSlug = nameValue
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // Eliminar acentos
+        .replace(/[^a-z0-9]+/g, "-") // Reemplazar caracteres no alfanuméricos por guiones
+        .replace(/^-+|-+$/g, ""); // Eliminar guiones al inicio y final
+      
+      setValue("slug", generatedSlug);
+    }
+  }, [nameValue, setValue]);
 
   // Solo resetear cuando cambie la clave (id o name), no en cada render
   useEffect(() => {
@@ -106,12 +121,19 @@ export default function ServiceForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="title_id">Área/Título</Label>
+          <Label htmlFor="title_id">Área/Título <span className="text-red-500">*</span></Label>
           <select
             id="title_id"
             className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
             {...register("title_id", {
               valueAsNumber: true,
+              required: "Debes seleccionar un área/título",
+              validate: (value) => {
+                if (value === null || value === undefined || value === 0 || isNaN(value)) {
+                  return "Debes seleccionar un área/título";
+                }
+                return true;
+              },
             })}
           >
             <option value="">Seleccionar área</option>
@@ -121,16 +143,11 @@ export default function ServiceForm({
               </option>
             ))}
           </select>
+          {errors.title_id && <p className="text-sm text-red-600">{errors.title_id.message}</p>}
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="slug">Slug</Label>
-          <Input
-            id="slug"
-            placeholder="sesion-psicologica"
-            {...register("slug")}
-          />
-        </div>
+        {/* Campo slug oculto - se genera automáticamente */}
+        <input type="hidden" {...register("slug")} />
 
         <div className="space-y-2 md:col-span-2">
           <Label htmlFor="description">Descripción</Label>
@@ -143,23 +160,43 @@ export default function ServiceForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="price">Precio</Label>
+          <Label htmlFor="minimum_amount">Monto mínimo</Label>
           <Input
-            id="price"
+            id="minimum_amount"
             type="number"
             step="0.01"
             min="0"
-            {...register("price", {
+            placeholder="Ej. 50000"
+            {...register("minimum_amount", {
               valueAsNumber: true,
-              required: "El precio es obligatorio",
+              setValueAs: (value) => (value === "" || value === null || isNaN(value) ? null : Number(value)),
             })}
           />
-          {errors.price && <p className="text-sm text-red-600">{errors.price.message}</p>}
+          {errors.minimum_amount && <p className="text-sm text-red-600">{errors.minimum_amount.message}</p>}
+          <p className="text-xs text-gray-500">Monto mínimo del servicio</p>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="currency">Moneda</Label>
-          <Input id="currency" placeholder="CLP" {...register("currency")} />
+          <Label htmlFor="maximum_amount">Monto máximo</Label>
+          <Input
+            id="maximum_amount"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Ej. 80000"
+            {...register("maximum_amount", {
+              valueAsNumber: true,
+              setValueAs: (value) => (value === "" || value === null || isNaN(value) ? null : Number(value)),
+              validate: (value, formValues) => {
+                if (value !== null && formValues.minimum_amount !== null && value < formValues.minimum_amount) {
+                  return "El monto máximo debe ser mayor o igual al monto mínimo";
+                }
+                return true;
+              },
+            })}
+          />
+          {errors.maximum_amount && <p className="text-sm text-red-600">{errors.maximum_amount.message}</p>}
+          <p className="text-xs text-gray-500">Monto máximo del servicio (opcional)</p>
         </div>
 
         <div className="space-y-2">
@@ -168,6 +205,7 @@ export default function ServiceForm({
             id="duration_minutes"
             type="number"
             min="1"
+            placeholder="Ej. 50"
             {...register("duration_minutes", {
               valueAsNumber: true,
               required: "La duración es obligatoria",
@@ -189,16 +227,6 @@ export default function ServiceForm({
             />
             <span className="text-sm text-gray-600">Servicio visible para los pacientes</span>
           </div>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="valid_from">Vigencia desde</Label>
-          <Input id="valid_from" type="date" {...register("valid_from")} />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="valid_to">Vigencia hasta</Label>
-          <Input id="valid_to" type="date" {...register("valid_to")} />
         </div>
       </div>
 

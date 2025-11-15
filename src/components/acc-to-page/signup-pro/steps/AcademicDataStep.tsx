@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -11,6 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { AcademicDataFormData } from "@/lib/validations/professional-signup";
+
+interface ProfessionalTitle {
+  id: number;
+  title_name: string;
+}
 
 interface AcademicDataStepProps {
   data: AcademicDataFormData;
@@ -27,6 +34,32 @@ export default function AcademicDataStep({
   onNext,
   onPrevious,
 }: AcademicDataStepProps) {
+  const [professionalTitles, setProfessionalTitles] = useState<ProfessionalTitle[]>([]);
+  const [isLoadingTitles, setIsLoadingTitles] = useState(true);
+
+  // Cargar títulos profesionales al montar el componente
+  useEffect(() => {
+    const loadProfessionalTitles = async () => {
+      try {
+        setIsLoadingTitles(true);
+        const response = await fetch("/api/public/professional-titles");
+        if (!response.ok) {
+          throw new Error("Error al cargar las áreas profesionales");
+        }
+        const result = await response.json();
+        setProfessionalTitles(result.data || []);
+      } catch (error) {
+        console.error("Error al cargar áreas profesionales:", error);
+        // En caso de error, dejar la lista vacía
+        setProfessionalTitles([]);
+      } finally {
+        setIsLoadingTitles(false);
+      }
+    };
+
+    loadProfessionalTitles();
+  }, []);
+
   const handleInputChange = (
     field: keyof AcademicDataFormData,
     value: string
@@ -76,15 +109,28 @@ export default function AcademicDataStep({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="profession">Profesión/Carrera *</Label>
-              <Input
-                id="profession"
-                value={data.profession}
-                onChange={(e) =>
-                  handleInputChange("profession", e.target.value)
-                }
-                placeholder="Psicología, Medicina, etc."
-              />
+              <Label htmlFor="profession">Profesión/Área *</Label>
+              {isLoadingTitles ? (
+                <div className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground">
+                  Cargando áreas profesionales...
+                </div>
+              ) : (
+                <Select
+                  id="profession"
+                  value={data.profession}
+                  onChange={(e) =>
+                    handleInputChange("profession", e.target.value)
+                  }
+                  required
+                >
+                  <option value="">Selecciona una área profesional</option>
+                  {professionalTitles.map((title) => (
+                    <option key={title.id} value={title.title_name}>
+                      {title.title_name}
+                    </option>
+                  ))}
+                </Select>
+              )}
               {errors.profession && (
                 <p className="text-sm text-red-600">{errors.profession}</p>
               )}

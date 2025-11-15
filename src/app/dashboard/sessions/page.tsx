@@ -79,6 +79,36 @@ export default function SessionsPage() {
 
   const tableMode = role === 3 ? "professional" : "patient";
 
+  const handleAppointmentUpdate = async () => {
+    // Recargar las citas cuando se actualice una
+    if (!user) return;
+
+    try {
+      setLoadingAppointments(true);
+      setError(null);
+
+      const profile = await profileService.getUserProfileByUuid(user.id);
+      if (!profile) return;
+
+      if (profile.role === 1) {
+        setAppointments([]);
+        return;
+      }
+
+      const fetchedAppointments =
+        profile.role === 2
+          ? await appointmentService.getAppointmentsForPatient(profile.id)
+          : await appointmentService.getAppointmentsForProfessional(profile.id);
+
+      setAppointments(fetchedAppointments);
+    } catch (err) {
+      console.error("Error recargando citas:", err);
+      setError("Error al recargar las citas");
+    } finally {
+      setLoadingAppointments(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -135,6 +165,7 @@ export default function SessionsPage() {
                 ? "Aún no tienes citas asignadas como profesional."
                 : "Aún no has agendado ninguna cita."
             }
+            onAppointmentUpdate={handleAppointmentUpdate}
           />
         </div>
       )}

@@ -109,7 +109,7 @@ export const config = {
   transbank: {
     commerceCode: process.env.TRANSBANK_COMMERCE_CODE,
     apiKey: process.env.TRANSBANK_API_KEY,
-    environment: process.env.NODE_ENV === "production" ? "production" : "integration",
+    environment: (process.env.TRANSBANK_ENVIRONMENT?.toUpperCase() || "TEST") === "PROD" ? "production" : "integration",
   },
 
   // Configuración de desarrollo

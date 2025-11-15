@@ -36,6 +36,8 @@ export type ReportAppointmentRow = {
   amount: number | null;
   currency: string | null;
   created_at: string;
+  is_rescheduled?: boolean | null;
+  rescheduled_at?: string | null;
 };
 
 export type PaymentsHistoryRow = {
@@ -79,7 +81,9 @@ const buildAppointmentQuery = (
         professional_id,
         service,
         area,
-        created_at
+        created_at,
+        is_rescheduled,
+        rescheduled_at
       `,
     )
     .gte("scheduled_at", from)
@@ -153,6 +157,8 @@ const fetchAppointmentsWithDetails = async (
     service: string | null;
     area: string | null;
     created_at: string;
+    is_rescheduled: boolean | null;
+    rescheduled_at: string | null;
   }[];
 
   if (appointmentRows.length === 0) {
@@ -231,6 +237,8 @@ const fetchAppointmentsWithDetails = async (
       amount: payment?.amount ?? null,
       currency: payment?.currency ?? null,
       created_at: row.created_at,
+      is_rescheduled: row.is_rescheduled ?? false,
+      rescheduled_at: row.rescheduled_at ?? null,
     };
   });
 };
@@ -298,6 +306,163 @@ export const reportService = {
 
   async getAppointmentsReport(filters: AppointmentReportFilters): Promise<ReportAppointmentRow[]> {
     return fetchAppointmentsWithDetails(filters);
+  },
+
+  async getRescheduledAppointmentsReport(
+    filters: AppointmentReportFilters = {},
+  ): Promise<ReportAppointmentRow[]> {
+    const supabase = createAdminServer();
+    const { from, to } = normalizeDateRange(filters);
+    
+    // Obtener el nombre del área si se proporciona areaId
+    let areaName: string | undefined = undefined;
+    if (typeof filters.areaId === "number") {
+      const { data: areaData } = await supabase
+        .from("professional_titles")
+        .select("title_name")
+        .eq("id", filters.areaId)
+        .single();
+      
+      if (areaData) {
+        areaName = areaData.title_name as string;
+      }
+    }
+    
+    // Construir query para citas reagendadas
+    let query = supabase
+      .from("appointments")
+      .select(
+        `
+          id,
+          scheduled_at,
+          duration_minutes,
+          status,
+          payment_status,
+          patient_id,
+          professional_id,
+          service,
+          area,
+          created_at,
+          is_rescheduled,
+          rescheduled_at
+        `,
+      )
+      .eq("is_rescheduled", true)
+      .gte("scheduled_at", from)
+      .lte("scheduled_at", to)
+      .order("scheduled_at", { ascending: false });
+
+    if (typeof filters.professionalId === "number") {
+      query = query.eq("professional_id", filters.professionalId);
+    }
+
+    if (typeof filters.patientId === "number") {
+      query = query.eq("patient_id", filters.patientId);
+    }
+
+    if (areaName) {
+      query = query.eq("area", areaName);
+    }
+
+    if (filters.service) {
+      query = query.ilike("service", `%${filters.service}%`);
+    }
+
+    const { data: appointments, error } = await query.limit(10000);
+
+    if (error) {
+      throw new Error(`No se pudieron obtener las citas reagendadas: ${error.message}`);
+    }
+
+    const appointmentRows = (appointments ?? []) as {
+      id: string;
+      scheduled_at: string;
+      status: string | null;
+      payment_status: string | null;
+      patient_id: number | null;
+      professional_id: number | null;
+      service: string | null;
+      area: string | null;
+      created_at: string;
+      is_rescheduled: boolean | null;
+      rescheduled_at: string | null;
+    }[];
+
+    if (appointmentRows.length === 0) {
+      return [];
+    }
+
+    const userIds = Array.from(
+      new Set(
+        appointmentRows.flatMap((row) => [row.patient_id, row.professional_id]).filter((value): value is number => typeof value === "number"),
+      ),
+    );
+
+    const [{ data: usersData }, { data: paymentsData }] = await Promise.all([
+      supabase
+        .from("users")
+        .select("id, name, last_name")
+        .in("id", userIds),
+      supabase
+        .from("payments")
+        .select("appointment_id, amount, currency, created_at, provider_payment_status")
+        .in("appointment_id", appointmentRows.map((row) => row.id))
+        .limit(10000),
+    ]);
+
+    const userMap = new Map<number, { name: string | null; last_name: string | null }>();
+    (usersData ?? []).forEach((user) => {
+      userMap.set(Number(user.id), {
+        name: (user.name as string) ?? null,
+        last_name: (user.last_name as string) ?? null,
+      });
+    });
+
+    const paymentsMap = new Map<string, { amount: number | null; currency: string | null; created_at: string | null }>();
+    
+    const sortedPayments = [...(paymentsData ?? [])].sort((a, b) => {
+      const aStatus = (a.provider_payment_status as string) ?? "";
+      const bStatus = (b.provider_payment_status as string) ?? "";
+      
+      if (aStatus === "succeeded" && bStatus !== "succeeded") return -1;
+      if (bStatus === "succeeded" && aStatus !== "succeeded") return 1;
+      
+      const aDate = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const bDate = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return bDate - aDate;
+    });
+    
+    sortedPayments.forEach((payment) => {
+      if (payment.appointment_id && !paymentsMap.has(payment.appointment_id)) {
+        paymentsMap.set(payment.appointment_id, {
+          amount: payment.amount ? Number(payment.amount) : null,
+          currency: (payment.currency as string) ?? null,
+          created_at: payment.created_at ? String(payment.created_at) : null,
+        });
+      }
+    });
+
+    return appointmentRows.map((row) => {
+      const payment = paymentsMap.get(row.id);
+      const patient = row.patient_id ? userMap.get(row.patient_id) : null;
+      const professional = row.professional_id ? userMap.get(row.professional_id) : null;
+
+      return {
+        id: row.id,
+        scheduled_at: row.scheduled_at,
+        status: row.status,
+        payment_status: row.payment_status,
+        patient_name: patient ? `${patient.name ?? ""} ${patient.last_name ?? ""}`.trim() || null : null,
+        professional_name: professional ? `${professional.name ?? ""} ${professional.last_name ?? ""}`.trim() || null : null,
+        service: row.service,
+        area: row.area,
+        amount: payment?.amount ?? null,
+        currency: payment?.currency ?? null,
+        created_at: row.created_at,
+        is_rescheduled: row.is_rescheduled ?? true,
+        rescheduled_at: row.rescheduled_at ?? null,
+      };
+    });
   },
 
   async getPaymentsHistory(filters: AppointmentReportFilters = {}): Promise<PaymentsHistoryRow[]> {

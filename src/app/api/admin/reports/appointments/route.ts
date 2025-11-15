@@ -12,6 +12,7 @@ export async function GET(request: Request) {
     const patientIdParam = url.searchParams.get("patientId");
     const areaIdParam = url.searchParams.get("areaId");
     const service = url.searchParams.get("service") ?? undefined;
+    const rescheduledOnly = url.searchParams.get("rescheduledOnly") === "true";
 
     const professionalId =
       professionalIdParam && professionalIdParam !== "all"
@@ -28,14 +29,23 @@ export async function GET(request: Request) {
         ? Number(areaIdParam)
         : undefined;
 
-    const rows = await reportService.getAppointmentsReport({
-      from,
-      to,
-      professionalId,
-      patientId,
-      areaId,
-      service,
-    });
+    const rows = rescheduledOnly
+      ? await reportService.getRescheduledAppointmentsReport({
+          from,
+          to,
+          professionalId,
+          patientId,
+          areaId,
+          service,
+        })
+      : await reportService.getAppointmentsReport({
+          from,
+          to,
+          professionalId,
+          patientId,
+          areaId,
+          service,
+        });
 
     return NextResponse.json({ data: rows });
   } catch (error) {

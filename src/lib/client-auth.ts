@@ -24,6 +24,17 @@ export async function clientLogin(email: string, password: string) {
       throw new Error('No se pudo crear la sesión de usuario');
     }
 
+    // Verificar si el usuario está bloqueado en app_metadata
+    const isBlocked = data.user?.app_metadata?.blocked === true;
+    if (isBlocked) {
+      console.warn('🚫 clientLogin: Usuario bloqueado detectado, cerrando sesión...');
+      // Cerrar la sesión inmediatamente
+      await supabase.auth.signOut();
+      // Limpiar estado local
+      clearClientAuthState();
+      throw new Error('Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.');
+    }
+
     console.log('✅ clientLogin: Autenticación exitosa, sesión creada:', {
       userId: data.user?.id,
       userEmail: data.user?.email,

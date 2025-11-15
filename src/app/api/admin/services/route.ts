@@ -40,16 +40,21 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!body?.title_id) {
+      return NextResponse.json(
+        { error: "El campo title_id (área/título) es obligatorio." },
+        { status: 400 },
+      );
+    }
+
     const service = await adminService.createService({
       name: String(body.name),
       slug: body.slug ? String(body.slug) : undefined,
       description: body.description ? String(body.description) : undefined,
-      price: body.price ? Number(body.price) : undefined,
-      currency: body.currency ? String(body.currency) : undefined,
+      minimum_amount: body.minimum_amount !== undefined && body.minimum_amount !== null ? Number(body.minimum_amount) : null,
+      maximum_amount: body.maximum_amount !== undefined && body.maximum_amount !== null ? Number(body.maximum_amount) : null,
       duration_minutes: body.duration_minutes ? Number(body.duration_minutes) : undefined,
       is_active: typeof body.is_active === "boolean" ? body.is_active : true,
-      valid_from: body.valid_from ? String(body.valid_from) : undefined,
-      valid_to: body.valid_to ? String(body.valid_to) : undefined,
       title_id: body.title_id ? Number(body.title_id) : undefined,
       title_name: body.title_name ? String(body.title_name) : undefined,
     });

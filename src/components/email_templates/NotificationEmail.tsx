@@ -30,13 +30,15 @@ export function NotificationEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            <Img
-              src={LOGO_URL}
-              alt="FlorAurora Salud"
-              width="150"
-              height="auto"
-              style={logoStyle}
-            />
+            <Section style={logoContainer}>
+              <Img
+                src={LOGO_URL}
+                alt="FlorAurora Salud"
+                width="150"
+                height="auto"
+                style={logoStyle}
+              />
+            </Section>
             <Heading style={headerTitle}>{subject}</Heading>
           </Section>
 
@@ -148,9 +150,19 @@ const footerText = {
   margin: "5px 0",
 };
 
+const logoContainer = {
+  backgroundColor: "#ffffff",
+  padding: "12px 20px",
+  borderRadius: "8px",
+  display: "inline-block",
+  margin: "0 auto 20px auto",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+};
+
 const logoStyle = {
   display: "block",
-  margin: "0 auto 20px auto",
+  margin: "0 auto",
   maxWidth: "150px",
   height: "auto",
+  borderRadius: "4px",
 };

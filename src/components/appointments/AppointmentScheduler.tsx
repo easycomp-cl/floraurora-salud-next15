@@ -217,49 +217,45 @@ export default function AppointmentScheduler() {
       const requiresConfirmation =
         scheduledDateTime.getTime() - Date.now() >= 24 * 60 * 60 * 1000;
 
-      // Crear la cita primero
-      const appointment = await appointmentService.createAppointment({
+      // NO crear la cita todavía - solo preparar los datos
+      // La cita se creará SOLO cuando el pago sea exitoso
+      const appointmentData = {
         professional_id: selectedProfessional.id,
         service_id: selectedService.id,
         date: selectedDate,
         time: selectedTime,
         patient_id: patientId,
         service_name: selectedService.name,
-        area: selectedArea?.title_name,
+        area: selectedArea?.title_name || 'Psicología',
         duration_minutes: selectedService.duration_minutes,
         requires_confirmation: requiresConfirmation,
+      };
+
+      // Generar buy_order único usando timestamp (máximo 26 caracteres según Transbank)
+      // Formato: apt{timestamp} donde timestamp es corto
+      const timestamp = Date.now().toString();
+      const maxIdLength = 23; // 26 - 3 para "apt"
+      const truncatedTimestamp = timestamp.slice(-maxIdLength);
+      const buyOrder = `apt${truncatedTimestamp}`;
+      
+      console.log("Generando buy_order para cita pendiente:", {
+        buyOrder,
+        appointmentData
       });
-
-      if (!appointment || !appointment.id) {
-        throw new Error("No se pudo obtener la cita creada.");
-      }
-
-      // Generar buy_order único (máximo 26 caracteres según Transbank)
-      // Formato: apt{id} donde id es solo números del appointment.id
-      // Extraer solo los dígitos del ID para evitar caracteres especiales
-      const appointmentIdStr = String(appointment.id).replace(/\D/g, '');
-      if (!appointmentIdStr) {
-        throw new Error("No se pudo generar un identificador válido para la orden de compra.");
-      }
-      // Limitar a 23 caracteres para el ID (26 - 3 para "apt")
-      const maxIdLength = 23;
-      const truncatedId = appointmentIdStr.length > maxIdLength 
-        ? appointmentIdStr.slice(-maxIdLength) 
-        : appointmentIdStr.padStart(1, '0');
-      const buyOrder = `apt${truncatedId}`;
       
       // Generar session_id único (máximo 61 caracteres según Transbank)
       // Usar el UUID del usuario o un timestamp corto
       const sessionId = user.id || `s${Date.now()}`;
 
-      // Crear transacción de Webpay
+      // Crear transacción de Webpay con los datos de la cita
+      // La cita se creará SOLO cuando el pago sea exitoso
       const webpayResponse = await fetch("/api/payments/webpay/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          appointmentId: String(appointment.id),
+          appointmentData, // Enviar los datos de la cita en lugar del ID
           amount: selectedService.price,
           buyOrder,
           sessionId,
@@ -281,9 +277,9 @@ export default function AppointmentScheduler() {
       }
 
       // Redirigir a Webpay usando el componente de redirección
-      // Guardar información en sessionStorage para recuperarla después
+      // Guardar información en sessionStorage para referencia (la cita aún no existe)
       sessionStorage.setItem("pendingAppointment", JSON.stringify({
-        appointmentId: String(appointment.id),
+        buyOrder,
         requiresConfirmation,
       }));
 

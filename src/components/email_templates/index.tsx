@@ -8,3 +8,4 @@ export { ProfessionalAppointmentEmail } from "./ProfessionalAppointmentEmail";
 export { PatientAppointmentReminderEmail } from "./PatientAppointmentReminderEmail";
 export { ProfessionalRequestApprovedEmail } from "./ProfessionalRequestApprovedEmail";
 export { ProfessionalRequestRejectedEmail } from "./ProfessionalRequestRejectedEmail";
+export { ProfessionalRequestReceivedEmail } from "./ProfessionalRequestReceivedEmail";

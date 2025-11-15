@@ -166,16 +166,8 @@ export default function PaymentErrorPage() {
           </div>
 
           {/* Información adicional */}
-          {(appointmentId || reason) && (
+          {(reason || status) && (
             <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-              {appointmentId && (
-                <div className="flex justify-between">
-                  <span className="text-sm font-medium text-gray-700">
-                    ID de Cita:
-                  </span>
-                  <span className="text-sm text-gray-900">{appointmentId}</span>
-                </div>
-              )}
               {reason && (
                 <div className="flex justify-between">
                   <span className="text-sm font-medium text-gray-700">
@@ -205,11 +197,6 @@ export default function PaymentErrorPage() {
               <li>Asegúrate de tener saldo suficiente o crédito disponible</li>
               <li>Intenta con otra tarjeta si el problema persiste</li>
               <li>Contacta a tu banco si el problema continúa</li>
-              {appointmentId && (
-                <li>
-                  Tu cita sigue reservada. Puedes intentar pagar nuevamente
-                </li>
-              )}
             </ul>
           </div>
 

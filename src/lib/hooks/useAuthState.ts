@@ -23,8 +23,36 @@ export function useAuthState() {
   const mountedRef = useRef(true);
   const router = useRouter();
 
-  const updateAuthState = useCallback((user: User | null, session: Session | null) => {
+  const updateAuthState = useCallback(async (user: User | null, session: Session | null) => {
     if (!mountedRef.current) return;
+    
+    // Verificar si el usuario está bloqueado antes de actualizar el estado
+    if (user && user.app_metadata?.blocked === true) {
+      console.warn("🚫 useAuthState: Usuario bloqueado detectado, cerrando sesión...");
+      
+      // Cerrar sesión inmediatamente
+      try {
+        await supabase.auth.signOut();
+        // Limpiar estado local
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('sb-auth-token');
+          localStorage.removeItem('supabase.auth.token');
+        }
+        // Redirigir a login con mensaje de error
+        router.push("/login?error=account_blocked");
+      } catch (error) {
+        console.error("Error al cerrar sesión de usuario bloqueado:", error);
+      }
+      
+      // Actualizar estado como no autenticado
+      setAuthState({
+        user: null,
+        session: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+      return;
+    }
     
     // console.log("🔄 useAuthState: Actualizando estado", {
     //   hasUser: !!user,
@@ -43,7 +71,7 @@ export function useAuthState() {
 
     // NOTA: La redirección ahora se maneja en useAuthRedirect
     // No redirigir automáticamente aquí para evitar conflictos
-  }, []);
+  }, [router]);
 
   const getInitialSession = useCallback(async () => {
     try {
@@ -128,20 +156,35 @@ export function useAuthState() {
 
       // Limpiar localStorage primero
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('sb-auth-token');
-        localStorage.removeItem('supabase.auth.token');
+        // Limpiar todas las claves relacionadas con Supabase
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes('supabase') || key.includes('sb-')) {
+            localStorage.removeItem(key);
+          }
+        });
       }
 
-      // Intentar cerrar sesión en Supabase de manera silenciosa
-      // Solo si hay una sesión activa para evitar errores innecesarios
+      // Cerrar sesión en Supabase (esto limpia las cookies del cliente)
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          // Solo intentar cerrar sesión si hay una sesión válida
           await supabase.auth.signOut();
         }
       } catch {
-        // Ignorar errores silenciosamente - ya limpiamos todo localmente
+        // Ignorar errores silenciosamente
+      }
+      
+      // Forzar limpieza de cookies HTTP haciendo una llamada al servidor
+      // Esto es crítico para evitar cookies desactualizadas en futuras sesiones
+      try {
+        await fetch('/api/auth/signout', {
+          method: 'POST',
+          credentials: 'include', // Importante: incluir cookies
+        }).catch(() => {
+          // Ignorar errores si la ruta no existe o hay problemas de red
+        });
+      } catch {
+        // Ignorar errores silenciosamente
       }
       
       console.log("✅ useAuthState: Sesión cerrada exitosamente");

@@ -21,6 +21,7 @@ import {
   Download,
   Eye,
   Search,
+  Mail,
 } from "lucide-react";
 
 interface ProfessionalRequestsResponse {
@@ -186,6 +187,40 @@ export default function ProfessionalRequestsManagement() {
         err instanceof Error
           ? err.message
           : "Error inesperado al rechazar la solicitud";
+      setError(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleResendLink = async (request: ProfessionalRequest) => {
+    try {
+      setActionLoadingId(request.id);
+      setMessage(null);
+      setError(null);
+
+      const response = await fetch(
+        `/api/admin/professional-requests/${request.id}/resend-link`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          payload?.error ?? "No se pudo reenviar el enlace"
+        );
+      }
+
+      setMessage("Enlace de verificación reenviado exitosamente. Se ha enviado un correo al profesional.");
+      // No cerrar el diálogo para que el admin pueda ver el mensaje
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al reenviar el enlace";
       setError(message);
     } finally {
       setActionLoadingId(null);
@@ -718,6 +753,17 @@ export default function ProfessionalRequestsManagement() {
                       Rechazar
                     </Button>
                   </>
+                )}
+                {selectedRequest.status === "approved" && (
+                  <Button
+                    variant="outline"
+                    onClick={() => handleResendLink(selectedRequest)}
+                    disabled={actionLoadingId === selectedRequest.id}
+                    className="border-blue-600 text-blue-600 hover:bg-blue-50"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    {actionLoadingId === selectedRequest.id ? "Reenviando..." : "Reenviar Enlace"}
+                  </Button>
                 )}
               </div>
             </div>

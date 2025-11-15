@@ -16,8 +16,9 @@ interface ContactEmailProps {
   phone: string;
   subject: string;
   message: string;
-  logoUrl?: string;
 }
+
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 export function ContactEmail({
   firstName,
@@ -26,7 +27,6 @@ export function ContactEmail({
   phone,
   subject,
   message,
-  logoUrl,
 }: ContactEmailProps) {
   return (
     <Html>
@@ -35,15 +35,15 @@ export function ContactEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            {logoUrl && (
+            <Section style={logoContainer}>
               <Img
-                src={logoUrl}
+                src={LOGO_URL}
                 alt="FlorAurora Salud"
                 width="150"
                 height="auto"
                 style={logoStyle}
               />
-            )}
+            </Section>
             <Heading style={headerTitle}>📧 Nuevo Mensaje de Contacto</Heading>
             <Text style={headerSubtitle}>FlorAurora Salud</Text>
           </Section>
@@ -184,7 +184,17 @@ const footerText = {
   margin: "5px 0",
 };
 
+const logoContainer = {
+  backgroundColor: "#ffffff",
+  padding: "12px 20px",
+  borderRadius: "8px",
+  display: "inline-block",
+  margin: "0 auto 20px auto",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+};
+
 const logoStyle = {
   display: "block",
-  margin: "0 auto 20px auto",
+  margin: "0 auto",
+  borderRadius: "4px",
 };

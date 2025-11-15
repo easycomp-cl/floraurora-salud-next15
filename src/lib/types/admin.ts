@@ -75,8 +75,8 @@ export interface AdminProfessional {
 export interface AdminServiceSummary {
   id: number;
   name: string;
-  price: number;
-  currency: string;
+  minimum_amount: number | null;
+  maximum_amount: number | null;
   duration_minutes: number;
   is_active: boolean;
 }
@@ -85,12 +85,10 @@ export interface AdminServicePayload {
   name: string;
   slug?: string;
   description?: string;
-  price?: number;
-  currency?: string;
+  minimum_amount?: number | null;
+  maximum_amount?: number | null;
   duration_minutes?: number;
   is_active?: boolean;
-  valid_from?: string | null;
-  valid_to?: string | null;
   title_id?: number | null;
   title_name?: string | null;
 }

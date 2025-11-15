@@ -13,6 +13,7 @@ import {
   BarChart3,
   ShieldCheck,
   Settings2,
+  CreditCard,
 } from "lucide-react";
 
 export interface NavSubItem {
@@ -178,6 +179,12 @@ export const professionalNavItems: NavItem[] = [
     href: "/dashboard/schedules",
     icon: Clock,
     description: "Configura tu disponibilidad",
+  },
+  {
+    label: "Mi Plan",
+    href: "/dashboard/my-plan",
+    icon: CreditCard,
+    description: "Gestiona tu plan y pagos",
   },
 ];
 

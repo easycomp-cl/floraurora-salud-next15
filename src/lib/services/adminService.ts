@@ -42,11 +42,21 @@ function toRoleId(role: AdminRole): number {
   return ROLE_TO_ID[role];
 }
 
-function mapUserRow(row: Record<string, unknown>): AdminUser {
+function mapUserRow(row: Record<string, unknown>, isBlockedInAuth?: boolean): AdminUser {
   // Convertir is_active a status (AdminUserStatus)
-  // La tabla solo tiene is_active, no tiene status, blocked_until, ni blocked_reason
+  // Si el usuario está bloqueado en auth.users (app_metadata.blocked = true), status = "blocked"
+  // Si no está activo pero no está bloqueado, status = "inactive"
+  // Si está activo, status = "active"
   const isActive = Boolean(row.is_active ?? true);
-  const status: AdminUserStatus = isActive ? "active" : "inactive";
+  let status: AdminUserStatus;
+  
+  if (isBlockedInAuth === true) {
+    status = "blocked";
+  } else if (isActive) {
+    status = "active";
+  } else {
+    status = "inactive";
+  }
 
   return {
     id: Number(row.id),
@@ -70,8 +80,8 @@ function mapServiceSummary(row: Record<string, unknown>): AdminServiceSummary {
   return {
     id: Number(row.id),
     name: String(row.name ?? ""),
-    price: Number(row.price ?? 0),
-    currency: (row.currency as string) ?? "CLP",
+    minimum_amount: row.minimum_amount !== undefined && row.minimum_amount !== null ? Number(row.minimum_amount) : null,
+    maximum_amount: row.maximum_amount !== undefined && row.maximum_amount !== null ? Number(row.maximum_amount) : null,
     duration_minutes: Number(row.duration_minutes ?? 50),
     is_active: Boolean(row.is_active ?? true),
   };
@@ -81,8 +91,8 @@ function mapSpecialtyToService(specialty: Record<string, unknown>): AdminService
   return {
     id: Number(specialty.id ?? 0),
     name: String(specialty.name ?? ""),
-    price: Number(specialty.price ?? 0),
-    currency: (specialty.currency as string) ?? "CLP",
+    minimum_amount: specialty.minimum_amount !== undefined && specialty.minimum_amount !== null ? Number(specialty.minimum_amount) : null,
+    maximum_amount: specialty.maximum_amount !== undefined && specialty.maximum_amount !== null ? Number(specialty.maximum_amount) : null,
     duration_minutes: Number(specialty.duration_minutes ?? 50),
     is_active: Boolean(specialty.is_active ?? true),
   };
@@ -262,12 +272,45 @@ export const adminService = {
       );
     }
 
-    const mapped = (data ?? []).map(mapUserRow);
+    // Obtener información de bloqueo de auth.users para cada usuario
+    const userIds = (data ?? []).map((row) => String(row.user_id)).filter(Boolean);
+    const blockedUserIds = new Set<string>();
+    
+    if (userIds.length > 0) {
+      // Obtener usuarios bloqueados de auth.users
+      try {
+        const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
+        if (!authError && authUsers?.users) {
+          authUsers.users.forEach((authUser) => {
+            if (authUser.app_metadata?.blocked === true) {
+              blockedUserIds.add(authUser.id);
+            }
+          });
+        }
+      } catch (authErr) {
+        console.warn("Error al obtener usuarios bloqueados de auth.users:", authErr);
+        // Continuar sin la información de bloqueo si falla
+      }
+    }
+
+    // Mapear usuarios con información de bloqueo
+    const mapped = (data ?? []).map((row) => {
+      const user_id = String(row.user_id ?? "");
+      const isBlocked = blockedUserIds.has(user_id);
+      return mapUserRow(row, isBlocked);
+    });
+
+    // Si el filtro es "blocked", filtrar solo los bloqueados
+    let filteredData = mapped;
+    if (filters.status === "blocked") {
+      filteredData = mapped.filter((user) => user.status === "blocked");
+    }
+
     return {
-      data: mapped,
+      data: filteredData,
       page,
       pageSize,
-      total: count ?? mapped.length,
+      total: filters.status === "blocked" ? filteredData.length : (count ?? mapped.length),
     };
   },
 
@@ -298,7 +341,21 @@ export const adminService = {
       throw new Error(`Error al obtener usuario: ${error.message}`);
     }
 
-    return mapUserRow(data);
+    // Verificar si el usuario está bloqueado en auth.users
+    let isBlocked = false;
+    if (data.user_id) {
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(String(data.user_id));
+        if (!authError && authUser?.user) {
+          isBlocked = authUser.user.app_metadata?.blocked === true;
+        }
+      } catch (authErr) {
+        console.warn("Error al verificar bloqueo en auth.users:", authErr);
+        // Continuar sin la información de bloqueo si falla
+      }
+    }
+
+    return mapUserRow(data, isBlocked);
   },
 
   async getUserByUuid(userUuid: string): Promise<AdminUser | null> {
@@ -328,7 +385,21 @@ export const adminService = {
       throw new Error(`Error al obtener usuario por UUID: ${error.message}`);
     }
 
-    return mapUserRow(data);
+    // Verificar si el usuario está bloqueado en auth.users
+    let isBlocked = false;
+    if (data.user_id) {
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(String(data.user_id));
+        if (!authError && authUser?.user) {
+          isBlocked = authUser.user.app_metadata?.blocked === true;
+        }
+      } catch (authErr) {
+        console.warn("Error al verificar bloqueo en auth.users:", authErr);
+        // Continuar sin la información de bloqueo si falla
+      }
+    }
+
+    return mapUserRow(data, isBlocked);
   },
 
   async createUser(payload: CreateAdminUserPayload): Promise<AdminUser> {
@@ -385,7 +456,8 @@ export const adminService = {
       throw new Error(`No se pudo crear el perfil del usuario: ${error?.message ?? "sin detalles"}`);
     }
 
-    const createdUser = mapUserRow(data);
+    // Un usuario recién creado no debería estar bloqueado, pero verificamos por consistencia
+    const createdUser = mapUserRow(data, false);
 
     if (payload.role === "patient") {
       await ensurePatientRecord(supabase, createdUser.id);
@@ -460,7 +532,21 @@ export const adminService = {
       throw new Error(`Error al actualizar el usuario: ${error?.message ?? "sin detalles"}`);
     }
 
-    return mapUserRow(data);
+    // Verificar si el usuario está bloqueado en auth.users después de la actualización
+    let isBlocked = false;
+    if (data.user_id) {
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(String(data.user_id));
+        if (!authError && authUser?.user) {
+          isBlocked = authUser.user.app_metadata?.blocked === true;
+        }
+      } catch (authErr) {
+        console.warn("Error al verificar bloqueo en auth.users:", authErr);
+        // Continuar sin la información de bloqueo si falla
+      }
+    }
+
+    return mapUserRow(data, isBlocked);
   },
 
   async setUserBlock(
@@ -468,8 +554,59 @@ export const adminService = {
     options: { blocked: boolean; reason?: string; until?: string | null },
   ): Promise<AdminUser> {
     const supabase = createAdminServer();
-    // La tabla solo tiene is_active, no tiene status, blocked_until, ni blocked_reason
-    // Cuando bloqueamos, simplemente ponemos is_active = false
+    
+    // Primero obtener el usuario para obtener el user_id (UUID) de auth.users
+    const user = await this.getUserById(userId);
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    if (!user.user_id) {
+      throw new Error("El usuario no tiene un user_id de autenticación asociado");
+    }
+
+    // Bloquear/desbloquear en auth.users de Supabase
+    // Usar app_metadata para marcar el usuario como bloqueado
+    // Esto permite verificar el estado en el middleware y rechazar el acceso
+    const { data: authUserData, error: authError } = await supabase.auth.admin.getUserById(user.user_id);
+    
+    if (authError) {
+      console.error("Error al obtener usuario de auth.users:", authError);
+      throw new Error(`No se pudo obtener el usuario de autenticación: ${authError.message}`);
+    }
+
+    // Obtener app_metadata actual o crear uno nuevo
+    const currentAppMetadata = authUserData?.user?.app_metadata || {};
+    
+    // Actualizar app_metadata con el estado de bloqueo
+    const { data: updatedAuthUser, error: updateAuthError } = await supabase.auth.admin.updateUserById(
+      user.user_id,
+      {
+        app_metadata: {
+          ...currentAppMetadata,
+          blocked: options.blocked,
+          blocked_at: options.blocked ? new Date().toISOString() : null,
+          blocked_reason: options.blocked ? (options.reason || null) : null,
+        },
+      },
+    );
+
+    if (updateAuthError) {
+      console.error("Error al actualizar usuario en auth.users:", updateAuthError);
+      throw new Error(
+        `No se pudo ${options.blocked ? "bloquear" : "desbloquear"} el usuario en autenticación: ${updateAuthError.message}`,
+      );
+    }
+
+    // Verificar que el usuario fue actualizado correctamente
+    if (updatedAuthUser?.user) {
+      const isBlocked = updatedAuthUser.user.app_metadata?.blocked === true;
+      if (options.blocked && !isBlocked) {
+        console.warn("Advertencia: El usuario no fue bloqueado correctamente en auth.users");
+      }
+    }
+
+    // Actualizar is_active en la tabla users
     const { data, error } = await supabase
       .from("users")
       .update({
@@ -493,10 +630,24 @@ export const adminService = {
       .single();
 
     if (error || !data) {
+      // Si falla la actualización en users, intentar revertir el bloqueo en auth.users
+      if (options.blocked) {
+        console.error("Error al actualizar users, revirtiendo bloqueo en auth.users");
+        const currentAppMetadata = updatedAuthUser?.user?.app_metadata || {};
+        await supabase.auth.admin.updateUserById(user.user_id, {
+          app_metadata: {
+            ...currentAppMetadata,
+            blocked: false,
+            blocked_at: null,
+            blocked_reason: null,
+          },
+        });
+      }
       throw new Error(`No se pudo actualizar el estado de bloqueo: ${error?.message ?? "sin detalles"}`);
     }
 
-    return mapUserRow(data);
+    // El usuario ya fue actualizado con el bloqueo, usar el estado actual
+    return mapUserRow(data, options.blocked);
   },
 
   async assignRole(userId: number, role: AdminRole): Promise<AdminUser> {
@@ -517,11 +668,7 @@ export const adminService = {
         phone_number,
         role,
         is_active,
-        status,
-        blocked_until,
-        blocked_reason,
-        created_at,
-        updated_at
+        created_at
       `,
       )
       .single();
@@ -530,7 +677,21 @@ export const adminService = {
       throw new Error(`No se pudo asignar el rol: ${error?.message ?? "sin detalles"}`);
     }
 
-    const updatedUser = mapUserRow(data);
+    // Verificar si el usuario está bloqueado en auth.users después de asignar el rol
+    let isBlocked = false;
+    if (data.user_id) {
+      try {
+        const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(String(data.user_id));
+        if (!authError && authUser?.user) {
+          isBlocked = authUser.user.app_metadata?.blocked === true;
+        }
+      } catch (authErr) {
+        console.warn("Error al verificar bloqueo en auth.users:", authErr);
+        // Continuar sin la información de bloqueo si falla
+      }
+    }
+
+    const updatedUser = mapUserRow(data, isBlocked);
 
     if (role === "patient") {
       await ensurePatientRecord(supabase, updatedUser.id);
@@ -549,13 +710,37 @@ export const adminService = {
       throw new Error("No se encontró el usuario o no tiene correo registrado.");
     }
 
+    const { getSiteUrl } = await import("@/lib/utils/url");
+    const baseUrl = getSiteUrl();
+
     const { data, error } = await supabase.auth.admin.generateLink({
       type: "recovery",
       email: user.email,
+      options: {
+        redirectTo: `${baseUrl}/reset-password`,
+      },
     });
 
     if (error || !data?.properties?.action_link) {
       throw new Error(`No se pudo generar el enlace de recuperación: ${error?.message ?? "sin detalles"}`);
+    }
+
+    // Reemplazar la URL del link generado si es necesario
+    // Supabase puede usar la URL del dashboard, así que la reemplazamos con la correcta
+    let recoveryLink = data.properties.action_link;
+    try {
+      const linkUrl = new URL(recoveryLink);
+      const targetUrl = new URL(baseUrl);
+      
+      // Si el hostname no coincide con el que queremos, reemplazarlo
+      if (linkUrl.hostname !== targetUrl.hostname) {
+        linkUrl.hostname = targetUrl.hostname;
+        linkUrl.protocol = targetUrl.protocol;
+        recoveryLink = linkUrl.toString();
+      }
+    } catch (urlError) {
+      // Si hay error al parsear la URL, usar la original
+      console.warn("Error al procesar URL de recuperación:", urlError);
     }
 
     await sendNotificationEmail({
@@ -563,11 +748,11 @@ export const adminService = {
       subject: "Recuperación de contraseña - FlorAurora Salud",
       message:
         "Has solicitado restablecer tu contraseña. Haz clic en el botón para continuar con el proceso.",
-      actionUrl: data.properties.action_link,
+      actionUrl: recoveryLink,
       actionText: "Restablecer contraseña",
     });
 
-    return { recoveryLink: data.properties.action_link };
+    return { recoveryLink };
   },
 
   async listProfessionals(): Promise<AdminProfessional[]> {
@@ -833,6 +1018,10 @@ export const adminService = {
         id,
         name,
         title_id,
+        description,
+        minimum_amount,
+        maximum_amount,
+        duration_minutes,
         is_active,
         created_at,
         professional_titles(
@@ -857,20 +1046,18 @@ export const adminService = {
       }
 
       // Mapear specialties a AdminService con valores por defecto
-      // Las especialidades no tienen precio, duración, etc., así que usamos valores por defecto
+      // Mapear los datos de specialties con los nuevos campos
       const mapped = (data ?? []).map((row) => {
         const title = (row.professional_titles as unknown as Record<string, unknown> | null | undefined) ?? null;
         return {
           id: Number(row.id),
           name: String(row.name ?? ""),
           slug: String(row.name ?? "").toLowerCase().replace(/\s+/g, "-"), // Generar slug desde el nombre
-          description: "", // Las especialidades no tienen descripción
-          price: 0, // Las especialidades no tienen precio
-          currency: "CLP",
-          duration_minutes: 50, // Duración por defecto
-          is_active: Boolean(row.is_active ?? true), // Usar is_active directamente de la tabla
-          valid_from: null,
-          valid_to: null,
+          description: row.description ? String(row.description) : "",
+          minimum_amount: row.minimum_amount ? Number(row.minimum_amount) : null,
+          maximum_amount: row.maximum_amount ? Number(row.maximum_amount) : null,
+          duration_minutes: row.duration_minutes ? Number(row.duration_minutes) : 50,
+          is_active: Boolean(row.is_active ?? true),
           title_id: title?.id ? Number(title.id) : (row.title_id ? Number(row.title_id) : null),
           title_name: title?.title_name ? String(title.title_name) : null,
           created_at: row.created_at ? String(row.created_at) : new Date().toISOString(),
@@ -896,8 +1083,7 @@ export const adminService = {
   async createService(payload: AdminServicePayload): Promise<AdminService> {
     const supabase = createAdminServer();
     
-    // La tabla specialties solo tiene: id, name, title_id, created_at
-    // Necesitamos obtener title_id desde title_name si se proporciona
+    // El title_id es obligatorio
     let titleId: number | null = null;
     
     if (payload.title_id) {
@@ -914,12 +1100,20 @@ export const adminService = {
         titleId = Number(titleData.id);
       }
     }
+    
+    if (!titleId) {
+      throw new Error("El campo title_id (área/título) es obligatorio");
+    }
 
     const { data, error } = await supabase
       .from("specialties")
       .insert({
         name: payload.name,
         title_id: titleId,
+        description: payload.description ?? null,
+        minimum_amount: payload.minimum_amount ?? null,
+        maximum_amount: payload.maximum_amount ?? null,
+        duration_minutes: payload.duration_minutes ?? null,
         is_active: payload.is_active ?? true,
       })
       .select(
@@ -927,6 +1121,10 @@ export const adminService = {
         id,
         name,
         title_id,
+        description,
+        minimum_amount,
+        maximum_amount,
+        duration_minutes,
         is_active,
         created_at,
         professional_titles(
@@ -941,19 +1139,17 @@ export const adminService = {
       throw new Error(`No se pudo crear la especialidad: ${error?.message ?? "sin detalles"}`);
     }
 
-    // Mapear a AdminService con valores por defecto
+    // Mapear a AdminService
     const title = (data.professional_titles as unknown as Record<string, unknown> | null | undefined) ?? null;
     return {
       id: Number(data.id),
       name: String(data.name ?? ""),
-      slug: String(payload.name ?? "").toLowerCase().replace(/\s+/g, "-"),
-      description: payload.description ?? "",
-      price: payload.price ?? 0,
-      currency: payload.currency ?? "CLP",
-      duration_minutes: payload.duration_minutes ?? 50,
+      slug: payload.slug ?? String(payload.name ?? "").toLowerCase().replace(/\s+/g, "-"),
+      description: data.description ? String(data.description) : (payload.description ?? ""),
+      minimum_amount: data.minimum_amount ? Number(data.minimum_amount) : (payload.minimum_amount ?? null),
+      maximum_amount: data.maximum_amount ? Number(data.maximum_amount) : (payload.maximum_amount ?? null),
+      duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : (payload.duration_minutes ?? 50),
       is_active: Boolean(data.is_active ?? true),
-      valid_from: payload.valid_from ?? null,
-      valid_to: payload.valid_to ?? null,
       title_id: title?.id ? Number(title.id) : (titleId ?? null),
       title_name: title?.title_name ? String(title.title_name) : null,
       created_at: data.created_at ? String(data.created_at) : new Date().toISOString(),
@@ -964,12 +1160,27 @@ export const adminService = {
   async updateService(serviceId: number, payload: Partial<AdminServicePayload>): Promise<AdminService> {
     const supabase = createAdminServer();
     
-    // La tabla specialties tiene: id, name, title_id, is_active, created_at
-    // Podemos actualizar name, title_id e is_active
+    // La tabla specialties tiene: id, name, title_id, description, minimum_amount, maximum_amount, duration_minutes, is_active, created_at
     const updates: Record<string, unknown> = {};
     
     if (payload.name) {
       updates.name = payload.name;
+    }
+    
+    if (payload.description !== undefined) {
+      updates.description = payload.description;
+    }
+    
+    if (payload.minimum_amount !== undefined) {
+      updates.minimum_amount = payload.minimum_amount;
+    }
+    
+    if (payload.maximum_amount !== undefined) {
+      updates.maximum_amount = payload.maximum_amount;
+    }
+    
+    if (payload.duration_minutes !== undefined) {
+      updates.duration_minutes = payload.duration_minutes;
     }
     
     // Manejar title_id o title_name
@@ -1001,6 +1212,10 @@ export const adminService = {
           id,
           name,
           title_id,
+          description,
+          minimum_amount,
+          maximum_amount,
+          duration_minutes,
           is_active,
           created_at,
           professional_titles(
@@ -1016,14 +1231,12 @@ export const adminService = {
         return {
           id: Number(currentData.id),
           name: String(currentData.name ?? ""),
-          slug: String(currentData.name ?? "").toLowerCase().replace(/\s+/g, "-"),
-          description: payload.description ?? "",
-          price: payload.price ?? 0,
-          currency: payload.currency ?? "CLP",
-          duration_minutes: payload.duration_minutes ?? 50,
+          slug: payload.slug ?? String(currentData.name ?? "").toLowerCase().replace(/\s+/g, "-"),
+          description: currentData.description ? String(currentData.description) : (payload.description ?? ""),
+          minimum_amount: currentData.minimum_amount ? Number(currentData.minimum_amount) : (payload.minimum_amount ?? null),
+          maximum_amount: currentData.maximum_amount ? Number(currentData.maximum_amount) : (payload.maximum_amount ?? null),
+          duration_minutes: currentData.duration_minutes ? Number(currentData.duration_minutes) : (payload.duration_minutes ?? 50),
           is_active: Boolean(currentData.is_active ?? true),
-          valid_from: payload.valid_from ?? null,
-          valid_to: payload.valid_to ?? null,
           title_id: title?.id ? Number(title.id) : (currentData.title_id ? Number(currentData.title_id) : null),
           title_name: title?.title_name ? String(title.title_name) : null,
           created_at: currentData.created_at ? String(currentData.created_at) : new Date().toISOString(),
@@ -1041,6 +1254,10 @@ export const adminService = {
         id,
         name,
         title_id,
+        description,
+        minimum_amount,
+        maximum_amount,
+        duration_minutes,
         is_active,
         created_at,
         professional_titles(
@@ -1055,19 +1272,17 @@ export const adminService = {
       throw new Error(`No se pudo actualizar la especialidad: ${error?.message ?? "sin detalles"}`);
     }
 
-    // Mapear a AdminService con valores por defecto
+    // Mapear a AdminService
     const title = (data.professional_titles as unknown as Record<string, unknown> | null | undefined) ?? null;
     return {
       id: Number(data.id),
       name: String(data.name ?? ""),
-      slug: String(payload.name ?? data.name ?? "").toLowerCase().replace(/\s+/g, "-"),
-      description: payload.description ?? "",
-      price: payload.price ?? 0,
-      currency: payload.currency ?? "CLP",
-      duration_minutes: payload.duration_minutes ?? 50,
+      slug: payload.slug ?? String(payload.name ?? data.name ?? "").toLowerCase().replace(/\s+/g, "-"),
+      description: data.description ? String(data.description) : (payload.description ?? ""),
+      minimum_amount: data.minimum_amount ? Number(data.minimum_amount) : (payload.minimum_amount ?? null),
+      maximum_amount: data.maximum_amount ? Number(data.maximum_amount) : (payload.maximum_amount ?? null),
+      duration_minutes: data.duration_minutes ? Number(data.duration_minutes) : (payload.duration_minutes ?? 50),
       is_active: Boolean(data.is_active ?? true),
-      valid_from: payload.valid_from ?? null,
-      valid_to: payload.valid_to ?? null,
       title_id: title?.id ? Number(title.id) : (data.title_id ? Number(data.title_id) : null),
       title_name: title?.title_name ? String(title.title_name) : null,
       created_at: data.created_at ? String(data.created_at) : new Date().toISOString(),

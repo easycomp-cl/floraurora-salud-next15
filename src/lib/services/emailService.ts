@@ -9,6 +9,7 @@ import {
   PatientAppointmentReminderEmail,
   ProfessionalRequestApprovedEmail,
   ProfessionalRequestRejectedEmail,
+  ProfessionalRequestReceivedEmail,
 } from "@/components/email_templates";
 import { createElement } from 'react';
 
@@ -55,6 +56,7 @@ function getSubjectDisplayName(subjectValue: string): string {
  * Obtiene la URL del logo para usar en emails
  * Prioriza: LOGO_URL > APP_URL/logo.png > URL por defecto
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getLogoUrl(): string {
   // Opción 1: URL específica del logo
   if (process.env.NEXT_PUBLIC_LOGO_URL) {
@@ -138,7 +140,6 @@ export async function sendContactEmail(data: ContactFormData) {
       phone: data.phone,
       subject: subjectDisplayName,
       message: data.message,
-      logoUrl: getLogoUrl(),
     })
   );
 
@@ -165,7 +166,6 @@ export async function sendContactConfirmationEmail(data: ContactFormData) {
       lastName: data.lastName,
       subject: subjectDisplayName,
       message: data.message,
-      logoUrl: getLogoUrl(),
     })
   );
 
@@ -297,28 +297,11 @@ interface ProfessionalRequestReceivedEmailParams {
 export async function sendProfessionalRequestReceivedEmail(
   data: ProfessionalRequestReceivedEmailParams
 ) {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Solicitud Recibida</title>
-    </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <div style="text-align: center; margin-bottom: 30px;">
-        <img src="${getLogoUrl()}" alt="FlorAurora Salud" style="max-width: 200px;">
-      </div>
-      <h1 style="color: #2563eb;">¡Solicitud Recibida!</h1>
-      <p>Estimado/a <strong>${data.professionalName}</strong>,</p>
-      <p>Hemos recibido tu solicitud para registrarte como profesional en FlorAurora Salud.</p>
-      <p>Nuestro equipo de administradores revisará tu solicitud y los documentos adjuntos. Te notificaremos por correo electrónico cuando tu solicitud sea aprobada o si necesitamos información adicional.</p>
-      <p>Este proceso puede tomar entre 1 a 3 días hábiles.</p>
-      <p>Si tienes alguna pregunta, no dudes en contactarnos.</p>
-      <p>Saludos cordiales,<br>Equipo FlorAurora Salud</p>
-    </body>
-    </html>
-  `;
+  const html = await render(
+    createElement(ProfessionalRequestReceivedEmail, {
+      professionalName: data.professionalName,
+    })
+  );
 
   return await sendEmail({
     to: data.to,
@@ -341,7 +324,6 @@ export async function sendProfessionalRequestApprovedEmail(
     createElement(ProfessionalRequestApprovedEmail, {
       professionalName: data.professionalName,
       verificationLink: data.verificationLink,
-      logoUrl: getLogoUrl(),
     })
   );
 
@@ -369,7 +351,6 @@ export async function sendProfessionalRequestRejectedEmail(
       professionalName: data.professionalName,
       rejectionReason: data.rejectionReason,
       resubmitUrl,
-      logoUrl: getLogoUrl(),
     })
   );
 

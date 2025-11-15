@@ -28,7 +28,11 @@ interface AppointmentRow {
   amount: number | null;
   currency: string | null;
   created_at: string;
+  is_rescheduled?: boolean | null;
+  rescheduled_at?: string | null;
 }
+
+type TabType = "all" | "rescheduled";
 
 type SortField = "scheduled_at" | "service" | "patient_name" | "professional_name" | "status" | "amount" | "id";
 type SortDirection = "asc" | "desc";
@@ -84,6 +88,7 @@ export default function ReportsDashboard() {
   const [services, setServices] = useState<AdminService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TabType>("all");
   
   // Paginación y ordenamiento
   const [page, setPage] = useState(1);
@@ -167,8 +172,11 @@ export default function ReportsDashboard() {
     if (serviceQuery) {
       params.set("service", serviceQuery);
     }
+    if (activeTab === "rescheduled") {
+      params.set("rescheduledOnly", "true");
+    }
     return params.toString();
-  }, [from, to, professionalId, patientId, areaId, serviceQuery]);
+  }, [from, to, professionalId, patientId, areaId, serviceQuery, activeTab]);
 
   const loadReports = useCallback(async () => {
     try {
@@ -197,10 +205,10 @@ export default function ReportsDashboard() {
     loadReports();
   }, [loadReports]);
 
-  // Resetear página cuando cambian los filtros principales o el tamaño de página
+  // Resetear página cuando cambian los filtros principales, el tamaño de página o la pestaña
   useEffect(() => {
     setPage(1);
-  }, [from, to, professionalId, patientId, areaId, serviceQuery, pageSize]);
+  }, [from, to, professionalId, patientId, areaId, serviceQuery, pageSize, activeTab]);
 
   const handleExport = async (format: "excel" | "pdf") => {
     try {
@@ -486,8 +494,33 @@ export default function ReportsDashboard() {
             Detalle de citas
           </CardTitle>
           <CardDescription>
-            Historial completo de agendamientos con estado y montos asociados.
+            {activeTab === "rescheduled" 
+              ? "Citas reagendadas con fecha original y nueva fecha para facturación."
+              : "Historial completo de agendamientos con estado y montos asociados."}
           </CardDescription>
+          {/* Pestañas */}
+          <div className="mt-4 flex gap-2 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab("all")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "all"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Todas las citas
+            </button>
+            <button
+              onClick={() => setActiveTab("rescheduled")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "rescheduled"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              Citas Reagendadas
+            </button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Búsqueda y controles */}
@@ -542,10 +575,15 @@ export default function ReportsDashboard() {
                       onClick={() => handleSort("scheduled_at")}
                       className="flex items-center gap-1 hover:text-primary"
                     >
-                      Fecha
+                      {activeTab === "rescheduled" ? "Fecha Nueva" : "Fecha"}
                       <SortIcon field="scheduled_at" />
                     </button>
                   </th>
+                  {activeTab === "rescheduled" && (
+                    <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                      Fecha Original
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left font-semibold text-gray-600">
                     <button
                       onClick={() => handleSort("service")}
@@ -596,13 +634,13 @@ export default function ReportsDashboard() {
               <tbody className="divide-y divide-gray-200 text-gray-700">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={activeTab === "rescheduled" ? 8 : 7} className="px-4 py-6 text-center text-gray-500">
                       Cargando datos...
                     </td>
                   </tr>
                 ) : paginatedAppointments.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={activeTab === "rescheduled" ? 8 : 7} className="px-4 py-6 text-center text-gray-500">
                       {searchTerm
                         ? "No se encontraron citas con los filtros de búsqueda."
                         : "No hay citas registradas con los filtros seleccionados."}
@@ -613,6 +651,18 @@ export default function ReportsDashboard() {
                     <tr key={row.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900">#{row.id}</td>
                       <td className="px-4 py-3">{formatDateTime(row.scheduled_at)}</td>
+                      {activeTab === "rescheduled" && (
+                        <td className="px-4 py-3">
+                          {row.rescheduled_at ? (
+                            <div className="flex flex-col">
+                              <span className="text-sm text-gray-900">{formatDateTime(row.rescheduled_at)}</span>
+                              <span className="text-xs text-gray-500">(Original)</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3">{row.service ?? "—"}</td>
                       <td className="px-4 py-3">{row.patient_name ?? "—"}</td>
                       <td className="px-4 py-3">{row.professional_name ?? "—"}</td>

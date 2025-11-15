@@ -31,8 +31,8 @@ interface CalendarProps {
 export default function Calendar({
   selectedDate,
   selectedTime,
-  timeSlots,
-  availableDates,
+  timeSlots = [],
+  availableDates = [],
   onDateSelect,
   onTimeSelect,
 }: CalendarProps) {
@@ -42,9 +42,9 @@ export default function Calendar({
   console.log("Calendar props:", {
     selectedDate,
     selectedTime,
-    timeSlotsCount: timeSlots.length,
-    availableDatesCount: availableDates.length,
-    timeSlots: timeSlots.slice(0, 5), // Mostrar solo los primeros 5
+    timeSlotsCount: timeSlots?.length || 0,
+    availableDatesCount: availableDates?.length || 0,
+    timeSlots: timeSlots?.slice(0, 5) || [], // Mostrar solo los primeros 5
   });
 
   // Limitar navegación a máximo 2 semanas en el futuro

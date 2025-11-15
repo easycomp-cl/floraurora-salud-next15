@@ -5,7 +5,7 @@ import { DateTime } from 'luxon';
 import { AvailabilityService } from './availabilityService';
 
 type RawAppointmentRow = {
-  id: number;
+  id: string; // El ID es de tipo text con formato "APT-00000060"
   patient_id: number | null;
   professional_id: number | null;
   scheduled_at: string;

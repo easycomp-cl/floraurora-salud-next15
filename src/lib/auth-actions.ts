@@ -9,7 +9,6 @@ import { logAccountProvider } from "@/utils/supabase/accountProvider";
 
 import { z } from "zod";
 import { resetPasswordSchema } from "@/lib/validations/password";
-import { config } from "@/lib/config";
 
 const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
@@ -266,6 +265,18 @@ export async function login(prevState: { message?: string; error?: string } | nu
     return { success: false, error: "Error al crear la sesión de usuario" };
   }
 
+  // Verificar si el usuario está bloqueado en app_metadata
+  const isBlocked = signInData.user?.app_metadata?.blocked === true;
+  if (isBlocked) {
+    console.warn("🚫 login: Usuario bloqueado detectado, cerrando sesión...");
+    // Cerrar la sesión inmediatamente
+    await supabase.auth.signOut();
+    return {
+      success: false,
+      error: "Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.",
+    };
+  }
+
   console.log("✅ Inicio de sesión exitoso, sesión creada:", {
     userId: signInData.user?.id,
     userEmail: signInData.user?.email,
@@ -468,40 +479,30 @@ export async function signupPro(formData: FormData) {
     .eq("email", email)
     .maybeSingle();
   
-  // Solo bloquear si hay una solicitud pendiente (en revisión activa)
-  // Permitir actualizar si está rechazada o reenviada
+  // Si ya existe una solicitud pendiente, redirigir a éxito indicando que ya existe
+  // Esto puede pasar si el usuario hace doble clic o recarga la página después de enviar
+  // IMPORTANTE: No lanzar error, solo redirigir silenciosamente
   if (existingRequest && existingRequest.status === "pending") {
-    console.error("Ya existe una solicitud pendiente para este email:", email);
-    redirect("/signup-pro?error=request-pending");
+    console.log("Ya existe una solicitud pendiente para este email, redirigiendo a éxito:", email);
+    // Usar redirect() que lanza una excepción especial que Next.js maneja
+    // Esto evita que el componente cliente trate esto como un error
+    redirect("/signup-pro/success?existing=true");
   }
   
   // Si existe una solicitud rechazada o reenviada, la actualizaremos en lugar de crear una nueva
   const isResubmission = existingRequest && (existingRequest.status === "rejected" || existingRequest.status === "resubmitted");
 
-  let userId: string;
+  // NOTA: Ya NO creamos el usuario aquí. El usuario se creará cuando el administrador apruebe la solicitud.
+  // Solo guardamos la solicitud con user_id null o temporal.
+  let userId: string | null = null;
   
-  // Si es un reenvío, usar el usuario existente y actualizar datos
+  // Si es un reenvío y ya tiene un user_id, mantenerlo (pero no actualizar el usuario todavía)
   if (isResubmission && existingRequest?.user_id) {
     userId = existingRequest.user_id;
-    console.log("Reenvío de solicitud rechazada, usando usuario existente:", userId);
-    
-    // Actualizar datos del usuario en public.users
-    const { error: userUpdateError } = await admin.from("users")
-      .update({
-        name: first_name,
-        last_name: `${last_name_p} ${last_name_m}`.trim(),
-        phone_number,
-        rut,
-        is_active: false, // Mantener inactivo hasta nueva aprobación
-      })
-      .eq("user_id", userId);
-    
-    if (userUpdateError) {
-      console.error("Error al actualizar usuario en reenvío:", userUpdateError);
-      redirect("/signup-pro?error=user-update-failed");
-    }
+    console.log("Reenvío de solicitud rechazada, manteniendo user_id existente:", userId);
+    // NO actualizamos el usuario aquí, se hará cuando se apruebe
   } else {
-    // Verificar si el usuario ya existe en public.users primero (más rápido)
+    // Verificar si el usuario ya existe (no debería, pero verificamos por seguridad)
     const { data: existingPublicUser } = await admin
       .from("users")
       .select("id, email, role")
@@ -513,8 +514,7 @@ export async function signupPro(formData: FormData) {
       redirect("/signup-pro?error=user-exists");
     }
     
-    // También verificar en auth.users antes de crear
-    // Listar usuarios y buscar por email (más eficiente que intentar crear y fallar)
+    // También verificar en auth.users
     try {
       const { data: authUsers } = await admin.auth.admin.listUsers();
       const existingAuthUser = authUsers?.users?.find(
@@ -529,52 +529,9 @@ export async function signupPro(formData: FormData) {
       console.error("Error al verificar usuarios en auth:", error);
       // Continuar con el registro si no podemos verificar
     }
-
-    // Generar contraseña temporal (el usuario la cambiará después de aprobación)
-    const tempPassword = `Temp${Math.random().toString(36).slice(2, 15)}!${Math.random().toString(36).slice(2, 8)}`;
-
-    // 1. Crear usuario en auth.users
-    const { data: signUpData, error: signUpError } = await admin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: false, // No confirmado hasta que admin apruebe
-      user_metadata: {
-        full_name,
-        email,
-        role: "professional",
-      },
-    });
-
-    if (signUpError || !signUpData.user) {
-      console.error("Error al crear usuario en auth:", signUpError);
-      // Si el error es que el usuario ya existe, redirigir con ese mensaje
-      if (signUpError?.message?.includes("already registered") || signUpError?.message?.includes("already exists")) {
-        redirect("/signup-pro?error=user-exists");
-      }
-      redirect("/signup-pro?error=signup-failed");
-    }
-
-    userId = signUpData.user.id;
-
-    // 2. Crear registro en public.users con role=3 (profesional) y estado pendiente
-    // Usar admin client para bypass RLS
-    const { error: userInsertError } = await admin.from("users").insert({
-      user_id: userId,
-      email,
-      name: first_name,
-      last_name: `${last_name_p} ${last_name_m}`.trim(),
-      role: 3, // Profesional
-      is_active: false, // Inactivo hasta aprobación
-      phone_number,
-      rut,
-    });
-
-    if (userInsertError) {
-      console.error("Error al crear usuario en public.users:", userInsertError);
-      // Intentar eliminar el usuario de auth si falla la inserción
-      await admin.auth.admin.deleteUser(userId);
-      redirect("/signup-pro?error=user-creation-failed");
-    }
+    
+    // NO creamos el usuario aquí. Se creará cuando se apruebe la solicitud.
+    console.log("Solicitud profesional: NO se crea usuario hasta la aprobación del administrador");
   }
 
   // 3. Obtener URLs de archivos (ya subidos desde el cliente) o archivos directamente
@@ -594,12 +551,16 @@ export async function signupPro(formData: FormData) {
     console.error("Error al parsear certificados adicionales:", error);
   }
 
-  // 4. Si los archivos fueron subidos con temp_user_id, reorganizarlos a la carpeta del usuario real
+  // 4. Si los archivos fueron subidos con temp_user_id, reorganizarlos usando el email como identificador temporal
+  // Los archivos se reorganizarán con el user_id real cuando se apruebe la solicitud
   let final_degree_copy_url: string | null = degree_copy_url;
   let final_id_copy_url: string | null = id_copy_url;
   let final_professional_certificate_url: string | null = professional_certificate_url;
 
-  if (temp_user_id && userId) {
+  // Usar email como identificador temporal para organizar archivos pendientes
+  const tempIdentifier = temp_user_id || email.replace(/[^a-zA-Z0-9]/g, "_");
+
+  if (temp_user_id) {
     const reorganizeFile = async (url: string | null, folder: string, fileType: string): Promise<string | null> => {
       if (!url) return url;
       
@@ -626,15 +587,16 @@ export async function signupPro(formData: FormData) {
           return url;
         }
         
-        // Crear nuevo path con estructura organizada: folder/userId/tipo-documento_userId_timestamp.ext
+        // Crear nuevo path con estructura organizada: folder/tempIdentifier/tipo-documento_tempIdentifier_timestamp.ext
+        // Cuando se apruebe la solicitud, estos archivos se moverán a la carpeta del usuario real
         const pathParts = oldPath.split("/");
         const oldFileName = pathParts[pathParts.length - 1];
         const ext = oldFileName.split(".").pop() || "pdf";
         
-        // Nombre descriptivo del archivo: tipo-documento_userId_timestamp.ext
+        // Nombre descriptivo del archivo: tipo-documento_tempIdentifier_timestamp.ext
         const timestamp = Date.now();
-        const newFileName = `${fileType}_${userId}_${timestamp}.${ext}`;
-        const newPath = `${folder}/${userId}/${newFileName}`;
+        const newFileName = `${fileType}_${tempIdentifier}_${timestamp}.${ext}`;
+        const newPath = `${folder}/pending/${tempIdentifier}/${newFileName}`;
         
         // Mover el archivo (copiar y luego eliminar el original)
         // Usar admin client para bypass RLS en storage
@@ -726,9 +688,9 @@ export async function signupPro(formData: FormData) {
       redirect("/signup-pro?error=request-update-failed");
     }
   } else {
-    // Crear nueva solicitud
+    // Crear nueva solicitud (sin user_id, se asignará cuando se apruebe)
     const { error: requestError } = await admin.from("professional_requests").insert({
-      user_id: userId,
+      user_id: userId || null, // Puede ser null si es nueva solicitud
       full_name,
       rut,
       birth_date,
@@ -749,11 +711,6 @@ export async function signupPro(formData: FormData) {
 
     if (requestError) {
       console.error("Error al guardar solicitud profesional:", requestError);
-      // Limpiar: eliminar usuario creado solo si no es reenvío
-      if (!isResubmission) {
-        await admin.auth.admin.deleteUser(userId);
-        await admin.from("users").delete().eq("user_id", userId);
-      }
       redirect("/signup-pro?error=request-creation-failed");
     }
   }
@@ -824,10 +781,12 @@ export async function requestPasswordReset(formData: FormData) {
   }
 
   const supabase = await createClient();
+  const { getSiteUrl } = await import("@/lib/utils/url");
+  const baseUrl = getSiteUrl();
 
   try {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${config.app.url}/reset-password`,
+      redirectTo: `${baseUrl}/reset-password`,
     });
 
     if (error) {

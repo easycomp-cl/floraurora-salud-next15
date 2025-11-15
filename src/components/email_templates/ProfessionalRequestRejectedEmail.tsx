@@ -14,14 +14,14 @@ interface ProfessionalRequestRejectedEmailProps {
   professionalName: string;
   rejectionReason: string;
   resubmitUrl: string;
-  logoUrl?: string;
 }
+
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 export function ProfessionalRequestRejectedEmail({
   professionalName,
   rejectionReason,
   resubmitUrl,
-  logoUrl,
 }: ProfessionalRequestRejectedEmailProps) {
   return (
     <Html>
@@ -30,15 +30,15 @@ export function ProfessionalRequestRejectedEmail({
         <Container style={container}>
           {/* Header */}
           <Section style={header}>
-            {logoUrl && (
+            <Section style={logoContainer}>
               <Img
-                src={logoUrl}
+                src={LOGO_URL}
                 alt="FlorAurora Salud"
                 width="180"
                 height="auto"
                 style={logoStyle}
               />
-            )}
+            </Section>
             <Heading style={headerTitle}>Actualización sobre tu Solicitud</Heading>
             <Text style={headerSubtitle}>FlorAurora Salud</Text>
           </Section>
@@ -110,16 +110,25 @@ const container = {
 };
 
 const header = {
-  background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+  background: "linear-gradient(135deg, #b8718f 0%, #a8556f 100%)",
   borderRadius: "10px 10px 0 0",
   padding: "40px 30px",
   textAlign: "center" as const,
 };
 
+const logoContainer = {
+  backgroundColor: "#ffffff",
+  padding: "12px 20px",
+  borderRadius: "8px",
+  display: "inline-block",
+  margin: "0 auto 20px auto",
+  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+};
+
 const logoStyle = {
   display: "block",
-  margin: "0 auto 20px auto",
-  borderRadius: "8px",
+  margin: "0 auto",
+  borderRadius: "4px",
 };
 
 const headerTitle = {
@@ -152,7 +161,7 @@ const messageBox = {
   backgroundColor: "#fef2f2",
   padding: "20px",
   borderRadius: "8px",
-  border: "2px solid #ef4444",
+  border: "2px solid #b8718f",
   margin: "20px 0",
 };
 
@@ -164,7 +173,7 @@ const messageText = {
 };
 
 const highlight = {
-  color: "#dc2626",
+  color: "#a8556f",
   fontWeight: "bold",
 };
 
