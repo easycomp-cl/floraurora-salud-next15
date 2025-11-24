@@ -146,3 +146,71 @@ export function getRedirectRoute(pathname: string, isAuthenticated: boolean): st
   
   return pathname;
 }
+
+export function getTransbankEnvironment(): {
+  isProduction: boolean;
+  environment: "production" | "integration";
+  detectedBy: string;
+} {
+  // 1. Verificar TRANSBANK_ENVIRONMENT explícitamente configurado
+  // Usar trim() para eliminar espacios en blanco que podrían causar problemas
+  const transbankEnvRaw = process.env.TRANSBANK_ENVIRONMENT;
+  const transbankEnv = transbankEnvRaw?.trim().toUpperCase();
+  
+  // Log para debugging (sin exponer el valor completo por seguridad)
+  console.log("🔍 [Transbank Config] Verificando ambiente:", {
+    hasTransbankEnv: !!transbankEnvRaw,
+    transbankEnvLength: transbankEnvRaw?.length || 0,
+    transbankEnvTrimmed: transbankEnv,
+    nodeEnv: process.env.NODE_ENV,
+  });
+  
+  if (transbankEnv === "PROD" || transbankEnv === "PRODUCTION") {
+    return {
+      isProduction: true,
+      environment: "production",
+      detectedBy: `TRANSBANK_ENVIRONMENT=${transbankEnvRaw} (trimmed: ${transbankEnv})`,
+    };
+  }
+  if (transbankEnv === "TEST" || transbankEnv === "INTEGRATION" || transbankEnv === "INTEGRACION") {
+    return {
+      isProduction: false,
+      environment: "integration",
+      detectedBy: `TRANSBANK_ENVIRONMENT=${transbankEnvRaw} (trimmed: ${transbankEnv})`,
+    };
+  }
+
+  // 2. Si TRANSBANK_ENVIRONMENT no está configurado o está vacío, verificar NODE_ENV
+  const nodeEnv = process.env.NODE_ENV?.toLowerCase().trim();
+  if (nodeEnv === "production") {
+    // En producción, por defecto usar producción a menos que se especifique lo contrario
+    return {
+      isProduction: true,
+      environment: "production",
+      detectedBy: `NODE_ENV=production (fallback) - TRANSBANK_ENVIRONMENT=${transbankEnvRaw || "no configurado"}`,
+    };
+  }
+
+  // 3. Por defecto, usar integración (para desarrollo/testing)
+  return {
+    isProduction: false,
+    environment: "integration",
+    detectedBy: `default (development/testing) - TRANSBANK_ENVIRONMENT=${transbankEnvRaw || "no configurado"}, NODE_ENV=${process.env.NODE_ENV || "no configurado"}`,
+  };
+}
+
+// Exportar función helper para obtener configuración de Transbank
+export function getTransbankConfig(): {
+  commerceCode: string | undefined;
+  apiKey: string | undefined;
+  isProduction: boolean;
+  environment: "production" | "integration";
+  detectedBy: string;
+} {
+  const envConfig = getTransbankEnvironment();
+  return {
+    commerceCode: process.env.TRANSBANK_COMMERCE_CODE,
+    apiKey: process.env.TRANSBANK_API_KEY,
+    ...envConfig,
+  };
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminServer } from "@/utils/supabase/server";
+import { getTransbankConfig } from "@/lib/config";
 
 /**
  * API Route para crear una transacción de Webpay Plus
@@ -30,11 +31,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Obtener credenciales de variables de entorno
-    const commerceCode = process.env.TRANSBANK_COMMERCE_CODE;
-    const apiKey = process.env.TRANSBANK_API_KEY;
-    const transbankEnvironment = process.env.TRANSBANK_ENVIRONMENT?.toUpperCase() || "TEST";
-    const isProduction = transbankEnvironment === "PROD";
+    // Obtener configuración de Transbank usando función helper
+    const transbankConfig = getTransbankConfig();
+    const { commerceCode, apiKey, isProduction, environment, detectedBy } = transbankConfig;
 
     // Log de configuración (sin exponer valores completos)
     console.log("🔐 [Webpay Create] Configuración:", {
@@ -42,9 +41,11 @@ export async function POST(request: NextRequest) {
       hasApiKey: !!apiKey,
       commerceCodeLength: commerceCode?.length || 0,
       apiKeyLength: apiKey?.length || 0,
-      transbankEnvironment,
+      environment: environment === "production" ? "Production" : "Integration",
       isProduction,
-      environment: isProduction ? "Production" : "Integration",
+      detectedBy,
+      TRANSBANK_ENVIRONMENT: process.env.TRANSBANK_ENVIRONMENT,
+      NODE_ENV: process.env.NODE_ENV,
     });
 
     if (!commerceCode || !apiKey) {
@@ -61,8 +62,8 @@ export async function POST(request: NextRequest) {
     // Importar dinámicamente el SDK de Transbank (solo en el servidor)
     const { WebpayPlus, Options, Environment } = await import("transbank-sdk");
 
-    // Configurar ambiente según TRANSBANK_ENVIRONMENT (PROD o TEST)
-    const environment = isProduction
+    // Configurar ambiente según la detección automática
+    const transbankEnvironment = isProduction
       ? Environment.Production
       : Environment.Integration;
 
@@ -71,11 +72,12 @@ export async function POST(request: NextRequest) {
       sessionId,
       amount: amountNumber,
       returnUrl: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/payments/webpay/confirm`,
-      environment: isProduction ? "Production" : "Integration",
+      environment: environment === "production" ? "Production" : "Integration",
+      detectedBy,
     });
 
     // Crear opciones de configuración
-    const options = new Options(commerceCode, apiKey, environment);
+    const options = new Options(commerceCode, apiKey, transbankEnvironment);
 
     // Crear instancia de transacción
     const transaction = new WebpayPlus.Transaction(options);
@@ -105,10 +107,13 @@ export async function POST(request: NextRequest) {
       
       // Si es un error de autenticación, dar un mensaje más específico
       if (createError instanceof Error && createError.message.includes("401")) {
+        const envMessage = isProduction 
+          ? "ambiente de producción" 
+          : "ambiente de integración";
         return NextResponse.json(
           {
             error: "Error de autenticación con Transbank",
-            details: "Las credenciales de Transbank no son válidas o el ambiente no coincide. Verifica que TRANSBANK_COMMERCE_CODE y TRANSBANK_API_KEY sean correctos para el ambiente de integración.",
+            details: `Las credenciales de Transbank no son válidas o el ambiente no coincide. Verifica que TRANSBANK_COMMERCE_CODE y TRANSBANK_API_KEY sean correctos para el ${envMessage}. Ambiente detectado: ${environment} (${detectedBy})`,
           },
           { status: 401 }
         );
@@ -234,15 +239,22 @@ export async function POST(request: NextRequest) {
       stack: error instanceof Error ? error.stack : undefined,
     });
     
+    // Obtener configuración de Transbank para mensajes de error
+    const transbankConfig = getTransbankConfig();
+    const { isProduction, environment, detectedBy } = transbankConfig;
+    
     // Detectar errores específicos de Transbank
     if (error instanceof Error) {
       const errorMessage = error.message.toLowerCase();
       
       if (errorMessage.includes("401") || errorMessage.includes("not authorized") || errorMessage.includes("unauthorized")) {
+        const envMessage = isProduction 
+          ? "ambiente de producción" 
+          : "ambiente de integración";
         return NextResponse.json(
           {
             error: "Error de autenticación con Transbank",
-            details: "Las credenciales de Transbank no son válidas. Verifica que las variables de entorno TRANSBANK_COMMERCE_CODE y TRANSBANK_API_KEY sean correctas para el ambiente de integración. En desarrollo, usa las credenciales de prueba proporcionadas por Transbank.",
+            details: `Las credenciales de Transbank no son válidas. Verifica que las variables de entorno TRANSBANK_COMMERCE_CODE y TRANSBANK_API_KEY sean correctas para el ${envMessage}. Ambiente detectado: ${environment} (${detectedBy}). ${isProduction ? "Asegúrate de usar credenciales productivas." : "En desarrollo, usa las credenciales de prueba proporcionadas por Transbank."}`,
           },
           { status: 401 }
         );

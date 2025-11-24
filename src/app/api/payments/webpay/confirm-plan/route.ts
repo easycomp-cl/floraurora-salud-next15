@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminServer } from "@/utils/supabase/server";
+import { getTransbankConfig } from "@/lib/config";
 
 /**
  * API Route para confirmar una transacción de Webpay Plus para pago de plan mensual
@@ -45,29 +46,35 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
       );
     }
 
-    // Obtener credenciales de variables de entorno
-    const commerceCode = process.env.TRANSBANK_COMMERCE_CODE;
-    const apiKey = process.env.TRANSBANK_API_KEY;
-    const transbankEnvironment = process.env.TRANSBANK_ENVIRONMENT?.toUpperCase() || "TEST";
-    const isProduction = transbankEnvironment === "PROD";
+    // Obtener configuración de Transbank usando función helper
+    const transbankConfig = getTransbankConfig();
+    const { commerceCode, apiKey, isProduction, environment, detectedBy } = transbankConfig;
 
     if (!commerceCode || !apiKey) {
-      console.error("Credenciales de Transbank no configuradas");
+      console.error("❌ [confirm-plan] Credenciales de Transbank no configuradas");
       return NextResponse.json(
         { error: "Configuración de pago no disponible" },
         { status: 500 }
       );
     }
 
+    console.log("🔐 [confirm-plan] Configuración de Transbank:", {
+      hasCommerceCode: !!commerceCode,
+      hasApiKey: !!apiKey,
+      environment: environment === "production" ? "Production" : "Integration",
+      isProduction,
+      detectedBy,
+    });
+
     // Importar dinámicamente el SDK de Transbank (solo en el servidor)
     const { WebpayPlus, Options, Environment } = await import("transbank-sdk");
 
-    // Configurar ambiente según TRANSBANK_ENVIRONMENT (PROD o TEST)
-    const environment = isProduction
+    // Configurar ambiente según la detección automática
+    const transbankEnvironment = isProduction
       ? Environment.Production
       : Environment.Integration;
 
-    const options = new Options(commerceCode, apiKey, environment);
+    const options = new Options(commerceCode, apiKey, transbankEnvironment);
     const transaction = new WebpayPlus.Transaction(options);
 
     // Confirmar la transacción con Webpay
