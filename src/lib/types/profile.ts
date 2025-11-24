@@ -60,6 +60,9 @@ export interface ProfessionalSpecialty {
   name: string;
   title_id: number | null;
   created_at: string;
+  professional_amount?: number | null; // Precio asignado por el profesional
+  minimum_amount?: number | null; // Precio mínimo permitido desde specialties
+  maximum_amount?: number | null; // Precio máximo permitido desde specialties
 }
 
 // Interfaz para profesionales basada en la tabla real

@@ -39,16 +39,28 @@ export function useMobileMenu() {
       }
     };
 
+    // Escuchar evento personalizado para cerrar el menú móvil y dropdown
+    const handleCloseEvent = () => {
+      // Cerrar el dropdown si está abierto
+      if (openDropdown) {
+        handleCloseDropdown();
+      }
+      // Cerrar el menú completo
+      closeMenu();
+    };
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleEscape);
+      window.addEventListener('closeNavbarDropdown', handleCloseEvent);
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleEscape);
+      window.removeEventListener('closeNavbarDropdown', handleCloseEvent);
     };
-  }, [isOpen, closeMenu]);
+  }, [isOpen, closeMenu, openDropdown, handleCloseDropdown]);
 
   const toggleMenu = () => {
     if (isOpen) {

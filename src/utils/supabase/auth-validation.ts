@@ -25,10 +25,9 @@ export async function validateAuth(
 ): Promise<AuthValidationResult> {
   const headerUserId = request.headers.get("X-User-ID");
   
-  // Usar cookies() de Next.js directamente en lugar de request.cookies
-  // Esto es más confiable en API routes porque cookies() lee directamente del contexto de Next.js
-  // request.cookies puede tener problemas con cookies de Supabase SSR que tienen nombres complejos
-  const supabase = await createClient();
+  // Pasar el request a createClient para usar las cookies del request
+  // Esto es más confiable en API routes porque las cookies vienen directamente del cliente
+  const supabase = await createClient(request);
   const adminSupabase = createAdminServer();
 
   // Obtener usuario de las cookies

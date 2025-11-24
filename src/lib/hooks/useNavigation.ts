@@ -27,8 +27,18 @@ export function useNavigation() {
       }
     };
 
+    // Escuchar evento personalizado para cerrar el dropdown
+    const handleCloseEvent = () => {
+      handleCloseDropdown();
+    };
+
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    window.addEventListener("closeNavbarDropdown", handleCloseEvent);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("closeNavbarDropdown", handleCloseEvent);
+    };
   }, [openDropdown]);
 
   const toggleDropdown = (itemName: string) => {

@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Settings2,
   CreditCard,
+  DollarSign,
 } from "lucide-react";
 
 export interface NavSubItem {
@@ -179,6 +180,12 @@ export const professionalNavItems: NavItem[] = [
     href: "/dashboard/schedules",
     icon: Clock,
     description: "Configura tu disponibilidad",
+  },
+  {
+    label: "Mis Precios",
+    href: "/dashboard/my-prices",
+    icon: DollarSign,
+    description: "Gestiona tus precios por especialidad",
   },
   {
     label: "Mi Plan",

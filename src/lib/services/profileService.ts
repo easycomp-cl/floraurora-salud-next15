@@ -32,11 +32,14 @@ export interface User {
 // Interfaz temporal para manejar la estructura real de datos de Supabase
 interface ProfessionalSpecialtyQuery {
   specialty_id: number;
+  professional_amount: number | null;
   specialties: {
     id: number;
     name: string;
     title_id: number;
     created_at: string;
+    minimum_amount: number | null;
+    maximum_amount: number | null;
   } | null;
 }
 
@@ -153,11 +156,14 @@ export const profileService = {
       .from('professional_specialties')
       .select(`
         specialty_id,
+        professional_amount,
         specialties(
           id,
           name,
           title_id,
-          created_at
+          created_at,
+          minimum_amount,
+          maximum_amount
         )
       `)
       .eq('professional_id', professionalId);
@@ -177,7 +183,7 @@ export const profileService = {
     // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
     const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item, index) => {
       console.log(`Processing item ${index}:`, item);
-      const { specialties: specialtyData } = item; // specialties es un objeto individual, no un array
+      const { specialties: specialtyData, professional_amount } = item; // specialties es un objeto individual, no un array
       console.log(`specialtyData for item ${index}:`, specialtyData);
       
       // Validar que el objeto de especialidad exista
@@ -192,12 +198,27 @@ export const profileService = {
         return null;
       }
       
-      return {
+      const specialty: ProfessionalSpecialty = {
         id: specialtyData.id,
         name: specialtyData.name || '',
         title_id: specialtyData.title_id || null,
-        created_at: specialtyData.created_at || new Date().toISOString()
+        created_at: specialtyData.created_at || new Date().toISOString(),
       };
+      
+      // Agregar campos opcionales solo si existen
+      if (professional_amount !== null && professional_amount !== undefined) {
+        specialty.professional_amount = Number(professional_amount);
+      }
+      
+      if (specialtyData.minimum_amount !== null && specialtyData.minimum_amount !== undefined) {
+        specialty.minimum_amount = Number(specialtyData.minimum_amount);
+      }
+      
+      if (specialtyData.maximum_amount !== null && specialtyData.maximum_amount !== undefined) {
+        specialty.maximum_amount = Number(specialtyData.maximum_amount);
+      }
+      
+      return specialty;
     }).filter((specialty): specialty is ProfessionalSpecialty => specialty !== null) || [];
     
     console.log("Mapped specialties:", specialties);
@@ -232,6 +253,69 @@ export const profileService = {
         console.error('Error inserting new specialties:', insertError);
         throw insertError;
       }
+    }
+  },
+
+  // Actualizar precio de una especialidad profesional
+  async updateProfessionalSpecialtyPrice(
+    professionalId: number,
+    specialtyId: number,
+    professionalAmount: number
+  ): Promise<void> {
+    // Primero verificar que la especialidad pertenezca al profesional
+    const { data: existing, error: checkError } = await supabaseTyped
+      .from('professional_specialties')
+      .select('specialty_id, specialties(minimum_amount, maximum_amount)')
+      .eq('professional_id', professionalId)
+      .eq('specialty_id', specialtyId)
+      .single();
+
+    if (checkError || !existing) {
+      throw new Error('La especialidad no está asociada a este profesional');
+    }
+
+    // Obtener los rangos de precio permitidos
+    interface SpecialtyRange {
+      minimum_amount: number | null;
+      maximum_amount: number | null;
+    }
+    
+    // Manejar el caso donde specialties puede ser un objeto único o un array
+    const specialtyRaw = existing.specialties;
+    let specialtyRange: SpecialtyRange | null = null;
+    
+    if (specialtyRaw && !Array.isArray(specialtyRaw) && typeof specialtyRaw === 'object') {
+      specialtyRange = specialtyRaw as SpecialtyRange;
+    } else if (Array.isArray(specialtyRaw) && specialtyRaw.length > 0) {
+      // Si es un array, tomar el primer elemento
+      specialtyRange = specialtyRaw[0] as SpecialtyRange;
+    }
+    
+    const minAmount = specialtyRange?.minimum_amount !== null && specialtyRange?.minimum_amount !== undefined
+      ? Number(specialtyRange.minimum_amount)
+      : null;
+    const maxAmount = specialtyRange?.maximum_amount !== null && specialtyRange?.maximum_amount !== undefined
+      ? Number(specialtyRange.maximum_amount)
+      : null;
+
+    // Validar que el precio esté dentro del rango permitido
+    if (minAmount !== null && professionalAmount < minAmount) {
+      throw new Error(`El precio mínimo permitido es $${minAmount.toLocaleString('es-CL')}`);
+    }
+    if (maxAmount !== null && professionalAmount > maxAmount) {
+      throw new Error(`El precio máximo permitido es $${maxAmount.toLocaleString('es-CL')}`);
+    }
+
+    // Actualizar el precio
+    const { error: updateError } = await supabaseTyped
+      .from('professional_specialties')
+      .update({ professional_amount: professionalAmount })
+      .eq('professional_id', professionalId)
+      .eq('specialty_id', specialtyId);
+
+    if (updateError) {
+      console.error('Error updating professional specialty price:', updateError);
+      throw updateError;
     }
   },
 

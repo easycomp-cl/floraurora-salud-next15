@@ -291,24 +291,24 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
     try {
       console.log(`\n=== CONSULTANDO SERVICIOS PARA PROFESIONAL ${professionalId} ===`);
       
-      // Primero obtener todas las especialidades disponibles (solo las activas)
-      const { data: allSpecialties, error: specialtiesError } = await supabase
-        .from('specialties')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
-
-      if (specialtiesError) {
-        console.error('Error al obtener especialidades:', specialtiesError);
-        return [];
-      }
-
-      console.log('Todas las especialidades disponibles:', allSpecialties);
-
-      // Obtener las especialidades específicas del profesional
+      // Obtener las especialidades del profesional con sus precios y datos de la especialidad
       const { data: professionalSpecialties, error: profSpecialtiesError } = await supabase
         .from('professional_specialties')
-        .select('specialty_id')
+        .select(`
+          specialty_id,
+          professional_amount,
+          specialties(
+            id,
+            name,
+            title_id,
+            description,
+            minimum_amount,
+            maximum_amount,
+            duration_minutes,
+            is_active,
+            created_at
+          )
+        `)
         .eq('professional_id', professionalId);
 
       if (profSpecialtiesError) {
@@ -316,33 +316,79 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
         return [];
       }
 
-      const professionalSpecialtyIds = professionalSpecialties?.map(ps => ps.specialty_id) || [];
-      console.log('IDs de especialidades del profesional:', professionalSpecialtyIds);
-
-      // Filtrar las especialidades que pertenecen al profesional
-      const professionalSpecialtiesList = allSpecialties?.filter(specialty => 
-        professionalSpecialtyIds.includes(specialty.id)
-      ) || [];
-
-      console.log('Especialidades del profesional:', professionalSpecialtiesList);
-
-      if (professionalSpecialtiesList.length === 0) {
+      if (!professionalSpecialties || professionalSpecialties.length === 0) {
         console.log('El profesional no tiene especialidades configuradas');
         return [];
       }
 
+      console.log('Especialidades del profesional con precios:', professionalSpecialties);
+
       // Crear servicios basados en las especialidades del profesional
       console.log('Creando servicios basados en especialidades del profesional');
-      return professionalSpecialtiesList.map((specialty, index) => ({
-        id: Number(specialty.id),
-        name: `Consulta de ${specialty.name}`,
-        description: `Sesión de terapia especializada en ${specialty.name} de 55 minutos`,
-        duration_minutes: 55,
-        price: 50000 + (index * 10000), // Precio variable por especialidad
-        professional_id: professionalId,
-        is_active: true,
-        created_at: String(specialty.created_at) || new Date().toISOString()
-      }));
+      
+      // Interfaces para tipado seguro
+      interface SpecialtyData {
+        id: number;
+        name: string;
+        description: string | null;
+        duration_minutes: number | null;
+        minimum_amount: number | null;
+        maximum_amount: number | null;
+        created_at: string;
+        is_active: boolean;
+      }
+      
+      // Type guard para verificar si es un objeto único
+      function isSpecialtyData(obj: SpecialtyData | SpecialtyData[] | null): obj is SpecialtyData {
+        return obj !== null && !Array.isArray(obj) && typeof obj === 'object' && 'id' in obj;
+      }
+      
+      const services: Service[] = [];
+      
+      for (const ps of professionalSpecialties) {
+        // Manejar el caso donde specialties puede ser un objeto único o un array
+        const specialtyRaw = ps.specialties;
+        
+        if (!isSpecialtyData(specialtyRaw)) {
+          continue;
+        }
+        
+        const specialty = specialtyRaw;
+        
+        // Filtrar solo especialidades activas
+        if (specialty.is_active === false) {
+          continue;
+        }
+
+        // Determinar el precio a usar:
+        // 1. Si tiene professional_amount, usarlo
+        // 2. Si no, usar minimum_amount de la especialidad
+        // 3. Si no hay ninguno, usar 35000 como valor por defecto
+        let price = 35000; // Valor por defecto
+        if (ps.professional_amount !== null && ps.professional_amount !== undefined) {
+          price = Number(ps.professional_amount);
+        } else if (specialty.minimum_amount !== null && specialty.minimum_amount !== undefined) {
+          price = Number(specialty.minimum_amount);
+        }
+
+        // Usar duration_minutes de la especialidad o 55 por defecto
+        const duration = specialty.duration_minutes ?? 55;
+
+        const service: Service = {
+          id: Number(specialty.id),
+          name: `Consulta de ${specialty.name}`,
+          description: specialty.description || `Sesión de terapia especializada en ${specialty.name} de ${duration} minutos`,
+          duration_minutes: duration,
+          price: price,
+          professional_id: professionalId,
+          is_active: true,
+          created_at: specialty.created_at || new Date().toISOString()
+        };
+        
+        services.push(service);
+      }
+      
+      return services;
     } catch (error) {
       console.error('Error fetching services:', error);
       throw error;
