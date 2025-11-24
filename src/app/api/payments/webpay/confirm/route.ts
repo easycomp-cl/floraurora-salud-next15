@@ -113,9 +113,15 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
       );
     }
 
+    // Validar formato de credenciales (sin espacios al inicio/final)
+    const commerceCodeTrimmed = commerceCode.trim();
+    const apiKeyTrimmed = apiKey.trim();
+
     console.log("🔐 [Webpay Confirm] Configuración de Transbank:", {
-      hasCommerceCode: !!commerceCode,
-      hasApiKey: !!apiKey,
+      hasCommerceCode: !!commerceCodeTrimmed,
+      hasApiKey: !!apiKeyTrimmed,
+      commerceCodeLength: commerceCodeTrimmed.length,
+      apiKeyLength: apiKeyTrimmed.length,
       environment: environment === "production" ? "Production" : "Integration",
       isProduction,
       detectedBy,
@@ -129,7 +135,7 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
       ? Environment.Production
       : Environment.Integration;
 
-    const options = new Options(commerceCode, apiKey, transbankEnvironment);
+    const options = new Options(commerceCodeTrimmed, apiKeyTrimmed, transbankEnvironment);
     const transaction = new WebpayPlus.Transaction(options);
 
     // Confirmar la transacción con Webpay

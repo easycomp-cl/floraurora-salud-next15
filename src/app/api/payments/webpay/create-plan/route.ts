@@ -158,9 +158,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validar formato de credenciales (sin espacios al inicio/final)
+    const commerceCodeTrimmed = commerceCode.trim();
+    const apiKeyTrimmed = apiKey.trim();
+
     console.log("🔐 [create-plan] Configuración de Transbank:", {
-      hasCommerceCode: !!commerceCode,
-      hasApiKey: !!apiKey,
+      hasCommerceCode: !!commerceCodeTrimmed,
+      hasApiKey: !!apiKeyTrimmed,
+      commerceCodeLength: commerceCodeTrimmed.length,
+      apiKeyLength: apiKeyTrimmed.length,
       environment: environment === "production" ? "Production" : "Integration",
       isProduction,
       detectedBy,
@@ -174,8 +180,8 @@ export async function POST(request: NextRequest) {
       ? Environment.Production
       : Environment.Integration;
 
-    // Crear opciones de configuración
-    const options = new Options(commerceCode, apiKey, transbankEnvironment);
+    // Crear opciones de configuración (usar credenciales limpiadas)
+    const options = new Options(commerceCodeTrimmed, apiKeyTrimmed, transbankEnvironment);
 
     // Crear instancia de transacción
     const transaction = new WebpayPlus.Transaction(options);

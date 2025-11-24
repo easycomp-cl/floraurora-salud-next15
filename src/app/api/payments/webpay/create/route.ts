@@ -35,21 +35,14 @@ export async function POST(request: NextRequest) {
     const transbankConfig = getTransbankConfig();
     const { commerceCode, apiKey, isProduction, environment, detectedBy } = transbankConfig;
 
-    // Log de configuración (sin exponer valores completos)
-    console.log("🔐 [Webpay Create] Configuración:", {
-      hasCommerceCode: !!commerceCode,
-      hasApiKey: !!apiKey,
-      commerceCodeLength: commerceCode?.length || 0,
-      apiKeyLength: apiKey?.length || 0,
-      environment: environment === "production" ? "Production" : "Integration",
-      isProduction,
-      detectedBy,
-      TRANSBANK_ENVIRONMENT: process.env.TRANSBANK_ENVIRONMENT,
-      NODE_ENV: process.env.NODE_ENV,
-    });
-
+    // Validar que las credenciales existan y no estén vacías
     if (!commerceCode || !apiKey) {
-      console.error("❌ [Webpay Create] Credenciales de Transbank no configuradas");
+      console.error("❌ [Webpay Create] Credenciales de Transbank no configuradas", {
+        hasCommerceCode: !!commerceCode,
+        hasApiKey: !!apiKey,
+        commerceCodeLength: commerceCode?.length || 0,
+        apiKeyLength: apiKey?.length || 0,
+      });
       return NextResponse.json(
         { 
           error: "Configuración de pago no disponible",
@@ -58,6 +51,29 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Validar formato de credenciales (sin espacios al inicio/final)
+    const commerceCodeTrimmed = commerceCode.trim();
+    const apiKeyTrimmed = apiKey.trim();
+    
+    if (commerceCodeTrimmed !== commerceCode || apiKeyTrimmed !== apiKey) {
+      console.warn("⚠️ [Webpay Create] Las credenciales tenían espacios en blanco y fueron limpiadas");
+    }
+
+    // Log de configuración (sin exponer valores completos)
+    console.log("🔐 [Webpay Create] Configuración:", {
+      hasCommerceCode: !!commerceCodeTrimmed,
+      hasApiKey: !!apiKeyTrimmed,
+      commerceCodeLength: commerceCodeTrimmed.length,
+      apiKeyLength: apiKeyTrimmed.length,
+      commerceCodeFirstChars: commerceCodeTrimmed.substring(0, 4) + "...",
+      apiKeyFirstChars: apiKeyTrimmed.substring(0, 4) + "...",
+      environment: environment === "production" ? "Production" : "Integration",
+      isProduction,
+      detectedBy,
+      TRANSBANK_ENVIRONMENT: process.env.TRANSBANK_ENVIRONMENT,
+      NODE_ENV: process.env.NODE_ENV,
+    });
 
     // Importar dinámicamente el SDK de Transbank (solo en el servidor)
     const { WebpayPlus, Options, Environment } = await import("transbank-sdk");
@@ -76,8 +92,8 @@ export async function POST(request: NextRequest) {
       detectedBy,
     });
 
-    // Crear opciones de configuración
-    const options = new Options(commerceCode, apiKey, transbankEnvironment);
+    // Crear opciones de configuración (usar credenciales limpiadas)
+    const options = new Options(commerceCodeTrimmed, apiKeyTrimmed, transbankEnvironment);
 
     // Crear instancia de transacción
     const transaction = new WebpayPlus.Transaction(options);

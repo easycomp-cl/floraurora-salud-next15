@@ -208,9 +208,25 @@ export function getTransbankConfig(): {
   detectedBy: string;
 } {
   const envConfig = getTransbankEnvironment();
+  
+  // Limpiar credenciales: eliminar espacios en blanco que pueden causar errores 401
+  const commerceCodeRaw = process.env.TRANSBANK_COMMERCE_CODE;
+  const apiKeyRaw = process.env.TRANSBANK_API_KEY;
+  
+  const commerceCode = commerceCodeRaw?.trim() || undefined;
+  const apiKey = apiKeyRaw?.trim() || undefined;
+  
+  // Validar que las credenciales no estén vacías después del trim
+  if (commerceCodeRaw && !commerceCode) {
+    console.warn("⚠️ [Transbank Config] TRANSBANK_COMMERCE_CODE está vacío después de trim()");
+  }
+  if (apiKeyRaw && !apiKey) {
+    console.warn("⚠️ [Transbank Config] TRANSBANK_API_KEY está vacío después de trim()");
+  }
+  
   return {
-    commerceCode: process.env.TRANSBANK_COMMERCE_CODE,
-    apiKey: process.env.TRANSBANK_API_KEY,
+    commerceCode,
+    apiKey,
     ...envConfig,
   };
 }
