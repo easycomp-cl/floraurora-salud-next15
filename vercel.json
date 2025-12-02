@@ -1,9 +1,4 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/close-expired-meetings",
-      "schedule": "*/5 * * * *"
-    }
-  ]
+  "crons": []
 }
 
