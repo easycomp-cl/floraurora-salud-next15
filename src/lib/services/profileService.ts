@@ -1,5 +1,5 @@
 import { supabaseTyped } from '@/utils/supabase/client'; // Usar el cliente tipado con autenticación
-import { UserProfile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty } from '@/lib/types/profile';
+import { UserProfile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty, TherapeuticApproach } from '@/lib/types/profile';
 
 // Definir una interfaz para Patient basada en la tabla real
 export interface Patient {
@@ -98,18 +98,17 @@ export const profileService = {
   async getProfessionalProfile(userId: number): Promise<ProfessionalProfile | null> {
     // Primero obtener el usuario para conseguir su id
     const user = await this.getUserProfile(userId);
-    console.log("getProfessionalProfile-user", user);
     if (!user) return null;
 
     const { data, error } = await supabaseTyped
       .from('professionals')
       .select(`
         *,
-        title:professional_titles(*)
+        title:professional_titles(*),
+        approach:therapeutic_approaches(*)
       `)
       .eq('id', user.id) // Usar el id de la tabla users para la relación
       .single();
-    console.log("getProfessionalProfile-data", data);
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching professional profile:', error);
       return null;
@@ -150,6 +149,22 @@ export const profileService = {
     return data || [];
   },
 
+  // Obtener enfoques terapéuticos activos
+  async getTherapeuticApproaches(): Promise<TherapeuticApproach[]> {
+    const { data, error } = await supabaseTyped
+      .from('therapeutic_approaches')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching therapeutic approaches:', error);
+      return [];
+    }
+    
+    return data || [];
+  },
+
   // Obtener especialidades de un profesional por su id
   async getProfessionalSpecialties(professionalId: number): Promise<ProfessionalSpecialty[]> {
     const { data, error } = await supabaseTyped
@@ -168,23 +183,18 @@ export const profileService = {
       `)
       .eq('professional_id', professionalId);
     
-    console.log("getProfessionalSpecialties-data", data);
-    console.log("getProfessionalSpecialties-data length:", data?.length);
     if (error) {
       console.error('Error fetching professional specialties:', error);
       return [];
     }
     
     if (!data || data.length === 0) {
-      console.log('No specialties found for professional:', professionalId);
       return [];
     }
     
     // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
-    const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item, index) => {
-      console.log(`Processing item ${index}:`, item);
+    const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item) => {
       const { specialties: specialtyData, professional_amount } = item; // specialties es un objeto individual, no un array
-      console.log(`specialtyData for item ${index}:`, specialtyData);
       
       // Validar que el objeto de especialidad exista
       if (!specialtyData || typeof specialtyData !== 'object') {
@@ -221,7 +231,6 @@ export const profileService = {
       return specialty;
     }).filter((specialty): specialty is ProfessionalSpecialty => specialty !== null) || [];
     
-    console.log("Mapped specialties:", specialties);
     return specialties;
   },
 
@@ -406,7 +415,8 @@ export const profileService = {
       .eq('id', user.id) // Usar el id de la tabla users para la relación
       .select(`
         *,
-        title:professional_titles(*)
+        title:professional_titles(*),
+        approach:therapeutic_approaches(*)
       `)
       .single();
     
@@ -419,10 +429,6 @@ export const profileService = {
   },
 
   async updateUserProfile(userId: string, profileData: Partial<User>): Promise<User | null> {
-    console.log("=== INICIO updateUserProfile ===");
-    console.log("userId recibido:", userId);
-    console.log("profileData recibido:", profileData);
-    
     // Verificar autenticación
     const { data: { user: authUser }, error: authError } = await supabaseTyped.auth.getUser();
     
@@ -430,8 +436,6 @@ export const profileService = {
       console.error('Error de autenticación:', authError);
       throw new Error("Usuario no autenticado");
     }
-    
-    console.log("Usuario autenticado:", authUser.id);
     
     // Verificar que el user_id coincida con el usuario autenticado
     if (authUser.id !== userId) {
@@ -448,10 +452,17 @@ export const profileService = {
     
     if (error) {
       console.error('Error updating user profile:', error);
+      
+      // Detectar error de RUT duplicado
+      if (error.code === '23505' && (error.message.includes('Users_rut_key') || error.message.includes('rut'))) {
+        const customError = new Error('Este RUT ya está registrado') as Error & { code?: string };
+        customError.code = 'RUT_DUPLICATE';
+        throw customError;
+      }
+      
       throw error;
     }
     
-    console.log("Usuario actualizado exitosamente:", data);
     return data;
   },
 

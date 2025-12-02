@@ -62,7 +62,6 @@ async function getAuthenticatedUserId(): Promise<string | null> {
     return null;
   }
   if (!user) {
-    console.log("No hay sesión de usuario activa.");
     return null;
   }
   return user.id;
@@ -80,7 +79,6 @@ async function getDetailedUserFromDatabase(userId: string): Promise<DetailedUser
     return null;
   }
   if (!userData) {
-    console.log("No se encontraron datos en la tabla 'users' para el ID:", userId);
     return null;
   }
 
@@ -100,40 +98,23 @@ async function getSpecificProfile(user: DetailedUserDataMappped): Promise<Patien
   // user.role ya es un string mapeado, podemos usarlo directamente en el switch
   switch (user.role) {
     case 'patient':
-      console.log("user", user);
-      console.log("user.id", user.id);
       specificProfile = await profileService.getPatientProfile(user.id);
-      //console.log("specificProfile", specificProfile);
-      if (specificProfile) {
-        console.log("Perfil de paciente encontrado:", specificProfile);
-      } else {
-        console.log("No se encontró perfil de paciente para el paciente:", user.id);
-      }
       break;
     case 'professional':
-      console.log("Obteniendo perfil de profesional para user:", user);
       specificProfile = await profileService.getProfessionalProfile(user.id);
-      console.log("specificProfile", specificProfile);
-
       if (specificProfile) {
-        console.log("Perfil de profesional encontrado:", specificProfile);
         // Obtener especialidades si hay un title_id
         if (specificProfile.title_id) {
           const specialties = await profileService.getProfessionalSpecialties(specificProfile.id);
           specificProfile.specialties = specialties;
         }
-      } else {
-        console.log("No se encontró perfil de profesional para el usuario:", user.id);
       }
       break;
     case 'admin':
-      console.log("Usuario es un administrador, no se busca perfil específico de paciente/profesional.");
       break;
     case 'any':
-      console.log("Usuario con rol 'any', no se busca perfil específico.");
       break;
     default:
-      console.log("Rol de usuario desconocido o no mapeado:", user.role);
       break;
   }
   return specificProfile;
@@ -150,16 +131,13 @@ export async function getFullUserProfileData(): Promise<UserProfileData | null> 
     if (!userId) {
       return null;
     }
-    console.log("getFullUserProfileData-userId", userId);
     // Paso 2: Obtener los datos detallados del usuario de la base de datos
     const detailedUser = await getDetailedUserFromDatabase(userId);
     if (!detailedUser) {
       return null;
     }
-    console.log("getFullUserProfileData-detailedUser", detailedUser);
     // Paso 3: Obtener el perfil específico (paciente/profesional)
     const specificProfile = await getSpecificProfile(detailedUser);
-    console.log("getFullUserProfileData-specificProfile", specificProfile);
     return {
       user: detailedUser,
       profile: specificProfile,

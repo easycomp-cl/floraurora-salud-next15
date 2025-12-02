@@ -129,12 +129,12 @@ export default function ProfessionalRequestsManagement() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(
-          payload?.error ?? "No se pudo aprobar la solicitud"
-        );
+        throw new Error(payload?.error ?? "No se pudo aprobar la solicitud");
       }
 
-      setMessage("Solicitud aprobada exitosamente. Se ha enviado un correo al profesional.");
+      setMessage(
+        "Solicitud aprobada exitosamente. Se ha enviado un correo al profesional."
+      );
       await loadRequests();
       if (selectedRequest?.id === request.id) {
         setIsDetailDialogOpen(false);
@@ -172,12 +172,12 @@ export default function ProfessionalRequestsManagement() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(
-          payload?.error ?? "No se pudo rechazar la solicitud"
-        );
+        throw new Error(payload?.error ?? "No se pudo rechazar la solicitud");
       }
 
-      setMessage("Solicitud rechazada exitosamente. Se ha enviado un correo al profesional.");
+      setMessage(
+        "Solicitud rechazada exitosamente. Se ha enviado un correo al profesional."
+      );
       setIsRejectDialogOpen(false);
       setRejectionReason("");
       await loadRequests();
@@ -209,12 +209,12 @@ export default function ProfessionalRequestsManagement() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(
-          payload?.error ?? "No se pudo reenviar el enlace"
-        );
+        throw new Error(payload?.error ?? "No se pudo reenviar el enlace");
       }
 
-      setMessage("Enlace de verificación reenviado exitosamente. Se ha enviado un correo al profesional.");
+      setMessage(
+        "Enlace de verificación reenviado exitosamente. Se ha enviado un correo al profesional."
+      );
       // No cerrar el diálogo para que el admin pueda ver el mensaje
     } catch (err) {
       const message =
@@ -341,12 +341,17 @@ export default function ProfessionalRequestsManagement() {
                   </thead>
                   <tbody>
                     {paginatedRequests.map((request) => (
-                      <tr key={request.id} className="border-b hover:bg-gray-50">
+                      <tr
+                        key={request.id}
+                        className="border-b hover:bg-gray-50"
+                      >
                         <td className="p-3">{request.full_name}</td>
                         <td className="p-3">{request.email}</td>
                         <td className="p-3">{request.rut}</td>
                         <td className="p-3">{request.university}</td>
-                        <td className="p-3">{getStatusBadge(request.status)}</td>
+                        <td className="p-3">
+                          {getStatusBadge(request.status)}
+                        </td>
                         <td className="p-3">
                           {new Date(request.created_at).toLocaleDateString()}
                         </td>
@@ -402,7 +407,8 @@ export default function ProfessionalRequestsManagement() {
               {totalPages > 1 && (
                 <div className="flex justify-between items-center mt-4">
                   <div className="text-sm text-gray-600">
-                    Mostrando {paginatedRequests.length} de {filteredRequests.length} solicitudes
+                    Mostrando {paginatedRequests.length} de{" "}
+                    {filteredRequests.length} solicitudes
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -419,7 +425,9 @@ export default function ProfessionalRequestsManagement() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
                       disabled={page === totalPages}
                     >
                       Siguiente
@@ -466,13 +474,17 @@ export default function ProfessionalRequestsManagement() {
                   <Label>Fecha de Nacimiento</Label>
                   <p className="font-medium">
                     {selectedRequest.birth_date
-                      ? new Date(selectedRequest.birth_date).toLocaleDateString()
+                      ? new Date(
+                          selectedRequest.birth_date
+                        ).toLocaleDateString()
                       : "No proporcionado"}
                   </p>
                 </div>
                 <div>
                   <Label>Estado</Label>
-                  <div className="mt-1">{getStatusBadge(selectedRequest.status)}</div>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedRequest.status)}
+                  </div>
                 </div>
               </div>
 
@@ -521,15 +533,22 @@ export default function ProfessionalRequestsManagement() {
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 text-blue-600" />
                         <div>
-                          <p className="font-medium text-sm">Título Universitario</p>
+                          <p className="font-medium text-sm">
+                            Título Universitario
+                          </p>
                           <p className="text-xs text-gray-500">
                             {(() => {
                               try {
-                                const url = new URL(selectedRequest.degree_copy_url);
+                                const url = new URL(
+                                  selectedRequest.degree_copy_url
+                                );
                                 const pathParts = url.pathname.split("/");
-                                const fileName = pathParts[pathParts.length - 1];
+                                const fileName =
+                                  pathParts[pathParts.length - 1];
                                 // Extraer información del nombre: titulo-universitario_userId_timestamp.ext
-                                const match = fileName.match(/^titulo-universitario_([^_]+)_(\d+)\.(.+)$/);
+                                const match = fileName.match(
+                                  /^titulo-universitario_([^_]+)_(\d+)\.(.+)$/
+                                );
                                 if (match) {
                                   const [, , timestamp] = match;
                                   const date = new Date(parseInt(timestamp));
@@ -569,14 +588,21 @@ export default function ProfessionalRequestsManagement() {
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 text-blue-600" />
                         <div>
-                          <p className="font-medium text-sm">Copia de Cédula de Identidad</p>
+                          <p className="font-medium text-sm">
+                            Copia de Cédula de Identidad
+                          </p>
                           <p className="text-xs text-gray-500">
                             {(() => {
                               try {
-                                const url = new URL(selectedRequest.id_copy_url);
+                                const url = new URL(
+                                  selectedRequest.id_copy_url
+                                );
                                 const pathParts = url.pathname.split("/");
-                                const fileName = pathParts[pathParts.length - 1];
-                                const match = fileName.match(/^cedula-identidad_([^_]+)_(\d+)\.(.+)$/);
+                                const fileName =
+                                  pathParts[pathParts.length - 1];
+                                const match = fileName.match(
+                                  /^cedula-identidad_([^_]+)_(\d+)\.(.+)$/
+                                );
                                 if (match) {
                                   const [, , timestamp] = match;
                                   const date = new Date(parseInt(timestamp));
@@ -616,14 +642,21 @@ export default function ProfessionalRequestsManagement() {
                       <div className="flex items-center gap-3">
                         <FileText className="w-5 h-5 text-blue-600" />
                         <div>
-                          <p className="font-medium text-sm">Certificado Profesional</p>
+                          <p className="font-medium text-sm">
+                            Currículum Vitae
+                          </p>
                           <p className="text-xs text-gray-500">
                             {(() => {
                               try {
-                                const url = new URL(selectedRequest.professional_certificate_url);
+                                const url = new URL(
+                                  selectedRequest.professional_certificate_url
+                                );
                                 const pathParts = url.pathname.split("/");
-                                const fileName = pathParts[pathParts.length - 1];
-                                const match = fileName.match(/^certificado-profesional_([^_]+)_(\d+)\.(.+)$/);
+                                const fileName =
+                                  pathParts[pathParts.length - 1];
+                                const match = fileName.match(
+                                  /^certificado-profesional_([^_]+)_(\d+)\.(.+)$/
+                                );
                                 if (match) {
                                   const [, , timestamp] = match;
                                   const date = new Date(parseInt(timestamp));
@@ -659,63 +692,84 @@ export default function ProfessionalRequestsManagement() {
                     </div>
                   )}
                   {/* Certificados adicionales */}
-                  {selectedRequest.additional_certificates_urls && (() => {
-                    try {
-                      const additionalUrls = JSON.parse(selectedRequest.additional_certificates_urls) as string[];
-                      return additionalUrls.map((url, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                          <div className="flex items-center gap-3">
-                            <FileText className="w-5 h-5 text-purple-600" />
-                            <div>
-                              <p className="font-medium text-sm">Certificado Adicional {index + 1}</p>
-                              <p className="text-xs text-gray-500">
-                                {(() => {
-                                  try {
-                                    const urlObj = new URL(url);
-                                    const pathParts = urlObj.pathname.split("/");
-                                    const fileName = pathParts[pathParts.length - 1];
-                                    const match = fileName.match(/^certificado-adicional-(\d+)_([^_]+)_(\d+)\.(.+)$/);
-                                    if (match) {
-                                      const [, , , timestamp] = match;
-                                      const date = new Date(parseInt(timestamp));
-                                      return `Subido: ${date.toLocaleDateString("es-CL")} ${date.toLocaleTimeString("es-CL")}`;
+                  {selectedRequest.additional_certificates_urls &&
+                    (() => {
+                      try {
+                        const additionalUrls = JSON.parse(
+                          selectedRequest.additional_certificates_urls
+                        ) as string[];
+                        return additionalUrls.map((url, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <FileText className="w-5 h-5 text-purple-600" />
+                              <div>
+                                <p className="font-medium text-sm">
+                                  Certificado Adicional {index + 1}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {(() => {
+                                    try {
+                                      const urlObj = new URL(url);
+                                      const pathParts =
+                                        urlObj.pathname.split("/");
+                                      const fileName =
+                                        pathParts[pathParts.length - 1];
+                                      const match = fileName.match(
+                                        /^certificado-adicional-(\d+)_([^_]+)_(\d+)\.(.+)$/
+                                      );
+                                      if (match) {
+                                        const [, , , timestamp] = match;
+                                        const date = new Date(
+                                          parseInt(timestamp)
+                                        );
+                                        return `Subido: ${date.toLocaleDateString("es-CL")} ${date.toLocaleTimeString("es-CL")}`;
+                                      }
+                                      return fileName;
+                                    } catch {
+                                      return "Ver documento";
                                     }
-                                    return fileName;
-                                  } catch {
-                                    return "Ver documento";
-                                  }
-                                })()}
-                              </p>
+                                  })()}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded"
+                                title="Ver documento"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </a>
+                              <a
+                                href={url}
+                                download
+                                className="p-2 text-green-600 hover:bg-green-50 rounded"
+                                title="Descargar documento"
+                              >
+                                <Download className="w-4 h-4" />
+                              </a>
                             </div>
                           </div>
-                          <div className="flex gap-2">
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded"
-                              title="Ver documento"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </a>
-                            <a
-                              href={url}
-                              download
-                              className="p-2 text-green-600 hover:bg-green-50 rounded"
-                              title="Descargar documento"
-                            >
-                              <Download className="w-4 h-4" />
-                            </a>
-                          </div>
-                        </div>
-                      ));
-                    } catch {
-                      return null;
-                    }
-                  })()}
-                  {!selectedRequest.degree_copy_url && !selectedRequest.id_copy_url && !selectedRequest.professional_certificate_url && (!selectedRequest.additional_certificates_urls || selectedRequest.additional_certificates_urls === "[]") && (
-                    <p className="text-sm text-gray-500 italic">No hay documentos adjuntos</p>
-                  )}
+                        ));
+                      } catch {
+                        return null;
+                      }
+                    })()}
+                  {!selectedRequest.degree_copy_url &&
+                    !selectedRequest.id_copy_url &&
+                    !selectedRequest.professional_certificate_url &&
+                    (!selectedRequest.additional_certificates_urls ||
+                      selectedRequest.additional_certificates_urls ===
+                        "[]") && (
+                      <p className="text-sm text-gray-500 italic">
+                        No hay documentos adjuntos
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -762,7 +816,9 @@ export default function ProfessionalRequestsManagement() {
                     className="border-blue-600 text-blue-600 hover:bg-blue-50"
                   >
                     <Mail className="w-4 h-4 mr-2" />
-                    {actionLoadingId === selectedRequest.id ? "Reenviando..." : "Reenviar Enlace"}
+                    {actionLoadingId === selectedRequest.id
+                      ? "Reenviando..."
+                      : "Reenviar Enlace"}
                   </Button>
                 )}
               </div>
@@ -777,7 +833,8 @@ export default function ProfessionalRequestsManagement() {
           <DialogHeader>
             <DialogTitle>Rechazar Solicitud</DialogTitle>
             <DialogDescription>
-              Ingresa el motivo del rechazo. Este mensaje se enviará al profesional.
+              Ingresa el motivo del rechazo. Este mensaje se enviará al
+              profesional.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -819,4 +876,3 @@ export default function ProfessionalRequestsManagement() {
     </div>
   );
 }
-

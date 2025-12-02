@@ -85,7 +85,8 @@ export const userProfileSchema = z.object({
   
   gender: z
     .string()
-    .min(1, "El género es obligatorio"),
+    .optional()
+    .or(z.literal("")),
   
   nationality: z
     .string()

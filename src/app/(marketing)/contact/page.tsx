@@ -168,7 +168,9 @@ export default function ContactPage() {
                 <div className="flex space-x-4">
                   {/* Facebook */}
                   <a
-                    href="#"
+                    href="https://www.facebook.com/profile.php?id=61583826515401"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-12 h-12 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-900 transition-all transform hover:scale-110 shadow-md hover:shadow-lg"
                     aria-label="Facebook"
                   >
@@ -212,7 +214,9 @@ export default function ContactPage() {
                   </a>
                   {/* TikTok */}
                   <a
-                    href="#"
+                    href="https://www.tiktok.com/@floraurora.salud?_r=1&_t=ZM-91Tr4EhECmx"
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-12 h-12 bg-white rounded-full flex items-center justify-center hover:bg-gray-100 transition-all transform hover:scale-110 shadow-md hover:shadow-lg border border-gray-200"
                     aria-label="TikTok"
                   >

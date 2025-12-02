@@ -16,6 +16,7 @@ type RawAppointmentRow = {
   area: string | null;
   service: string | null;
   meet_link: string | null;
+  meet_event_id: string | null;
 };
 
 export type AppointmentWithUsers = RawAppointmentRow & {
@@ -107,7 +108,7 @@ const fetchAppointmentsWithUsers = async (filters: {
   let query = supabase
     .from('appointments')
     .select(
-      'id, patient_id, professional_id, scheduled_at, duration_minutes, status, payment_status, note, area, service, meet_link'
+      'id, patient_id, professional_id, scheduled_at, duration_minutes, status, payment_status, note, area, service, meet_link, meet_event_id'
     )
     .order('scheduled_at', { ascending: false });
 
@@ -195,7 +196,6 @@ export const appointmentService = {
 
       if (error) throw error;
       
-      console.log("getAreas-data", data);
       // Transformar los datos para asegurar los tipos correctos
       return (data || []).map((area: { id: unknown; title_name: unknown }) => ({
         id: Number(area.id),
@@ -230,9 +230,7 @@ export const appointmentService = {
         .eq('is_active', true)
         .eq('users.is_active', true);
 
-console.log("getProfessionals-query", query);
       const { data, error } = await query;
-console.log("getProfessionals-data", data);
       if (error) throw error;
 
       // Obtener las especialidades para cada profesional
@@ -278,7 +276,6 @@ console.log("getProfessionals-data", data);
           };
         })
       );
-console.log("professionalsWithSpecialties", professionalsWithSpecialties);
       return professionalsWithSpecialties.sort((a, b) => `${a.name} ${a.last_name}`.localeCompare(`${b.name} ${b.last_name}`));
     } catch (error) {
       console.error('Error fetching professionals:', error);
@@ -289,8 +286,6 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
   // Obtener servicios por profesional basados en sus especialidades
   async getServicesByProfessional(professionalId: number): Promise<Service[]> {
     try {
-      console.log(`\n=== CONSULTANDO SERVICIOS PARA PROFESIONAL ${professionalId} ===`);
-      
       // Obtener las especialidades del profesional con sus precios y datos de la especialidad
       const { data: professionalSpecialties, error: profSpecialtiesError } = await supabase
         .from('professional_specialties')
@@ -317,14 +312,10 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
       }
 
       if (!professionalSpecialties || professionalSpecialties.length === 0) {
-        console.log('El profesional no tiene especialidades configuradas');
         return [];
       }
 
-      console.log('Especialidades del profesional con precios:', professionalSpecialties);
-
       // Crear servicios basados en las especialidades del profesional
-      console.log('Creando servicios basados en especialidades del profesional');
       
       // Interfaces para tipado seguro
       interface SpecialtyData {
@@ -400,17 +391,10 @@ console.log("professionalsWithSpecialties", professionalsWithSpecialties);
     professionalId: number, 
     date: string
   ): Promise<TimeSlot[]> {
-    console.log(`\n=== CONSULTA DE HORARIOS DISPONIBLES ===`);
-    console.log(`Profesional ID: ${professionalId}`);
-    console.log(`Fecha: ${date}`);
-
     try {
       // Crear fecha en zona horaria local para evitar problemas de UTC
       const selectedDate = new Date(date + 'T00:00:00');
-      console.log("getAvailableTimeSlots-selectedDate", selectedDate);
       const dayOfWeek = selectedDate.getDay();
-      
-console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
 
       // Verificar que la fecha no sea más de 2 semanas en el futuro
       const today = new Date();
@@ -418,7 +402,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
       const twoWeeksFromNow = new Date(today.getTime() + (14 * 24 * 60 * 60 * 1000));
       
       if (selectedDate < today || selectedDate > twoWeeksFromNow) {
-        console.log(`Fecha fuera del rango permitido: ${selectedDate} (hoy: ${today}, límite: ${twoWeeksFromNow})`);
         return [];
       }
 
@@ -434,21 +417,14 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
       // JavaScript y BD usan el mismo formato: 0=domingo, 1=lunes, ..., 6=sábado
       const dayRules = weeklyRules.filter(rule => rule.weekday === dayOfWeek);
       
-      console.log(`\n=== CONSULTA DE DISPONIBILIDAD ===`);
-      console.log(`Fecha: ${date}, Día de la semana: ${dayOfWeek} (0=domingo, 1=lunes, ..., 6=sábado)`);
-      console.log('Reglas semanales encontradas:', dayRules);
-      console.log('Citas existentes:', existingAppointments);
-      
       // Buscar excepciones para la fecha específica
       const dateOverrides = overrides.filter(override => override.for_date === date);
-      console.log('Excepciones de fecha encontradas:', dateOverrides);
       
       // Buscar bloques de tiempo que afecten esta fecha
       const dateBlockedSlots = blockedSlots.filter(blocked => {
         const blockedDate = new Date(blocked.starts_at).toISOString().split('T')[0];
         return blockedDate === date;
       });
-      console.log('Bloques de tiempo encontrados:', dateBlockedSlots);
 
       // Si hay excepciones para esta fecha, usar esas en lugar de las reglas semanales
       let availableSlots: { start_time: string; end_time: string }[] = [];
@@ -461,29 +437,19 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
             start_time: override.start_time,
             end_time: override.end_time
           }));
-        console.log('Usando excepciones de fecha:', availableSlots);
       } else if (dayRules.length > 0) {
         // Usar reglas semanales
         availableSlots = dayRules.map(rule => ({
           start_time: rule.start_time,
           end_time: rule.end_time
         }));
-        console.log('Usando reglas semanales:', availableSlots);
-      } else {
-        console.log('No se encontraron reglas ni excepciones para esta fecha');
-        // No crear reglas por defecto - solo usar las configuradas en la BD
-        console.log('Esta fecha no tiene disponibilidad configurada');
       }
 
       // Generar slots de 1 hora basados en la disponibilidad
       const timeSlots: TimeSlot[] = [];
       
-      console.log('Generando slots para', availableSlots.length, 'ventanas de disponibilidad');
-      
       for (const slot of availableSlots) {
-        console.log(`Procesando ventana: ${slot.start_time} - ${slot.end_time}`);
         const slots = this.generateTimeSlots(slot.start_time, slot.end_time, 60);
-        console.log(`Slots generados:`, slots);
         
         for (const timeSlot of slots) {
           // Verificar si este slot está bloqueado
@@ -511,13 +477,9 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
               is_booked: false,
               created_at: new Date().toISOString()
             });
-          } else {
-            console.log(`Slot no disponible: ${timeSlot.start_time} - ${timeSlot.end_time} (bloqueado: ${isBlocked}, reservado: ${isBooked})`);
           }
         }
       }
-      
-      console.log(`Total de slots disponibles generados: ${timeSlots.length}`);
 
       return timeSlots;
     } catch (error) {
@@ -542,8 +504,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
     const startMinutes = timeToMinutes(startTime);
     const endMinutes = timeToMinutes(endTime) === 0 ? 1440 : timeToMinutes(endTime);
     
-    console.log(`Generando slots: ${startTime} (${startMinutes} min) hasta ${endTime} (${endMinutes} min)`);
-    
     const slots: { start_time: string; end_time: string }[] = [];
     
     // Generar slots de 1 hora exacta (solo horas completas)
@@ -561,7 +521,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
       }
     }
     
-    console.log(`Slots generados (${slots.length}):`, slots.map(s => `${s.start_time}-${s.end_time}`));
     return slots;
   },
 
@@ -607,10 +566,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         AvailabilityService.getAvailabilityOverrides(professionalId)
       ]);
 
-      console.log(`\n=== CALCULANDO FECHAS DISPONIBLES ===`);
-      console.log(`Reglas semanales encontradas:`, weeklyRules);
-      console.log(`Excepciones encontradas:`, overrides);
-
       const availableDates: string[] = [];
       
       // Iterar por cada día en las próximas 2 semanas
@@ -629,13 +584,9 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         if (dateOverrides.length > 0) {
           // Si hay excepciones, verificar si alguna es de disponibilidad
           isDateAvailable = dateOverrides.some(override => override.is_available);
-          console.log(`Fecha ${dateString}: Excepción encontrada - Disponible: ${isDateAvailable}`);
         } else if (dayRules.length > 0) {
           // Si hay reglas semanales para este día, está disponible
           isDateAvailable = true;
-          console.log(`Fecha ${dateString}: Regla semanal encontrada - Disponible: ${isDateAvailable}`);
-        } else {
-          console.log(`Fecha ${dateString}: Sin reglas ni excepciones - No disponible`);
         }
         
         if (isDateAvailable) {
@@ -643,7 +594,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         }
       }
       
-      console.log(`Fechas disponibles calculadas:`, availableDates);
       return availableDates;
     } catch (error) {
       console.error('Error fetching available dates:', error);
@@ -687,8 +637,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         service: appointmentData.service_name || 'Consulta Individual'
       };
 
-      console.log('Creando cita:', appointmentRecord);
-
       const { data, error } = await supabase
         .from('appointments')
         .insert(appointmentRecord)
@@ -700,7 +648,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         throw error;
       }
 
-      console.log('Cita creada exitosamente:', data);
       return data;
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -788,8 +735,6 @@ console.log("getAvailableTimeSlots-dayOfWeek", dayOfWeek);
         console.error('Error al obtener citas existentes:', error);
         return [];
       }
-
-      console.log(`Citas existentes para ${date}:`, data);
       
       // Extraer solo la hora de scheduled_at
       return (data || []).map((appointment) => {

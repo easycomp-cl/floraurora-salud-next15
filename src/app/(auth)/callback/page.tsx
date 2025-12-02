@@ -1,31 +1,37 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { UserService } from "@/lib/services/userService";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import type { User } from "@supabase/supabase-js";
 
 export default function AuthCallback() {
-  const [status, setStatus] = useState<string>("Iniciando autenticación...");
-  const [debugInfo, setDebugInfo] = useState<{
-    hasSession: boolean;
-    userEmail?: string;
-    userId?: string;
-    timestamp?: string;
-    method?: string;
-  }>({ hasSession: false });
   const router = useRouter();
-  const { user, session, isLoading, isAuthenticated } = useAuthState();
+  const { user, isAuthenticated } = useAuthState();
 
   useEffect(() => {
     let mounted = true;
     let redirectAttempted = false;
     let processingStarted = false;
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    // Verificar si hay errores en la URL (usuario canceló el login)
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get("error");
+      if (error) {
+        // Redirigir inmediatamente al login si hay un error
+        router.push("/login?error=access_denied");
+        return () => {
+          mounted = false;
+          if (timeoutId) clearTimeout(timeoutId);
+        };
+      }
+    }
 
     const processUserProfile = async (user: User) => {
       // Prevenir múltiples ejecuciones simultáneas
       if (processingStarted) {
-        console.log("⚠️ Procesamiento ya en curso, saltando...");
         return;
       }
 
@@ -35,7 +41,6 @@ export default function AuthCallback() {
       const isBlocked = (user.app_metadata as { blocked?: boolean } | null)?.blocked === true;
       if (isBlocked) {
         console.warn("🚫 AuthCallback: Usuario bloqueado detectado, cerrando sesión...");
-        setStatus("Tu cuenta ha sido bloqueada. Cerrando sesión...");
         
         // Cerrar sesión inmediatamente
         const { clientSignout } = await import("@/lib/client-auth");
@@ -53,9 +58,6 @@ export default function AuthCallback() {
         const userExists = await UserService.userExists(user.id);
 
         if (!userExists) {
-          console.log("📋 Creando usuario en tabla users...");
-          setStatus("Creando perfil de usuario...");
-
           const fullName = (user.user_metadata as { full_name?: string } | null)?.full_name || "Usuario";
           const nameParts = fullName.split(" ");
           const firstName = nameParts[0] || "Usuario";
@@ -74,11 +76,8 @@ export default function AuthCallback() {
 
           // Verificar si la creación fue exitosa
           if (result && result.success) {
-            console.log("✅ Usuario creado exitosamente");
-
             // Si es un nuevo usuario (rol 2 = paciente), crear perfil de paciente básico
             if (userData.role === 2 && !result.isExisting) {
-              console.log("📋 Creando perfil de paciente básico...");
               try {
                 const { profileService } = await import(
                   "@/lib/services/profileService"
@@ -88,7 +87,6 @@ export default function AuthCallback() {
                   emergency_contact_phone: "",
                   health_insurances_id: 1, // ID por defecto
                 });
-                console.log("✅ Perfil de paciente creado exitosamente");
               } catch (profileError) {
                 console.error(
                   "⚠️ Error al crear perfil de paciente:",
@@ -97,63 +95,36 @@ export default function AuthCallback() {
                 // No es crítico, el usuario puede completar su perfil después
               }
             }
-          } else {
-            console.log(
-              "⚠️ Usuario ya existía o hubo un error, continuando..."
-            );
           }
-        } else {
-          console.log("📋 Usuario ya existe en tabla users");
         }
 
         // Redirigir al dashboard
-        console.log("🚀 Redirigiendo al dashboard...");
-        setStatus("¡Autenticación exitosa! Redirigiendo...");
-
         if (mounted && !redirectAttempted) {
           redirectAttempted = true;
-          // Pequeño delay para mostrar el mensaje de éxito
           setTimeout(() => {
-            console.log("⏰ Ejecutando redirección después de delay...");
             router.push("/dashboard");
-          }, 1500);
+          }, 1000);
         }
       } catch (verifyError) {
         console.error("⚠️ Error al verificar/crear usuario:", verifyError);
         // Aún así intentar redirigir
         if (mounted && !redirectAttempted) {
           redirectAttempted = true;
-          setStatus("Redirigiendo al dashboard...");
           setTimeout(() => {
-            console.log("⏰ Ejecutando redirección después de error...");
             router.push("/dashboard");
-          }, 1500);
+          }, 1000);
         }
       }
     };
 
     // Cuando se detecte la autenticación
     if (isAuthenticated && user && !redirectAttempted && !processingStarted) {
-      console.log("✅ Usuario autenticado detectado:", user.email);
-      setStatus("Usuario autenticado, verificando perfil...");
-
-      // Actualizar info de debug
-      setDebugInfo({
-        hasSession: true,
-        userEmail: user.email,
-        userId: user.id,
-        timestamp: new Date().toISOString(),
-        method: "hook_detection",
-      });
-
       processUserProfile(user);
     }
 
     // Timeout de seguridad para evitar que se quede colgado
-    const timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(() => {
       if (mounted && !redirectAttempted) {
-        console.log("⏰ Timeout de seguridad alcanzado, redirigiendo...");
-        setStatus("Redirigiendo por timeout de seguridad...");
         redirectAttempted = true;
         router.push("/dashboard");
       }
@@ -161,86 +132,15 @@ export default function AuthCallback() {
 
     return () => {
       mounted = false;
-      clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [isAuthenticated, user, router]);
-
-  const handleManualRedirect = () => {
-    console.log("🖱️ Redirección manual iniciada");
-    router.push("/dashboard");
-  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="text-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-          🔐 Procesando autenticación...
-        </h2>
-        <p className="text-gray-600 mb-4">{status}</p>
-        <p className="text-sm text-gray-500">
-          Por favor espera mientras completamos tu inicio de sesión.
-        </p>
-
-        {/* Información de debug */}
-        {debugInfo.hasSession && (
-          <div className="mt-4 p-3 bg-green-50 rounded-md text-left max-w-md mx-auto">
-            <p className="text-sm text-green-700 font-semibold mb-2">
-              ✅ Sesión detectada:
-            </p>
-            <p className="text-xs text-green-600">
-              Email: {debugInfo.userEmail}
-            </p>
-            <p className="text-xs text-green-600">ID: {debugInfo.userId}</p>
-            <p className="text-xs text-green-600">
-              Tiempo: {debugInfo.timestamp}
-            </p>
-            <p className="text-xs text-green-600">Método: {debugInfo.method}</p>
-          </div>
-        )}
-
-        {/* Estado del hook */}
-        <div className="mt-4 p-3 bg-blue-50 rounded-md text-left max-w-md mx-auto">
-          <p className="text-sm text-blue-700 font-semibold mb-2">
-            Estado del Hook:
-          </p>
-          <p className="text-xs text-blue-600">
-            isLoading: {isLoading.toString()}
-          </p>
-          <p className="text-xs text-blue-600">
-            isAuthenticated: {isAuthenticated.toString()}
-          </p>
-          <p className="text-xs text-blue-600">hasUser: {!!user}</p>
-          <p className="text-xs text-blue-600">hasSession: {!!session}</p>
-          {user && (
-            <p className="text-xs text-blue-600">User Email: {user.email}</p>
-          )}
-        </div>
-
-        {/* Botones de acción */}
-        <div className="mt-6 space-y-3">
-          <button
-            onClick={handleManualRedirect}
-            className="px-6 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 font-medium"
-          >
-            🚀 Ir al Dashboard (Manual)
-          </button>
-
-          <button
-            onClick={() => (window.location.href = "/dashboard")}
-            className="block w-full px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            🔄 Recargar y Redirigir
-          </button>
-        </div>
-
-        {/* Información adicional */}
-        <div className="mt-4 p-3 bg-blue-50 rounded-md">
-          <p className="text-sm text-blue-700">
-            Si la redirección no funciona automáticamente, usa uno de los
-            botones de arriba.
-          </p>
-        </div>
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Cargando...</p>
       </div>
     </div>
   );

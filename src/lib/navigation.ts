@@ -16,6 +16,7 @@ import {
   CreditCard,
   DollarSign,
 } from "lucide-react";
+import SIIIcon from "@/components/icons/SIIIcon";
 
 export interface NavSubItem {
   label: string;
@@ -186,6 +187,12 @@ export const professionalNavItems: NavItem[] = [
     href: "/dashboard/my-prices",
     icon: DollarSign,
     description: "Gestiona tus precios por especialidad",
+  },
+  {
+    label: "Mi SII",
+    href: "/dashboard/my-sii",
+    icon: SIIIcon,
+    description: "Gestión del Servicio de Impuestos Internos",
   },
   {
     label: "Mi Plan",

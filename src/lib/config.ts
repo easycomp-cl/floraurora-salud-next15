@@ -105,6 +105,15 @@ export const config = {
     redirectUri: process.env.NEXT_PUBLIC_GOOGLE_REDIRECT_URI || `${appUrl}/callback`,
   },
 
+  // Configuración de Google Meet/Calendar API
+  googleMeet: {
+    serviceAccountEmail: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || "meeting@floraurorasalud.cl",
+    serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY, // Base64 encoded JSON key
+    calendarId: process.env.GOOGLE_CALENDAR_ID || "primary",
+    workspaceUserEmail: process.env.GOOGLE_WORKSPACE_USER_EMAIL || "meeting@floraurorasalud.cl", // Usuario de Workspace para Domain-Wide Delegation
+    enabled: process.env.GOOGLE_MEET_API_ENABLED === "true",
+  },
+
   // Configuración de Transbank Webpay Plus
   transbank: {
     commerceCode: process.env.TRANSBANK_COMMERCE_CODE,

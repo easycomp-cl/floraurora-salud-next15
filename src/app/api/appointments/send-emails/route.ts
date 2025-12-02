@@ -185,6 +185,9 @@ export async function POST(request: Request) {
       )
     );
 
+    // Incluir enlace de Meet siempre que exista (no solo 24h antes)
+    // Si la cita es dentro de 24h, se muestra el enlace directamente
+    // Si es más lejana, se muestra un mensaje indicando que se enviará 24h antes
     await sendPatientAppointmentEmail({
       to: patient.email,
       patientName: buildFullName(patient),
@@ -193,9 +196,10 @@ export async function POST(request: Request) {
       appointmentDate,
       appointmentTime,
       price: priceFormatted,
-      meetLink: meetsSoon ? meetLink : undefined,
+      meetLink: meetLink, // Siempre incluir si existe
       supportEmail,
       supportPhone,
+      hoursUntilAppointment, // Pasar las horas hasta la cita para mostrar el mensaje apropiado
     });
 
     await sendProfessionalAppointmentEmail({
@@ -208,7 +212,7 @@ export async function POST(request: Request) {
       appointmentDate,
       appointmentTime,
       price: priceFormatted,
-      meetLink: meetLink ?? "#",
+      meetLink: meetLink ?? "#", // Siempre incluir (o "#" si no existe)
       notes: appointment.note ?? undefined,
       supportEmail,
     });

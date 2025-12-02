@@ -1,9 +1,10 @@
 import React from "react";
 import Image from "next/image";
+import Link from "next/link";
 import prof1 from "../../Fotos/Ps. Gianina Soto.jpg";
 import prof2 from "../../Fotos/Ps. Jaime Correa.png";
 import prof3 from "../../Fotos/Ps. Sandra Herrera.jpg";
-import { Users } from "lucide-react";
+import { Users, ArrowRight } from "lucide-react";
 
 export default function HeroProfesionales() {
   return (
@@ -96,6 +97,17 @@ export default function HeroProfesionales() {
               USACH
             </span>
           </div>
+        </div>
+        
+        {/* Botón para ver más profesionales */}
+        <div className="text-center mt-10 md:mt-12">
+          <Link
+            href="/professionals"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-600 to-teal-700 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+          >
+            Ver Todos los Profesionales
+            <ArrowRight className="w-5 h-5" />
+          </Link>
         </div>
       </div>
     </section>

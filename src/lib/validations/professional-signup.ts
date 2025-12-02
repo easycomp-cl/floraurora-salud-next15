@@ -125,7 +125,7 @@ export const academicDataSchema = z.object({
   
   extra_studies: z
     .string()
-    .max(500, "⚠️ Los estudios adicionales no pueden exceder 500 caracteres")
+    .max(2000, "⚠️ Los estudios adicionales no pueden exceder 2000 caracteres")
     .optional()
     .default(""),
   
@@ -159,7 +159,7 @@ export const documentsSchema = z.object({
   
   professional_certificate: z
     .instanceof(File)
-    .refine((file) => file.size > 0, "⚠️ Debes subir tu certificado profesional")
+    .refine((file) => file.size > 0, "⚠️ Debes subir tu currículum vitae")
     .refine((file) => file.size <= 5 * 1024 * 1024, "⚠️ El archivo no puede exceder 5MB")
     .refine(
       (file) => ["application/pdf", "image/png", "image/jpeg", "image/jpg"].includes(file.type),

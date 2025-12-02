@@ -72,13 +72,10 @@ export default function UserSection() {
 
   const handleSignOut = async () => {
     try {
-      console.log("🚪 UserSection: Iniciando cierre de sesión...");
       handleCloseDropdown();
 
       // Cerrar sesión
       await signOut();
-
-      console.log("✅ UserSection: Sesión cerrada exitosamente");
     } catch (error) {
       console.error("❌ UserSection: Error al cerrar sesión:", error);
     }

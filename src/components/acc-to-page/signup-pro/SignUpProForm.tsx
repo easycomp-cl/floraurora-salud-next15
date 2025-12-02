@@ -25,7 +25,11 @@ const professionalSchema = z.object({
   university: z.string().min(2, "Universidad requerida"),
   study_year_start: z.string().regex(/^\d{4}$/, "Año inicio inválido"),
   study_year_end: z.string().regex(/^\d{4}$/, "Año fin inválido"),
-  extra_studies: z.string().optional().default(""),
+  extra_studies: z
+    .string()
+    .max(2000, "Los estudios adicionales no pueden exceder 2000 caracteres")
+    .optional()
+    .default(""),
   superintendence_number: z.string().min(3, "Número de inscripción requerido"),
   email: z.string().email("Email inválido"),
   phone_number: z
@@ -224,6 +228,7 @@ export default function SignUpProForm() {
                   id="extra_studies"
                   name="extra_studies"
                   placeholder="Diplomados, postítulos, especialidades, etc."
+                  maxLength={2000}
                   className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>

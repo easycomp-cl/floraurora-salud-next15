@@ -67,13 +67,6 @@ export async function POST(request: NextRequest) {
       });
     });
     
-    console.log("✅ [sync-session] Sesión sincronizada:", {
-      userId: session.user?.id,
-      hasAccessToken: !!session.access_token,
-      cookiesEstablecidas: finalResponse.cookies.getAll().length,
-      nombresCookies: finalResponse.cookies.getAll().map(c => c.name),
-    });
-    
     return finalResponse;
   } catch (error) {
     console.error("❌ [sync-session] Error inesperado:", error);

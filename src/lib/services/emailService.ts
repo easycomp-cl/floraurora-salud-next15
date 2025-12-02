@@ -221,6 +221,7 @@ interface PatientAppointmentEmailParams {
   meetLink?: string;
   supportEmail: string;
   supportPhone?: string;
+  hoursUntilAppointment?: number; // Horas hasta la cita (para determinar el mensaje apropiado)
 }
 
 export async function sendPatientAppointmentEmail(
@@ -237,6 +238,7 @@ export async function sendPatientAppointmentEmail(
       meetLink: data.meetLink,
       supportEmail: data.supportEmail,
       supportPhone: data.supportPhone,
+      hoursUntilAppointment: data.hoursUntilAppointment,
     })
   );
 

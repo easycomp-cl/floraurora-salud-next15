@@ -15,6 +15,7 @@ import type {
   BasicUserInfo,
 } from "@/lib/services/appointmentService";
 import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
+import JoinMeetingButton from "./JoinMeetingButton";
 
 type AppointmentsTableMode = "patient" | "professional" | "admin";
 
@@ -36,7 +37,7 @@ const columnHelper = createColumnHelper<AppointmentRow>();
 const buildFullName = (user: BasicUserInfo | null) => {
   if (!user) return "No registrado";
   const nameParts = [user.name, user.last_name].filter(Boolean);
-  return nameParts.length ? nameParts.join(" ") : user.email ?? "Sin datos";
+  return nameParts.length ? nameParts.join(" ") : (user.email ?? "Sin datos");
 };
 
 const formatPhone = (phone?: string | null) => {
@@ -109,8 +110,11 @@ export default function AppointmentsTable({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [confirmationHours, setConfirmationHours] = useState<number>(24);
   const [rescheduleModalOpen, setRescheduleModalOpen] = useState(false);
-  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithUsers | null>(null);
-  const [confirmingAppointmentId, setConfirmingAppointmentId] = useState<string | number | null>(null);
+  const [selectedAppointment, setSelectedAppointment] =
+    useState<AppointmentWithUsers | null>(null);
+  const [confirmingAppointmentId, setConfirmingAppointmentId] = useState<
+    string | number | null
+  >(null);
 
   // Cargar configuración de horas antes de confirmar
   useEffect(() => {
@@ -145,15 +149,8 @@ export default function AppointmentsTable({
     const hoursUntilAppointment =
       (scheduledDate.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    const canConfirm = hoursUntilAppointment > 0 && hoursUntilAppointment <= confirmationHours;
-    
-    console.log("Verificación de confirmación:", {
-      appointmentId: appointment.id,
-      scheduledDate: appointment.scheduled_at,
-      hoursUntilAppointment: hoursUntilAppointment.toFixed(2),
-      confirmationHours,
-      canConfirm,
-    });
+    const canConfirm =
+      hoursUntilAppointment > 0 && hoursUntilAppointment <= confirmationHours;
 
     return canConfirm;
   };
@@ -162,9 +159,12 @@ export default function AppointmentsTable({
   const handleConfirmAppointment = async (appointmentId: string | number) => {
     try {
       setConfirmingAppointmentId(appointmentId);
-      const response = await fetch(`/api/appointments/${appointmentId}/confirm`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/appointments/${appointmentId}/confirm`,
+        {
+          method: "POST",
+        }
+      );
 
       if (!response.ok) {
         const error = await response.json();
@@ -195,7 +195,9 @@ export default function AppointmentsTable({
 
   const tableData = useMemo<AppointmentRow[]>(() => {
     return (data ?? []).map((item) => {
-      const scheduledDate = item.scheduled_at ? new Date(item.scheduled_at) : null;
+      const scheduledDate = item.scheduled_at
+        ? new Date(item.scheduled_at)
+        : null;
       return {
         ...item,
         formattedDate: scheduledDate
@@ -358,22 +360,27 @@ export default function AppointmentsTable({
     baseColumns.push(
       columnHelper.display({
         id: "meeting_url",
-        header: "URL",
+        header: "Videollamada",
         cell: ({ row }) => {
-          const url = row.original.meeting_url;
-          if (!url) {
+          const appointment = row.original;
+          const meetLink = appointment.meeting_url || appointment.meet_link;
+
+          if (
+            !meetLink ||
+            !appointment.scheduled_at ||
+            !appointment.duration_minutes
+          ) {
             return <span className="text-sm text-gray-400">Sin enlace</span>;
           }
 
           return (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-3 py-1 rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors duration-200"
-            >
-              Unirse
-            </a>
+            <JoinMeetingButton
+              meetLink={meetLink}
+              scheduledAt={appointment.scheduled_at}
+              durationMinutes={appointment.duration_minutes}
+              appointmentId={String(appointment.id)}
+              className="w-full"
+            />
           );
         },
       })
@@ -412,10 +419,13 @@ export default function AppointmentsTable({
           cell: ({ row }) => {
             const appointment = row.original;
             const canConfirm = canConfirmAppointment(appointment);
-            const appointmentIdStr = typeof appointment.id === 'string' 
-              ? appointment.id
-              : `APT-${String(appointment.id).padStart(8, '0')}`;
-            const isConfirming = confirmingAppointmentId === appointmentIdStr || confirmingAppointmentId === appointment.id;
+            const appointmentIdStr =
+              typeof appointment.id === "string"
+                ? appointment.id
+                : `APT-${String(appointment.id).padStart(8, "0")}`;
+            const isConfirming =
+              confirmingAppointmentId === appointmentIdStr ||
+              confirmingAppointmentId === appointment.id;
 
             if (appointment.status !== "pending_confirmation") {
               return <span className="text-sm text-gray-400">—</span>;
@@ -426,10 +436,10 @@ export default function AppointmentsTable({
                 <button
                   onClick={() => {
                     // El ID es de tipo text con formato "APT-00000060"
-                    const appointmentId = typeof appointment.id === 'string' 
-                      ? appointment.id
-                      : `APT-${String(appointment.id).padStart(8, '0')}`;
-                    console.log("Confirmando cita con ID:", { original: appointment.id, formatted: appointmentId });
+                    const appointmentId =
+                      typeof appointment.id === "string"
+                        ? appointment.id
+                        : `APT-${String(appointment.id).padStart(8, "0")}`;
                     handleConfirmAppointment(appointmentId);
                   }}
                   disabled={!canConfirm || isConfirming}
@@ -529,7 +539,8 @@ export default function AppointmentsTable({
         />
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>
-            Mostrando {table.getRowModel().rows.length} de {tableData.length} citas
+            Mostrando {table.getRowModel().rows.length} de {tableData.length}{" "}
+            citas
           </span>
         </div>
       </div>
@@ -548,7 +559,10 @@ export default function AppointmentsTable({
                     className="px-6 py-3 border-b border-blue-200 text-left text-xs font-semibold uppercase tracking-wider cursor-pointer"
                     onClick={header.column.getToggleSortingHandler()}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
                     {{
                       asc: " 🔼",
                       desc: " 🔽",
@@ -638,5 +652,3 @@ export default function AppointmentsTable({
     </div>
   );
 }
-
-

@@ -42,7 +42,7 @@ const availablePlans = [
   {
     id: "commission" as const,
     name: "Plan Light",
-    price: "10%",
+    price: "15%",
     period: "por sesión",
     features: [
       "Agendamiento online",
@@ -74,7 +74,7 @@ const availablePlans = [
     ],
     description:
       "Precio preferencial por marcha blanca. Incluye todos los servicios de la aplicación",
-    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes",
+    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un 1,3% de comisión por cada sesión extra realizada.",
   },
 ];
 
@@ -836,7 +836,7 @@ export default function MyPlanPage() {
                     Información del Plan
                   </h4>
                   <p className="text-sm text-gray-700 mb-2">
-                    <strong>Plan de Comisión:</strong> Pagas un porcentaje (10%)
+                    <strong>Plan de Comisión:</strong> Pagas un porcentaje (15%)
                     por cada cita realizada.
                   </p>
                   <p className="text-sm text-gray-600 mb-2">
@@ -1089,7 +1089,7 @@ export default function MyPlanPage() {
                   ) : (
                     <>
                       <strong>Plan Light seleccionado:</strong> Este plan se
-                      activará inmediatamente. Pagarás un 10% de comisión por
+                      activará inmediatamente. Pagarás un 15% de comisión por
                       cada sesión realizada.
                     </>
                   )}

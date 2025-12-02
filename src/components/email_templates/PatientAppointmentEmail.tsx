@@ -21,6 +21,7 @@ interface PatientAppointmentEmailProps {
   meetLink?: string;
   supportEmail: string;
   supportPhone?: string;
+  hoursUntilAppointment?: number; // Horas hasta la cita (para determinar el mensaje apropiado)
 }
 
 export function PatientAppointmentEmail({
@@ -33,6 +34,7 @@ export function PatientAppointmentEmail({
   meetLink,
   supportEmail,
   supportPhone,
+  hoursUntilAppointment,
 }: PatientAppointmentEmailProps) {
   return (
     <Html>
@@ -106,11 +108,25 @@ export function PatientAppointmentEmail({
                   Unirme a la sesión
                 </Button>
                 <Text style={linkFallback}>{meetLink}</Text>
+                <Section style={securityWarning}>
+                  <Text style={securityWarningTitle}>
+                    🔒 Importante - Uso Exclusivo
+                  </Text>
+                  <Text style={securityWarningText}>
+                    Este enlace es de <strong>uso exclusivo</strong> para tu
+                    sesión en FlorAurora Salud. Por favor,{" "}
+                    <strong>no compartas este enlace</strong> con otras
+                    personas. Está diseñado únicamente para ti y tu profesional
+                    asignado.
+                  </Text>
+                </Section>
               </Section>
             ) : (
               <Text style={reminderText}>
-                Te enviaremos el enlace de Google Meet 24 horas antes de la
-                sesión.
+                {hoursUntilAppointment !== undefined &&
+                hoursUntilAppointment >= 24
+                  ? "Te enviaremos el enlace de Google Meet 24 horas antes de la sesión."
+                  : "El enlace de Google Meet se generará próximamente y te lo enviaremos por correo."}
               </Text>
             )}
 
@@ -154,8 +170,7 @@ export function PatientAppointmentEmail({
 
 export default PatientAppointmentEmail;
 
-const LOGO_URL =
-  "https://www.floraurorasalud.cl/logo.png";
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 const main = {
   backgroundColor: "#f3f4f6",
@@ -295,6 +310,28 @@ const linkFallback = {
   wordBreak: "break-all" as const,
 };
 
+const securityWarning = {
+  margin: "16px 0 0 0",
+  padding: "16px",
+  backgroundColor: "#fef3c7",
+  borderRadius: "8px",
+  border: "1px solid #fbbf24",
+};
+
+const securityWarningTitle = {
+  color: "#92400e",
+  fontSize: "14px",
+  fontWeight: "700",
+  margin: "0 0 8px 0",
+};
+
+const securityWarningText = {
+  color: "#92400e",
+  fontSize: "12px",
+  lineHeight: "18px",
+  margin: "0",
+};
+
 const reminderText = {
   color: "#059669",
   fontSize: "13px",
@@ -342,5 +379,3 @@ const footerNote = {
   fontSize: "11px",
   margin: "0",
 };
-
-

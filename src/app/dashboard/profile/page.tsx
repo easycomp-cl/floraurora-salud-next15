@@ -14,6 +14,7 @@ import {
   ProfessionalProfile,
   ProfessionalTitle,
   ProfessionalSpecialty,
+  TherapeuticApproach,
 } from "@/lib/types/profile";
 
 import { getFullUserProfileData } from "@/lib/userdata/profile-data";
@@ -75,6 +76,9 @@ export default function UserProfilePage() {
   >([]);
   const [selectedSpecialties, setSelectedSpecialties] = useState<number[]>([]);
   const [specialtyError, setSpecialtyError] = useState<string>("");
+  const [therapeuticApproaches, setTherapeuticApproaches] = useState<
+    TherapeuticApproach[]
+  >([]);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,6 +126,8 @@ export default function UserProfilePage() {
               ? {
                   title_id:
                     (data.profile as ProfessionalProfile).title_id || null,
+                  approach_id:
+                    (data.profile as ProfessionalProfile).approach_id || null,
                   profile_description:
                     (data.profile as ProfessionalProfile).profile_description ||
                     "",
@@ -133,6 +139,10 @@ export default function UserProfilePage() {
         if (data.user?.role === "professional") {
           const titles = await profileService.getProfessionalTitles();
           setProfessionalTitles(titles);
+
+          // Cargar enfoques terapéuticos
+          const approaches = await profileService.getTherapeuticApproaches();
+          setTherapeuticApproaches(approaches);
 
           // Cargar especialidades si hay un title_id
           if (data.profile && (data.profile as ProfessionalProfile).title_id) {
@@ -247,6 +257,8 @@ export default function UserProfilePage() {
       professionalProfile: {
         ...prev.professionalProfile,
         title_id: titleIdNumber,
+        // Limpiar approach_id si cambia el título y no es Psicología
+        approach_id: null,
       },
     }));
 
@@ -264,6 +276,18 @@ export default function UserProfilePage() {
       setSelectedSpecialties([]);
       setSpecialtyError(""); // Limpiar error de especialidades
     }
+  };
+
+  // Función para manejar el cambio de enfoque terapéutico
+  const handleApproachChange = (approachId: string) => {
+    const approachIdNumber = approachId ? parseInt(approachId) : null;
+    setFormData((prev) => ({
+      ...prev,
+      professionalProfile: {
+        ...prev.professionalProfile,
+        approach_id: approachIdNumber,
+      },
+    }));
   };
 
   // Función para manejar la selección de especialidades
@@ -433,8 +457,8 @@ export default function UserProfilePage() {
       ) {
         userUpdateData.birth_date = formData.birth_date;
       }
-      if (formData.gender && formData.gender !== profileData.user.gender) {
-        userUpdateData.gender = formData.gender;
+      if (formData.gender !== undefined && formData.gender !== profileData.user.gender) {
+        userUpdateData.gender = formData.gender || undefined;
       }
       if (
         formData.nationality &&
@@ -445,8 +469,6 @@ export default function UserProfilePage() {
       if (formData.rut && formData.rut !== profileData.user.rut) {
         userUpdateData.rut = formData.rut;
       }
-      console.log("profileData.user", profileData.user);
-      console.log("profileData.user.user_id", profileData.user.user_id);
 
       if (Object.keys(userUpdateData).length > 0) {
         await profileService.updateUserProfile(
@@ -487,6 +509,7 @@ export default function UserProfilePage() {
       ) {
         const professionalUpdateData: Partial<ProfessionalProfile> = {
           title_id: formData.professionalProfile.title_id,
+          approach_id: formData.professionalProfile.approach_id || null,
           profile_description: formData.professionalProfile.profile_description,
         };
         await profileService.updateProfessionalProfile(
@@ -510,8 +533,29 @@ export default function UserProfilePage() {
       setIsEditing(false);
       // Recargar los datos del perfil para asegurar que estén actualizados
       await fetchUserProfile(); // Volvemos a cargar los datos después de guardar
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Error al guardar el perfil:", error);
+      
+      // Detectar error de RUT duplicado
+      const errorObj = error as { code?: string; message?: string };
+      if (errorObj?.code === 'RUT_DUPLICATE' || 
+          (errorObj?.code === '23505' && (errorObj?.message?.includes('Users_rut_key') || errorObj?.message?.includes('rut')))) {
+        setFormErrors((prev) => ({
+          ...prev,
+          rut: "Este RUT ya está registrado en el sistema",
+        }));
+        return;
+      }
+      
+      // Detectar otros errores de validación de RUT
+      if (errorObj?.message?.includes('rut') || errorObj?.message?.includes('RUT')) {
+        setFormErrors((prev) => ({
+          ...prev,
+          rut: errorObj.message || "Error al actualizar el RUT",
+        }));
+        return;
+      }
+      
       setProfileData((prev) => ({
         ...prev,
         error: "Error al guardar los cambios.",
@@ -949,6 +993,39 @@ export default function UserProfilePage() {
                         </p>
                       )}
                     </div>
+                    {/* Campo de Enfoque Terapéutico - Solo para Psicología */}
+                    {((isEditing && formData.professionalProfile?.title_id && 
+                       professionalTitles.find(t => t.id === formData.professionalProfile?.title_id)?.title_name === "Psicología") ||
+                      (!isEditing && (profileData.profile as ProfessionalProfile).title?.title_name === "Psicología")) && (
+                      <div>
+                        <Label htmlFor="professionalProfile.approach_id" className="text-sm font-medium text-gray-700 mb-1.5 block">
+                          Enfoque Terapéutico
+                        </Label>
+                        {isEditing ? (
+                          <div>
+                            <select
+                              id="professionalProfile.approach_id"
+                              name="professionalProfile.approach_id"
+                              value={formData.professionalProfile?.approach_id || ""}
+                              onChange={(e) => handleApproachChange(e.target.value)}
+                              className="flex w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 border-input"
+                            >
+                              <option value="">Seleccionar enfoque</option>
+                              {therapeuticApproaches.map((approach) => (
+                                <option key={approach.id} value={approach.id}>
+                                  {approach.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <p className="text-gray-900 font-medium py-2">
+                            {(profileData.profile as ProfessionalProfile).approach
+                              ?.name || "No especificado"}
+                          </p>
+                        )}
+                      </div>
+                    )}
                     <div className="md:col-span-2">
                       <Label className="text-sm font-medium text-gray-700 mb-1.5 block">Especialidades</Label>
                       {isEditing ? (

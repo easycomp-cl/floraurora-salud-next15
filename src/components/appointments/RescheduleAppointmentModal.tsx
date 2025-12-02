@@ -4,9 +4,8 @@ import { useState, useEffect } from "react";
 import { X } from "lucide-react";
 import { appointmentService } from "@/lib/services/appointmentService";
 import type { AppointmentWithUsers } from "@/lib/services/appointmentService";
-import type { Service, TimeSlot } from "@/lib/types/appointment";
+import type { TimeSlot } from "@/lib/types/appointment";
 import Calendar from "./Calendar";
-import ServicesList from "./ServicesList";
 
 interface RescheduleAppointmentModalProps {
   appointment: AppointmentWithUsers;
@@ -23,10 +22,8 @@ export default function RescheduleAppointmentModal({
 }: RescheduleAppointmentModalProps) {
   const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-  const [services, setServices] = useState<Service[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +32,6 @@ export default function RescheduleAppointmentModal({
   useEffect(() => {
     if (isOpen && professionalId) {
       loadAvailableDates();
-      loadServices();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, professionalId]);
@@ -63,26 +59,6 @@ export default function RescheduleAppointmentModal({
     }
   };
 
-  const loadServices = async () => {
-    if (!professionalId) return;
-    try {
-      const servicesData = await appointmentService.getServicesByProfessional(
-        professionalId
-      );
-      setServices(servicesData);
-      // Seleccionar el servicio actual si existe
-      if (appointment.service && servicesData.length > 0) {
-        const currentService = servicesData.find(
-          (s) => s.name === appointment.service
-        );
-        if (currentService) {
-          setSelectedService(currentService);
-        }
-      }
-    } catch (err) {
-      console.error("Error cargando servicios:", err);
-    }
-  };
 
   const loadTimeSlots = async () => {
     if (!professionalId || !selectedDate) return;
@@ -110,10 +86,6 @@ export default function RescheduleAppointmentModal({
     setSelectedTime(time);
   };
 
-  const handleServiceSelect = (service: Service) => {
-    setSelectedService(service);
-  };
-
   const handleSubmit = () => {
     if (!selectedDate || !selectedTime) {
       setError("Por favor selecciona una fecha y hora");
@@ -131,7 +103,7 @@ export default function RescheduleAppointmentModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
@@ -186,20 +158,6 @@ export default function RescheduleAppointmentModal({
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
               {error}
-            </div>
-          )}
-
-          {/* Selección de servicio */}
-          {services.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Servicio
-              </label>
-              <ServicesList
-                services={services}
-                selectedService={selectedService}
-                onServiceSelect={handleServiceSelect}
-              />
             </div>
           )}
 

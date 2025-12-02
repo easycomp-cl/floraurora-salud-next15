@@ -35,13 +35,6 @@ export async function clientLogin(email: string, password: string) {
       throw new Error('Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.');
     }
 
-    console.log('✅ clientLogin: Autenticación exitosa, sesión creada:', {
-      userId: data.user?.id,
-      userEmail: data.user?.email,
-      hasSession: !!data.session,
-      hasAccessToken: !!data.session.access_token
-    });
-
     return { data, error: null };
   } catch (error) {
     //console.error("❌ clientLogin: Error durante el login:", error);
@@ -176,28 +169,15 @@ export function clearClientAuthState() {
 // Función para iniciar sesión con Google
 export async function clientSignInWithGoogle() {
   try {
-    console.log('🚀 Iniciando OAuth con Google...');
-    console.log('📍 Usando callback por defecto de Supabase (maneja PKCE correctamente)');
-    console.log('🌐 Origen actual:', window.location.origin);
-    console.log('🔑 Variables de entorno:', {
-      hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-      hasSupabaseKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...'
-    });
-    
     // Verificar si las variables de entorno están configuradas
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
       throw new Error('❌ Variables de entorno de Supabase no configuradas. Verifica tu archivo .env.local');
     }
     
-    console.log('✅ Variables de entorno configuradas correctamente');
-    
     // Detectar dinámicamente la URL actual del navegador
     const currentUrl = typeof window !== 'undefined' 
       ? window.location.origin 
       : config.app.url;
-    
-    console.log('🌐 URL de callback:', `${currentUrl}/callback`);
     
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -221,23 +201,11 @@ export async function clientSignInWithGoogle() {
       throw error;
     }
 
-    console.log('📋 Respuesta completa de Supabase:', data);
-    console.log('🔗 URL generada:', data.url);
-    console.log('📝 Tipo de respuesta:', typeof data);
-
     if (data.url) {
-      console.log('✅ URL de OAuth generada:', data.url);
-      console.log('🔄 Redirigiendo a Google en 2 segundos...');
-      
-      // Pequeña pausa para ver los logs
-      setTimeout(() => {
-        console.log('🚀 Ejecutando redirección...');
-        window.location.href = data.url;
-      }, 2000);
-      
+      // Redirigir inmediatamente a Google
+      window.location.href = data.url;
     } else {
       console.error('❌ No se generó URL de OAuth');
-      console.error('📋 Datos recibidos:', data);
       throw new Error('No se pudo generar la URL de autenticación');
     }
 

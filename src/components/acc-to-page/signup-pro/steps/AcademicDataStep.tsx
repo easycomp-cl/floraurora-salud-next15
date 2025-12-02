@@ -34,7 +34,9 @@ export default function AcademicDataStep({
   onNext,
   onPrevious,
 }: AcademicDataStepProps) {
-  const [professionalTitles, setProfessionalTitles] = useState<ProfessionalTitle[]>([]);
+  const [professionalTitles, setProfessionalTitles] = useState<
+    ProfessionalTitle[]
+  >([]);
   const [isLoadingTitles, setIsLoadingTitles] = useState(true);
 
   // Cargar títulos profesionales al montar el componente
@@ -184,6 +186,7 @@ export default function AcademicDataStep({
                   handleInputChange("extra_studies", e.target.value)
                 }
                 placeholder="Diplomados, postítulos, especialidades, etc."
+                maxLength={2000}
                 className="min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
               {errors.extra_studies && (

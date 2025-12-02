@@ -65,14 +65,26 @@ export interface ProfessionalSpecialty {
   maximum_amount?: number | null; // Precio máximo permitido desde specialties
 }
 
+// Interfaz para enfoques terapéuticos
+export interface TherapeuticApproach {
+  id: number;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 // Interfaz para profesionales basada en la tabla real
 export interface ProfessionalProfile {
   id: number;
   title_id: number | null;
+  approach_id: number | null; // Enfoque terapéutico (relación 1:1)
   profile_description: string | null;
   resume_url: string | null;
   created_at: string;
   // Campos relacionados que se obtienen por JOIN
   title?: ProfessionalTitle;
   specialties?: ProfessionalSpecialty[];
+  approach?: TherapeuticApproach;
 }

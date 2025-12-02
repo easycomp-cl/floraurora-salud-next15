@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminServer } from "@/utils/supabase/server";
 import { getTransbankConfig } from "@/lib/config";
+import { createMeetLink } from "@/lib/services/googleMeetService";
 
 /**
  * API Route para confirmar una transacción de Webpay Plus
@@ -327,6 +328,79 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           appointment = newAppointment;
           appointmentId = String(newAppointment.id);
           console.log("✅ [Webpay Confirm] Cita creada exitosamente:", appointmentId);
+
+          // Crear enlace de Google Meet para la cita
+          try {
+            // Obtener datos del profesional y paciente para crear el enlace de Meet
+            const [professionalResult, patientResult, appointmentDetails] = await Promise.all([
+              newAppointment.professional_id
+                ? adminSupabase
+                    .from("users")
+                    .select("id, name, last_name, email")
+                    .eq("id", newAppointment.professional_id)
+                    .single()
+                : Promise.resolve({ data: null, error: null }),
+              newAppointment.patient_id
+                ? adminSupabase
+                    .from("users")
+                    .select("id, name, last_name, email")
+                    .eq("id", newAppointment.patient_id)
+                    .single()
+                : Promise.resolve({ data: null, error: null }),
+              adminSupabase
+                .from("appointments")
+                .select("scheduled_at, duration_minutes, service")
+                .eq("id", newAppointment.id)
+                .single(),
+            ]);
+
+            const professional = professionalResult.data;
+            const patient = patientResult.data;
+            const appointmentData = appointmentDetails.data;
+
+            if (
+              professional?.email &&
+              patient &&
+              appointmentData?.scheduled_at &&
+              appointmentData.duration_minutes
+            ) {
+              const professionalName = `${professional.name || ""} ${professional.last_name || ""}`.trim() || "Profesional";
+              const patientName = `${patient.name || ""} ${patient.last_name || ""}`.trim() || "Paciente";
+              const scheduledAt = new Date(appointmentData.scheduled_at);
+
+              console.log("🔗 [Webpay Confirm] Creando enlace de Google Meet...");
+
+              const meetResult = await createMeetLink({
+                appointmentId: String(newAppointment.id),
+                professionalEmail: professional.email,
+                professionalName,
+                patientEmail: patient.email, // Agregar email del paciente para invitarlo al evento
+                patientName,
+                scheduledAt,
+                durationMinutes: appointmentData.duration_minutes,
+                serviceName: appointmentData.service || undefined,
+              });
+
+              // Actualizar la cita con el enlace de Meet
+              await adminSupabase
+                .from("appointments")
+                .update({
+                  meet_link: meetResult.meetLink,
+                  meet_event_id: meetResult.eventId,
+                })
+                .eq("id", newAppointment.id);
+
+              console.log("✅ [Webpay Confirm] Enlace de Google Meet creado y guardado");
+            } else {
+              console.warn(
+                "⚠️ [Webpay Confirm] No se pudo crear enlace de Meet: faltan datos del profesional, paciente o cita"
+              );
+            }
+          } catch (meetError) {
+            // No bloquear el flujo si falla la creación del enlace de Meet
+            console.error("❌ [Webpay Confirm] Error creando enlace de Google Meet:", meetError);
+            console.log("ℹ️ [Webpay Confirm] Continuando sin enlace de Meet (se puede crear manualmente después)");
+          }
 
           // Eliminar el registro temporal
           await adminSupabase

@@ -23,7 +23,7 @@ const paymentPlans = [
   {
     id: "light" as const,
     name: "Plan Light",
-    price: "10%",
+    price: "15%",
     period: "por sesión",
     features: [
       "Agendamiento online",
@@ -55,7 +55,7 @@ const paymentPlans = [
     ],
     description:
       "Precio preferencial por marcha blanca. Incluye todos los servicios de la aplicación",
-    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes",
+    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un 1,3% de comisión por cada sesión extra realizada.",
   },
 ];
 

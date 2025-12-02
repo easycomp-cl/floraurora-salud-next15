@@ -187,8 +187,6 @@ export function useAuthState() {
         // Ignorar errores silenciosamente
       }
       
-      console.log("✅ useAuthState: Sesión cerrada exitosamente");
-      
       // Redirigir inmediatamente después del cierre de sesión
       router.push("/");
     } catch (error) {

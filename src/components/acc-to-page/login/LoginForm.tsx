@@ -50,7 +50,8 @@ export function LoginForm() {
     if (searchParams.get("error") === "account_blocked") {
       setState({
         success: false,
-        error: "Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.",
+        error:
+          "Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.",
         loading: false,
       });
       // Remover el parámetro de la URL sin recargar
@@ -61,7 +62,8 @@ export function LoginForm() {
     if (searchParams.get("error") === "session_mismatch") {
       setState({
         success: false,
-        error: "Se detectó un problema de seguridad con tu sesión. Por favor, inicia sesión nuevamente.",
+        error:
+          "Se detectó un problema de seguridad con tu sesión. Por favor, inicia sesión nuevamente.",
         loading: false,
       });
       // Remover el parámetro de la URL sin recargar
@@ -98,8 +100,12 @@ export function LoginForm() {
 
       if (errorMessage.includes("Email not confirmed")) {
         errorFinal = "Email no confirmado";
-      } else if (errorMessage.includes("User is banned") || errorMessage.includes("bloqueada")) {
-        errorFinal = "Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.";
+      } else if (
+        errorMessage.includes("User is banned") ||
+        errorMessage.includes("bloqueada")
+      ) {
+        errorFinal =
+          "Tu cuenta ha sido bloqueada. Por favor, contacta con el administrador.";
       } else {
         errorFinal = "Credenciales inválidas";
       }
@@ -115,8 +121,6 @@ export function LoginForm() {
       }
 
       if (data?.session) {
-        console.log("✅ Login exitoso, sincronizando sesión con el servidor...");
-        
         // Sincronizar cookies con el servidor después del login
         // Enviamos los tokens para que el servidor establezca las cookies correctamente
         try {
@@ -131,26 +135,26 @@ export function LoginForm() {
               refresh_token: data.session.refresh_token,
             }),
           });
-          
-          if (syncResponse.ok) {
-            const syncData = await syncResponse.json();
-            console.log("✅ Sesión sincronizada con el servidor:", syncData);
-          } else {
+
+          if (!syncResponse.ok) {
             const errorData = await syncResponse.json().catch(() => ({}));
-            console.warn("⚠️ No se pudo sincronizar sesión con el servidor:", errorData);
+            console.warn(
+              "⚠️ No se pudo sincronizar sesión con el servidor:",
+              errorData
+            );
             // Continuar de todas formas, el middleware intentará sincronizar
           }
         } catch (syncError) {
           console.warn("⚠️ Error sincronizando sesión:", syncError);
           // Continuar de todas formas, el middleware intentará sincronizar
         }
-        
+
         setState({
           success: true,
           error: null,
           loading: false,
         });
-        
+
         // Pequeño delay para asegurar que las cookies se establezcan
         setTimeout(() => {
           // Redirigir al dashboard

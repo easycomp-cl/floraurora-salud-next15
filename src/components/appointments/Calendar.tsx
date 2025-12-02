@@ -38,15 +38,6 @@ export default function Calendar({
 }: CalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
-  // Log para depuración
-  console.log("Calendar props:", {
-    selectedDate,
-    selectedTime,
-    timeSlotsCount: timeSlots?.length || 0,
-    availableDatesCount: availableDates?.length || 0,
-    timeSlots: timeSlots?.slice(0, 5) || [], // Mostrar solo los primeros 5
-  });
-
   // Limitar navegación a máximo 2 semanas en el futuro
   const today = new Date();
   const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -103,7 +94,6 @@ export default function Calendar({
       .map((slot) => slot.start_time)
       .sort();
 
-    console.log(`Horarios disponibles para ${dateStr}:`, availableTimes);
     return availableTimes;
   };
 
@@ -177,8 +167,8 @@ export default function Calendar({
                     isSelected
                       ? "bg-blue-500 text-white font-semibold"
                       : isAvailable
-                      ? "hover:bg-blue-100 text-gray-900 cursor-pointer"
-                      : "text-gray-400 cursor-not-allowed"
+                        ? "hover:bg-blue-100 text-gray-900 cursor-pointer"
+                        : "text-gray-400 cursor-not-allowed"
                   }
                   ${!isCurrentMonth ? "opacity-30" : ""}
                 `}

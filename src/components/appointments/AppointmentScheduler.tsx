@@ -64,7 +64,6 @@ export default function AppointmentScheduler() {
   // Cargar profesionales cuando se selecciona un área
   useEffect(() => {
     if (selectedArea) {
-      console.log("selectedArea", selectedArea);
       loadProfessionals(selectedArea.id);
       // Resetear selecciones dependientes
       setSelectedProfessional(null);
@@ -127,9 +126,8 @@ export default function AppointmentScheduler() {
 
   const loadServices = async (professionalId: number) => {
     try {
-      const data = await appointmentService.getServicesByProfessional(
-        professionalId
-      );
+      const data =
+        await appointmentService.getServicesByProfessional(professionalId);
       setServices(data);
     } catch (error) {
       console.error("Error loading services:", error);
@@ -138,12 +136,7 @@ export default function AppointmentScheduler() {
 
   const loadAvailableDates = async (professionalId: number) => {
     try {
-      console.log(`\n=== CARGANDO FECHAS DISPONIBLES ===`);
-      console.log(`Profesional ID: ${professionalId}`);
-
       const data = await appointmentService.getAvailableDates(professionalId);
-
-      console.log(`Fechas disponibles:`, data);
       setAvailableDates(data);
     } catch (error) {
       console.error("Error loading available dates:", error);
@@ -152,16 +145,10 @@ export default function AppointmentScheduler() {
 
   const loadTimeSlots = async (professionalId: number, date: string) => {
     try {
-      console.log(`\n=== CARGANDO HORARIOS ===`);
-      console.log(`Profesional ID: ${professionalId}`);
-      console.log(`Fecha: ${date}`);
-
       const data = await appointmentService.getAvailableTimeSlots(
         professionalId,
         date
       );
-
-      console.log(`Horarios obtenidos:`, data);
       setTimeSlots(data);
     } catch (error) {
       console.error("Error loading time slots:", error);
@@ -226,7 +213,7 @@ export default function AppointmentScheduler() {
         time: selectedTime,
         patient_id: patientId,
         service_name: selectedService.name,
-        area: selectedArea?.title_name || 'Psicología',
+        area: selectedArea?.title_name || "Psicología",
         duration_minutes: selectedService.duration_minutes,
         requires_confirmation: requiresConfirmation,
       };
@@ -237,12 +224,7 @@ export default function AppointmentScheduler() {
       const maxIdLength = 23; // 26 - 3 para "apt"
       const truncatedTimestamp = timestamp.slice(-maxIdLength);
       const buyOrder = `apt${truncatedTimestamp}`;
-      
-      console.log("Generando buy_order para cita pendiente:", {
-        buyOrder,
-        appointmentData
-      });
-      
+
       // Generar session_id único (máximo 61 caracteres según Transbank)
       // Usar el UUID del usuario o un timestamp corto
       const sessionId = user.id || `s${Date.now()}`;
@@ -266,7 +248,8 @@ export default function AppointmentScheduler() {
         const errorData = await webpayResponse.json();
         console.error("Error creando transacción de Webpay:", errorData);
         throw new Error(
-          errorData.error || "Error al iniciar el proceso de pago. Por favor, intenta nuevamente."
+          errorData.error ||
+            "Error al iniciar el proceso de pago. Por favor, intenta nuevamente."
         );
       }
 
@@ -278,13 +261,18 @@ export default function AppointmentScheduler() {
 
       // Redirigir a Webpay usando el componente de redirección
       // Guardar información en sessionStorage para referencia (la cita aún no existe)
-      sessionStorage.setItem("pendingAppointment", JSON.stringify({
-        buyOrder,
-        requiresConfirmation,
-      }));
+      sessionStorage.setItem(
+        "pendingAppointment",
+        JSON.stringify({
+          buyOrder,
+          requiresConfirmation,
+        })
+      );
 
       // Redirigir a página de redirección a Webpay
-      router.push(`/dashboard/appointments/payment?token=${webpayData.token}&url=${encodeURIComponent(webpayData.url)}`);
+      router.push(
+        `/dashboard/appointments/payment?token=${webpayData.token}&url=${encodeURIComponent(webpayData.url)}`
+      );
     } catch (error) {
       console.error("Error creating appointment with payment:", error);
       setErrorMessage(

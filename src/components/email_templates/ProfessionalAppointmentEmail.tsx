@@ -114,13 +114,25 @@ export function ProfessionalAppointmentEmail({
 
             <Section style={ctaSection}>
               <Text style={ctaNote}>
-                La sesión se realizará vía Google Meet. Únete usando el siguiente
-                enlace:
+                La sesión se realizará vía Google Meet. Haz clic en el botón
+                para acceder directamente a la reunión.
               </Text>
               <Button style={button} href={meetLink}>
                 Acceder a la reunión
               </Button>
               <Text style={linkFallback}>{meetLink}</Text>
+              <Section style={securityWarning}>
+                <Text style={securityWarningTitle}>
+                  🔒 Importante - Uso Exclusivo
+                </Text>
+                <Text style={securityWarningText}>
+                  Este enlace es de <strong>uso exclusivo</strong> para esta
+                  sesión en FlorAurora Salud. Por favor,{" "}
+                  <strong>no compartas este enlace</strong> con otras personas.
+                  Está diseñado únicamente para esta cita con el paciente
+                  asignado.
+                </Text>
+              </Section>
             </Section>
 
             {notes ? (
@@ -159,8 +171,7 @@ export function ProfessionalAppointmentEmail({
 
 export default ProfessionalAppointmentEmail;
 
-const LOGO_URL =
-  "https://www.floraurorasalud.cl/logo.png";
+const LOGO_URL = "https://www.floraurorasalud.cl/logo.png";
 
 const main = {
   backgroundColor: "#f3f4f6",
@@ -302,6 +313,28 @@ const linkFallback = {
   wordBreak: "break-all" as const,
 };
 
+const securityWarning = {
+  margin: "16px 0 0 0",
+  padding: "16px",
+  backgroundColor: "#fef3c7",
+  borderRadius: "8px",
+  border: "1px solid #fbbf24",
+};
+
+const securityWarningTitle = {
+  color: "#92400e",
+  fontSize: "14px",
+  fontWeight: "700",
+  margin: "0 0 8px 0",
+};
+
+const securityWarningText = {
+  color: "#92400e",
+  fontSize: "12px",
+  lineHeight: "18px",
+  margin: "0",
+};
+
 const notesBox = {
   backgroundColor: "#fef3c7",
   borderRadius: "10px",
@@ -363,5 +396,3 @@ const footerNote = {
   fontSize: "11px",
   margin: "0",
 };
-
-

@@ -19,29 +19,18 @@ export class UserService {
    */
   static async userExists(userId: string): Promise<boolean> {
     try {
-      console.log("🔍 Verificando si usuario existe en BD:", userId);
-      console.log("📍 UserService.userExists ejecutándose...");
-      
       const { data, error } = await supabase
         .from("users")
         .select("user_id")
         .eq("user_id", userId)
         .single();
 
-      console.log("📊 Respuesta de Supabase:", { data, error });
-
       if (error && error.code !== "PGRST116") {
         console.error("❌ Error al verificar usuario:", error);
         return false;
       }
 
-      if (data) {
-        console.log("✅ Usuario EXISTE en la tabla users");
-        return true;
-      } else {
-        console.log("❌ Usuario NO EXISTE en la tabla users");
-        return false;
-      }
+      return !!data;
     } catch (error) {
       console.error("💥 Error inesperado al verificar usuario:", error);
       return false;
@@ -53,8 +42,6 @@ export class UserService {
    */
   static async createUser(userData: UserData) {
     try {
-      console.log("📝 Creando usuario en BD:", userData);
-      
       const { data, error } = await supabase
         .from("users")
         .insert({
@@ -76,12 +63,9 @@ export class UserService {
       if (error) {
         // Si es un error de duplicación, considerarlo como éxito
         if (error.code === '23505' && error.message.includes('duplicate key')) {
-          console.log("⚠️ Usuario ya existe (duplicate key), obteniendo datos existentes...");
-          
           // Intentar obtener el usuario existente
           const existingUser = await this.getUserById(userData.user_id);
           if (existingUser.success) {
-            console.log("✅ Usuario existente obtenido:", existingUser.data);
             return { success: true, data: existingUser.data, isExisting: true };
           }
         }
@@ -90,7 +74,6 @@ export class UserService {
         throw error;
       }
 
-      console.log("✅ Usuario creado exitosamente:", data);
       return { success: true, data };
     } catch (error) {
       console.error("💥 Error inesperado al crear usuario:", error);

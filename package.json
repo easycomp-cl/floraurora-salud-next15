@@ -24,6 +24,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
     "exceljs": "^4.4.0",
+    "googleapis": "^166.0.0",
     "lucide-react": "^0.539.0",
     "luxon": "^3.7.2",
     "next": "15.4.6",

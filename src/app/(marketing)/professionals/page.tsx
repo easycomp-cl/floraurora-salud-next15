@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Check, User } from "lucide-react";
 import logoImge from "../../../components/Fotos/logo.png";
-import equipoImg from "../../../components/Fotos/Equipo.png";
+import equipoImg from "../../../components/Fotos/psicologos.png";
 
 export default function ProfessionalsPage() {
   return (
@@ -15,13 +15,13 @@ export default function ProfessionalsPage() {
           alt="Equipo de Profesionales FlorAurora"
           fill
           priority
-          className="object-cover brightness-90"
+          className="object-cover brightness-90 transform scale-110 md:object-[center_75%]"
         />
         {/* Overlay oscuro pero balanceado para mejor legibilidad */}
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900/65 via-teal-900/70 to-gray-900/65" />
         <div className="absolute inset-0 bg-black/20" />
         
-        <div className="relative z-10 h-full max-w-6xl mx-auto px-6 md:px-8 flex flex-col items-center justify-center text-center">
+        <div className="relative z-10 h-full max-w-6xl mx-auto px-6 md:px-8 flex flex-col items-center justify-center md:justify-start md:pt-20 lg:pt-24 text-center">
           {/* Logo */}
           <Image
             src={logoImge}
