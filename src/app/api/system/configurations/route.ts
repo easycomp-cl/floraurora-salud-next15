@@ -1,17 +1,40 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Intentar usar createClient con request primero, si falla usar sin request
+    let supabase;
+    try {
+      supabase = await createClient(request);
+    } catch (error) {
+      // Si falla con request, intentar sin él (usará cookies() de Next.js)
+      console.warn("[system-configurations] Fallback a createClient sin request:", error);
+      supabase = await createClient();
+    }
 
-    // Verificar autenticación
+    // Primero intentar obtener la sesión (esto puede refrescar las cookies)
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Luego obtener el usuario (más confiable)
     const {
       data: { user },
       error: authError,
     } = await supabase.auth.getUser();
+    
+    // Usar el usuario de getUser() o de la sesión como fallback
+    const finalUser = user || session?.user;
 
-    if (authError || !user) {
+    if (authError && !finalUser) {
+      console.error("[system-configurations] Error de autenticación:", {
+        authError: authError?.message,
+        hasUser: !!user,
+        hasSession: !!session,
+      });
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+    
+    if (!finalUser) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -19,7 +42,7 @@ export async function GET() {
     const { data: profile, error: profileError } = await supabase
       .from("users")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", finalUser.id)
       .single();
 
     if (profileError || !profile) {

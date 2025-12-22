@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Trash2 } from "lucide-react";
 import type { CarouselItem } from "@/lib/types/adminConfig";
 
 interface CarouselFormState {
@@ -55,6 +57,11 @@ export default function CarouselManagerPanel() {
   const [formState, setFormState] = useState<CarouselFormState>(defaultFormState);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const loadItems = async () => {
     try {
@@ -83,6 +90,7 @@ export default function CarouselManagerPanel() {
   const openDialog = (item?: CarouselItem) => {
     setDialogError(null);
     setSuccess(null);
+    setImagePreview(null);
     if (item) {
       setEditingId(item.id);
       setFormState({
@@ -96,11 +104,65 @@ export default function CarouselManagerPanel() {
         display_order: item.display_order,
         is_active: item.is_active,
       });
+      if (item.image_url) {
+        setImagePreview(item.image_url);
+      }
     } else {
       setEditingId(null);
       setFormState(defaultFormState);
     }
     setIsDialogOpen(true);
+  };
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validar tipo de archivo
+    const allowedTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setDialogError("Tipo de archivo no permitido. Solo PNG, JPG, JPEG, WEBP o GIF");
+      return;
+    }
+
+    // Validar tamaño (5MB máximo)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      setDialogError("El archivo excede el tamaño máximo de 5MB");
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      setDialogError(null);
+
+      // Crear FormData
+      const formData = new FormData();
+      formData.append("file", file);
+
+      // Subir imagen
+      const response = await fetch("/api/admin/carousel/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error ?? "Error al subir la imagen");
+      }
+
+      const data = await response.json();
+      
+      // Actualizar el estado con la URL de la imagen
+      setFormState((prev) => ({ ...prev, image_url: data.url }));
+      setImagePreview(data.url);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error inesperado al subir la imagen.";
+      setDialogError(message);
+    } finally {
+      setIsUploadingImage(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -144,12 +206,17 @@ export default function CarouselManagerPanel() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm("¿Seguro que deseas eliminar este elemento del carrusel?")) {
-      return;
-    }
+  const openDeleteDialog = (id: number) => {
+    setItemToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDelete = async () => {
+    if (!itemToDelete) return;
+
     try {
-      const response = await fetch(`/api/admin/carousel/${id}`, {
+      setIsDeleting(true);
+      const response = await fetch(`/api/admin/carousel/${itemToDelete}`, {
         method: "DELETE",
       });
       if (!response.ok) {
@@ -157,11 +224,17 @@ export default function CarouselManagerPanel() {
         throw new Error(payload?.error ?? "No se pudo eliminar el elemento");
       }
       setSuccess("Elemento eliminado correctamente.");
+      setIsDeleteDialogOpen(false);
+      setItemToDelete(null);
       await loadItems();
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error inesperado al eliminar el elemento.";
       setError(message);
+      setIsDeleteDialogOpen(false);
+      setItemToDelete(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -230,18 +303,48 @@ export default function CarouselManagerPanel() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="image_url">URL de la imagen</Label>
-                  <Input
-                    id="image_url"
-                    placeholder="https://..."
-                    value={formState.image_url}
-                    onChange={(event) =>
-                      setFormState((prev) => ({ ...prev, image_url: event.target.value }))
-                    }
-                  />
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="image_upload">Imagen del carrusel</Label>
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        id="image_upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                        onChange={handleImageUpload}
+                        disabled={isUploadingImage}
+                        className="cursor-pointer"
+                      />
+                      {isUploadingImage && (
+                        <span className="flex items-center text-sm text-gray-500">
+                          Subiendo...
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Formatos permitidos: PNG, JPG, JPEG, WEBP, GIF. Tamaño máximo: 5MB
+                    </p>
+                  </div>
                 </div>
+
+                {imagePreview && (
+                  <div className="space-y-2">
+                    <Label>Vista previa</Label>
+                    <div className="relative w-full h-48 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                      <Image
+                        src={imagePreview}
+                        alt="Vista previa"
+                        fill
+                        className="object-contain"
+                        unoptimized
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="cta_label">Texto botón</Label>
                   <Input
@@ -325,6 +428,40 @@ export default function CarouselManagerPanel() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Diálogo de confirmación de eliminación */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5 text-red-600" />
+                Confirmar eliminación
+              </DialogTitle>
+              <DialogDescription>
+                ¿Estás seguro de que deseas eliminar este elemento del carrusel? Esta acción no se puede deshacer.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setItemToDelete(null);
+                }}
+                disabled={isDeleting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? "Eliminando..." : "Eliminar"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </CardHeader>
 
       <CardContent className="space-y-4">
@@ -396,8 +533,14 @@ export default function CarouselManagerPanel() {
                         <Button variant="outline" size="sm" onClick={() => openDialog(item)}>
                           Editar
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(item.id)}>
-                          Eliminar
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openDeleteDialog(item.id)}
+                          className="p-2 bg-gray-100 hover:bg-gray-200 transition-colors duration-200"
+                          title="Eliminar elemento"
+                        >
+                          <Trash2 className="h-4 w-4 text-red-600" />
                         </Button>
                       </div>
                     </td>

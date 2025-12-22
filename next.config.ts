@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["exceljs", "pdfkit", "transbank-sdk"],
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: 20 * 1024 * 1024, // 20MB en bytes - Aumentado para permitir subida de múltiples archivos

@@ -16,6 +16,8 @@ import type {
 } from "@/lib/services/appointmentService";
 import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
 import JoinMeetingButton from "./JoinMeetingButton";
+import { FileText } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type AppointmentsTableMode = "patient" | "professional" | "admin";
 
@@ -106,6 +108,7 @@ export default function AppointmentsTable({
   emptyMessage,
   onAppointmentUpdate,
 }: AppointmentsTableProps) {
+  const router = useRouter();
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
   const [confirmationHours, setConfirmationHours] = useState<number>(24);
@@ -115,21 +118,32 @@ export default function AppointmentsTable({
   const [confirmingAppointmentId, setConfirmingAppointmentId] = useState<
     string | number | null
   >(null);
+  const [clinicalRecordsMap, setClinicalRecordsMap] = useState<Map<string, boolean>>(new Map());
 
-  // Cargar configuración de horas antes de confirmar
+  // Cargar configuración de horas antes de confirmar usando el cliente de Supabase directamente
   useEffect(() => {
     const loadConfiguration = async () => {
       try {
-        const response = await fetch("/api/system/configurations");
-        if (response.ok) {
-          const configs = await response.json();
-          const config = configs.find(
-            (c: { config_key: string }) =>
-              c.config_key === "appointment_confirmation_hours_before"
-          );
-          if (config) {
-            setConfirmationHours(config.value || 24);
+        // Importar dinámicamente para evitar problemas con SSR
+        const { default: supabase } = await import("@/utils/supabase/client");
+        
+        // Obtener configuración directamente desde Supabase
+        const { data: configs, error } = await supabase
+          .from("system_configurations")
+          .select("*")
+          .eq("is_active", true)
+          .eq("config_key", "appointment_confirmation_hours_before")
+          .maybeSingle();
+        
+        if (!error && configs) {
+          // Convertir el valor según su tipo de dato
+          let value: number = 24;
+          if (configs.data_type === "number") {
+            value = Number(configs.config_value) || 24;
+          } else {
+            value = parseInt(configs.config_value, 10) || 24;
           }
+          setConfirmationHours(value);
         }
       } catch (error) {
         console.error("Error cargando configuración:", error);
@@ -137,6 +151,37 @@ export default function AppointmentsTable({
     };
     loadConfiguration();
   }, []);
+
+  // Cargar fichas clínicas para profesionales usando el cliente de Supabase directamente
+  useEffect(() => {
+    if (mode === "professional" && data && data.length > 0) {
+      const loadClinicalRecords = async () => {
+        // Importar dinámicamente para evitar problemas con SSR
+        const { default: supabase } = await import("@/utils/supabase/client");
+        const recordsMap = new Map<string, boolean>();
+        const promises = data.map(async (appointment) => {
+          try {
+            // Verificar directamente en Supabase si existe una ficha de evolución
+            const { data: evolutionRecord, error: evolutionError } = await supabase
+              .from("clinical_records")
+              .select("id")
+              .eq("appointment_id", appointment.id)
+              .maybeSingle();
+            
+            // Si hay un registro o el error es "no encontrado" (PGRST116), registrar el resultado
+            if (evolutionRecord || (evolutionError && evolutionError.code === "PGRST116")) {
+              recordsMap.set(String(appointment.id), !!evolutionRecord);
+            }
+          } catch {
+            // Ignorar errores silenciosamente
+          }
+        });
+        await Promise.all(promises);
+        setClinicalRecordsMap(recordsMap);
+      };
+      loadClinicalRecords();
+    }
+  }, [mode, data]);
 
   // Función para verificar si se puede confirmar asistencia
   const canConfirmAppointment = (appointment: AppointmentWithUsers) => {
@@ -356,6 +401,37 @@ export default function AppointmentsTable({
         },
       })
     );
+
+    // Agregar columna de ficha clínica solo para profesionales
+    if (mode === "professional") {
+      baseColumns.push(
+        columnHelper.display({
+          id: "clinical_record",
+          header: "Ficha Clínica",
+          cell: ({ row }) => {
+            const appointment = row.original;
+            const hasRecord = clinicalRecordsMap.get(String(appointment.id));
+            
+            if (hasRecord) {
+              return (
+                <button
+                  onClick={() => router.push(`/dashboard/appointments/${appointment.id}`)}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                  title="Ver ficha clínica"
+                >
+                  <FileText className="h-3 w-3" />
+                  Ver
+                </button>
+              );
+            }
+            
+            return (
+              <span className="text-xs text-gray-400">Sin registro</span>
+            );
+          },
+        })
+      );
+    }
 
     baseColumns.push(
       columnHelper.display({

@@ -15,6 +15,7 @@ import {
   Settings2,
   CreditCard,
   DollarSign,
+  FileText,
 } from "lucide-react";
 import SIIIcon from "@/components/icons/SIIIcon";
 
@@ -176,6 +177,12 @@ const adminMenuNavItem: NavItem = {
 
 // Elementos adicionales para profesionales
 export const professionalNavItems: NavItem[] = [
+  {
+    label: "Fichas Clínicas",
+    href: "/dashboard/clinical-records",
+    icon: FileText,
+    description: "Gestiona las fichas clínicas de tus pacientes",
+  },
   {
     label: "Mis Horarios",
     href: "/dashboard/schedules",

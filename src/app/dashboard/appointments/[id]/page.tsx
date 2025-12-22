@@ -6,8 +6,8 @@ import { useAuthState } from "@/lib/hooks/useAuthState";
 import { appointmentService, type AppointmentWithUsers } from "@/lib/services/appointmentService";
 import JoinMeetingButton from "@/components/appointments/JoinMeetingButton";
 import MeetingTimer from "@/components/appointments/MeetingTimer";
-import ClinicalRecordForm from "@/components/appointments/ClinicalRecordForm";
-import { ArrowLeft, Calendar, Clock, User, Mail, Phone } from "lucide-react";
+import ClinicalEvolutionForm from "@/components/clinical-records/ClinicalEvolutionForm";
+import { ArrowLeft, Calendar, Clock, User, Mail, Phone, FileText, AlertCircle } from "lucide-react";
 
 export default function AppointmentDetailPage() {
   const params = useParams();
@@ -19,6 +19,7 @@ export default function AppointmentDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<number | null>(null);
+  const [hasIntakeRecord, setHasIntakeRecord] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -56,6 +57,35 @@ export default function AppointmentDetailPage() {
       loadAppointment();
     }
   }, [appointmentId, isAuthenticated, user, router]);
+
+  // Verificar si existe ficha de ingreso
+  useEffect(() => {
+    const isProfessional = userRole === 3;
+    if (isProfessional && appointment && appointment.patient_id && appointment.professional_id) {
+      const checkIntakeRecord = async () => {
+        try {
+          // Importar dinámicamente para evitar problemas con SSR
+          const { default: supabase } = await import("@/utils/supabase/client");
+          
+          // Verificar directamente en Supabase si existe una ficha de ingreso
+          const { data: intakeRecord, error } = await supabase
+            .from("patient_intake_records")
+            .select("id")
+            .eq("patient_id", appointment.patient_id)
+            .eq("professional_id", appointment.professional_id)
+            .maybeSingle();
+          
+          // Si hay un registro o el error es "no encontrado" (PGRST116), registrar el resultado
+          if (intakeRecord || (error && error.code === "PGRST116")) {
+            setHasIntakeRecord(!!intakeRecord);
+          }
+        } catch (error) {
+          console.error("Error verificando ficha de ingreso:", error);
+        }
+      };
+      checkIntakeRecord();
+    }
+  }, [userRole, appointment]);
 
   if (isLoading) {
     return (
@@ -137,9 +167,22 @@ export default function AppointmentDetailPage() {
         {/* Información del paciente/profesional */}
         {isProfessional && appointment.patient && (
           <div className="border-t pt-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">
-              Información del Paciente
-            </h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Información del Paciente
+              </h2>
+              {appointment.patient_id && (
+                <button
+                  onClick={() =>
+                    router.push(`/dashboard/clinical-records/${appointment.patient_id}`)
+                  }
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                >
+                  <FileText className="h-4 w-4" />
+                  Ver Ficha Clínica Completa
+                </button>
+              )}
+            </div>
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <User className="h-4 w-4 text-gray-400" />
@@ -160,6 +203,29 @@ export default function AppointmentDetailPage() {
                 </div>
               )}
             </div>
+            {hasIntakeRecord === false && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">
+                      Ficha de ingreso pendiente
+                    </p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      Se recomienda completar la ficha de ingreso antes de la primera sesión.
+                    </p>
+                    <button
+                      onClick={() =>
+                        router.push(`/dashboard/clinical-records/${appointment.patient_id}`)
+                      }
+                      className="text-xs text-yellow-800 underline mt-1 hover:text-yellow-900"
+                    >
+                      Completar ficha de ingreso
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -206,7 +272,7 @@ export default function AppointmentDetailPage() {
           appointment.scheduled_at &&
           appointment.duration_minutes && (
             <div className="border-t pt-4">
-              <ClinicalRecordForm
+              <ClinicalEvolutionForm
                 appointmentId={String(appointment.id)}
                 scheduledAt={appointment.scheduled_at}
                 durationMinutes={appointment.duration_minutes}

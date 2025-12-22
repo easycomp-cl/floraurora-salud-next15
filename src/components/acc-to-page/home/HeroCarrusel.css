@@ -53,14 +53,20 @@
   right: 20px;
 }
 
-/* Efecto fade para las transiciones */
+/* Efecto fade para las transiciones - más suave */
 .swiper-fade .swiper-slide {
   opacity: 0 !important;
-  transition: opacity 0.8s ease;
+  transition: opacity 1s ease-in-out;
 }
 
 .swiper-fade .swiper-slide-active {
   opacity: 1 !important;
+  transition: opacity 1s ease-in-out;
+}
+
+/* Transición suave para el contenido dentro de los slides */
+.swiper-slide {
+  transition: opacity 1s ease-in-out;
 }
 
 /* Mantener los estilos existentes para el contenido */

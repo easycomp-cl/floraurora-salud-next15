@@ -1,10 +1,17 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminServer } from "@/utils/supabase/server";
 import { DateTime } from "luxon";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient();
+    // Debug: Verificar cookies disponibles
+    const requestCookies = request.cookies.getAll();
+    const hasSupabaseCookies = requestCookies.some(c => 
+      c.name.includes('supabase') || c.name.includes('sb-') || c.name.includes('auth-token')
+    );
+    
+    // Pasar el request explícitamente para que pueda leer las cookies del fetch del cliente
+    const supabase = await createClient(request);
     const { searchParams } = new URL(request.url);
     const professionalIdParam = searchParams.get("professionalId");
 
@@ -23,9 +30,34 @@ export async function GET(request: Request) {
       );
     }
 
-    // Obtener el usuario actual para verificar permisos
+    // Primero intentar obtener la sesión (esto puede refrescar las cookies)
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    // Luego obtener el usuario (más confiable)
     const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
+    
+    // Usar el usuario de getUser() o de la sesión como fallback
+    const finalUser = user || session?.user;
+    
+    if (authError && !finalUser) {
+      console.error("[metrics] Error de autenticación:", {
+        authError: authError?.message,
+        hasUser: !!user,
+        hasSession: !!session,
+        errorCode: authError?.status,
+        hasSupabaseCookies,
+        cookieCount: requestCookies.length,
+        cookieNames: requestCookies.map(c => c.name).filter(n => 
+          n.includes('supabase') || n.includes('sb-') || n.includes('auth-token')
+        ),
+      });
+      return NextResponse.json(
+        { error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+    
+    if (!finalUser) {
       return NextResponse.json(
         { error: "No autorizado" },
         { status: 401 }
@@ -36,7 +68,7 @@ export async function GET(request: Request) {
     const { data: userRecord } = await supabase
       .from("users")
       .select("id")
-      .eq("user_id", user.id)
+      .eq("user_id", finalUser.id)
       .single();
 
     if (!userRecord || userRecord.id !== professionalId) {

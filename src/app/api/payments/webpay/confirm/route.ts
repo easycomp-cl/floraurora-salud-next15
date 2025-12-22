@@ -329,6 +329,33 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           appointmentId = String(newAppointment.id);
           console.log("✅ [Webpay Confirm] Cita creada exitosamente:", appointmentId);
 
+          // Crear automáticamente registro de ingreso si es la primera cita del paciente con este profesional
+          if (newAppointment.patient_id && newAppointment.professional_id) {
+            try {
+              // Verificar si ya existe un registro de ingreso
+              const { data: existingIntake } = await adminSupabase
+                .from("patient_intake_records")
+                .select("id")
+                .eq("patient_id", newAppointment.patient_id)
+                .eq("professional_id", newAppointment.professional_id)
+                .single();
+
+              if (!existingIntake) {
+                // Crear registro vacío de ingreso
+                await adminSupabase
+                  .from("patient_intake_records")
+                  .insert({
+                    patient_id: newAppointment.patient_id,
+                    professional_id: newAppointment.professional_id,
+                  });
+                console.log("✅ [Webpay Confirm] Registro de ingreso creado automáticamente");
+              }
+            } catch (intakeError) {
+              // No fallar la creación de la cita si falla la creación del registro de ingreso
+              console.error("⚠️ [Webpay Confirm] Error creando registro de ingreso automático:", intakeError);
+            }
+          }
+
           // Crear enlace de Google Meet para la cita
           try {
             // Obtener datos del profesional y paciente para crear el enlace de Meet
