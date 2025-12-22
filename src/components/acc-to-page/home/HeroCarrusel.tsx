@@ -40,19 +40,19 @@ type CarouselResponse = {
   data?: RemoteCarouselItem[];
 };
 
-// Array de frases de bienestar y psicología
-const frasesBienestar = [
-  "La mente es como un jardín: lo que cultives es lo que florecerá",
-  "El bienestar empieza con pequeños pasos diarios",
-  "Tu paz mental es una prioridad, no un lujo",
-  "Cada día es una nueva oportunidad para crecer",
-  "El autocuidado es el mejor regalo que puedes darte",
-  "La salud mental es tan importante como la física",
-  "Respira profundo: el presente es tu mejor aliado",
-  "Tu bienestar emocional marca el ritmo de tu vida",
-  "La transformación personal comienza con la autoconciencia",
-  "Cultivar la paz interior es el camino hacia la felicidad",
-];
+// Array de frases de bienestar y psicología (comentado - no se usa actualmente)
+// const frasesBienestar = [
+//   "La mente es como un jardín: lo que cultives es lo que florecerá",
+//   "El bienestar empieza con pequeños pasos diarios",
+//   "Tu paz mental es una prioridad, no un lujo",
+//   "Cada día es una nueva oportunidad para crecer",
+//   "El autocuidado es el mejor regalo que puedes darte",
+//   "La salud mental es tan importante como la física",
+//   "Respira profundo: el presente es tu mejor aliado",
+//   "Tu bienestar emocional marca el ritmo de tu vida",
+//   "La transformación personal comienza con la autoconciencia",
+//   "Cultivar la paz interior es el camino hacia la felicidad",
+// ];
 
 // Función helper para normalizar URLs
 const normalizeUrl = (url: string | undefined): string | undefined => {
