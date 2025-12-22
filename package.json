@@ -27,7 +27,7 @@
     "googleapis": "^166.0.0",
     "lucide-react": "^0.539.0",
     "luxon": "^3.7.2",
-    "next": "15.4.6",
+    "next": "15.4.10",
     "pdfkit": "^0.15.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
