@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Professional,
   Service,
@@ -17,6 +17,7 @@ import { useAuthState } from "@/lib/hooks/useAuthState";
 
 export default function AppointmentScheduler() {
   const { user } = useAuthState();
+  const searchParams = useSearchParams();
   const [areas, setAreas] = useState<{ id: number; title_name: string }[]>([]);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
   const [services, setServices] = useState<Service[]>([]);
@@ -35,12 +36,42 @@ export default function AppointmentScheduler() {
   const [patientId, setPatientId] = useState<number | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [serviceFilter, setServiceFilter] = useState<string | null>(null);
+  const [professionalIdFilter, setProfessionalIdFilter] = useState<number | null>(null);
   const router = useRouter();
 
   // Cargar áreas al montar el componente
   useEffect(() => {
     loadAreas();
   }, []);
+
+  // Leer parámetros de la URL después de cargar las áreas
+  useEffect(() => {
+    if (areas.length === 0) return;
+    
+    const areaParam = searchParams.get("area");
+    const serviceParam = searchParams.get("service");
+    const professionalIdParam = searchParams.get("professionalId");
+    
+    if (serviceParam) {
+      setServiceFilter(serviceParam);
+    }
+    
+    if (professionalIdParam) {
+      const professionalId = parseInt(professionalIdParam, 10);
+      if (!isNaN(professionalId)) {
+        setProfessionalIdFilter(professionalId);
+      }
+    }
+    
+    // Si hay parámetro de área, seleccionarla
+    if (areaParam) {
+      const area = areas.find(a => a.title_name === areaParam);
+      if (area && (!selectedArea || selectedArea.id !== area.id)) {
+        setSelectedArea(area);
+      }
+    }
+  }, [areas, searchParams, selectedArea]);
 
   useEffect(() => {
     const loadPatientId = async () => {
@@ -61,19 +92,39 @@ export default function AppointmentScheduler() {
     loadPatientId();
   }, [user]);
 
-  // Cargar profesionales cuando se selecciona un área
+  // Cargar profesionales cuando se selecciona un área o hay un filtro de servicio o profesional específico
   useEffect(() => {
     if (selectedArea) {
-      loadProfessionals(selectedArea.id);
-      // Resetear selecciones dependientes
-      setSelectedProfessional(null);
-      setSelectedService(null);
-      setSelectedDate(null);
-      setSelectedTime(null);
+      // Si hay un filtro de profesional específico, cargar solo ese profesional
+      if (professionalIdFilter) {
+        loadSingleProfessional(professionalIdFilter);
+      } else if (serviceFilter) {
+        // Si hay un filtro de servicio, cargar profesionales que ofrecen ese servicio
+        loadProfessionalsByService(serviceFilter, selectedArea.id);
+      } else {
+        // Si no hay filtro, cargar todos los profesionales del área
+        loadProfessionals(selectedArea.id);
+      }
+      // Resetear selecciones dependientes solo si no hay filtro de profesional
+      if (!professionalIdFilter) {
+        setSelectedProfessional(null);
+        setSelectedService(null);
+        setSelectedDate(null);
+        setSelectedTime(null);
+      }
     } else {
       setProfessionals([]);
     }
-  }, [selectedArea]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedArea, serviceFilter, professionalIdFilter]);
+
+  // Cargar profesional específico cuando hay filtro de professionalId
+  useEffect(() => {
+    if (professionalIdFilter && selectedArea) {
+      loadSingleProfessional(professionalIdFilter);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [professionalIdFilter, selectedArea]);
 
   // Cargar servicios y fechas disponibles cuando se selecciona un profesional
   useEffect(() => {
@@ -119,6 +170,55 @@ export default function AppointmentScheduler() {
       setProfessionals(data);
     } catch (error) {
       console.error("Error loading professionals:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProfessionalsByService = async (serviceName: string, areaFilter?: number) => {
+    try {
+      setLoading(true);
+      const data = await appointmentService.getProfessionalsByService(serviceName, areaFilter);
+      setProfessionals(data);
+      
+      // Si no hay profesionales que ofrecen el servicio, cargar todos los profesionales del área
+      if (data.length === 0 && areaFilter) {
+        console.log(`No se encontraron profesionales para el servicio "${serviceName}", mostrando todos los profesionales del área`);
+        await loadProfessionals(areaFilter);
+        // Limpiar el filtro de servicio ya que no hay profesionales que lo ofrezcan
+        setServiceFilter(null);
+      }
+    } catch (error) {
+      console.error("Error loading professionals by service:", error);
+      // En caso de error, cargar todos los profesionales del área
+      if (areaFilter) {
+        await loadProfessionals(areaFilter);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadSingleProfessional = async (professionalId: number) => {
+    try {
+      setLoading(true);
+      const professional = await appointmentService.getProfessionalById(professionalId);
+      
+      if (professional) {
+        setProfessionals([professional]);
+        // Seleccionar automáticamente el profesional solo si no está ya seleccionado
+        if (!selectedProfessional || selectedProfessional.id !== professional.id) {
+          setSelectedProfessional(professional);
+        }
+      } else {
+        console.warn(`No se encontró el profesional con ID ${professionalId}`);
+        setProfessionals([]);
+        setSelectedProfessional(null);
+      }
+    } catch (error) {
+      console.error("Error loading single professional:", error);
+      setProfessionals([]);
+      setSelectedProfessional(null);
     } finally {
       setLoading(false);
     }

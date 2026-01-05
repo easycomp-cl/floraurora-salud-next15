@@ -157,8 +157,19 @@ export function LoginForm() {
 
         // Pequeño delay para asegurar que las cookies se establezcan
         setTimeout(() => {
-          // Redirigir al dashboard
-          router.push("/dashboard");
+          // Verificar si hay un parámetro redirect en la URL
+          const redirectParam = searchParams.get("redirect");
+          let redirectTo = redirectParam || "/dashboard";
+          
+          // Si el redirect contiene parámetros adicionales, asegurarse de que estén correctamente codificados
+          if (redirectParam && redirectParam.includes("?")) {
+            // Ya está correctamente formateado
+            redirectTo = redirectParam;
+          } else if (redirectParam) {
+            redirectTo = decodeURIComponent(redirectParam);
+          }
+          
+          router.push(redirectTo);
         }, 200);
       } else {
         setState({

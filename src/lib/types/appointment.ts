@@ -14,6 +14,7 @@ export interface Professional {
   created_at: string;
   // Propiedades adicionales para la UI
   avatar_url?: string;
+  gender?: string;
   bio?: string;
   rating?: number;
   specialty?: string;

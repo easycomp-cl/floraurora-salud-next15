@@ -40,6 +40,8 @@ export type UserProfile = {
   is_active?: boolean;
   birth_date?: string;
   address?: string;
+  region?: number;
+  municipality?: number;
   gender?: string;
   nationality?: string;
   user_id: string; // UUID de Supabase Auth

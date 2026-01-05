@@ -1,5 +1,9 @@
+"use client";
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
 import icoInfantoJuvenil from "../../Fotos/infanto-juvenil.png";
 import icoAdultos from "../../Fotos/adultos.png";
 import icoPareja from "../../Fotos/pareja.png";
@@ -7,6 +11,101 @@ import icoEvaluacion from "../../Fotos/evaluacion.png";
 import { Calendar } from "lucide-react";
 
 export default function HeroServicios() {
+  const router = useRouter();
+  const { isAuthenticated, user, isLoading } = useAuthState();
+  const [isPatient, setIsPatient] = React.useState<boolean | null>(null);
+  const [isCheckingRole, setIsCheckingRole] = React.useState(false);
+
+  // Verificar si el usuario es paciente
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const checkUserRole = async () => {
+      if (!isAuthenticated || !user) {
+        setIsPatient(null);
+        return;
+      }
+
+      try {
+        setIsCheckingRole(true);
+        const profile = await profileService.getUserProfileByUuid(user.id);
+        if (!isMounted) return;
+        
+        const role = profile?.role ?? null;
+        setIsPatient(role === 2); // role 2 = paciente
+      } catch (error) {
+        console.error("Error verificando rol del usuario:", error);
+        if (isMounted) {
+          setIsPatient(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingRole(false);
+        }
+      }
+    };
+
+    checkUserRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user]);
+
+  // Mapeo de servicios a nombres de especialidades en la BD
+  const serviceMapping: { [key: string]: { serviceName: string; areaName: string } } = {
+    "psicoterapia-infanto-juvenil": {
+      serviceName: "Psicoterapia Infanto Juvenil",
+      areaName: "Psicología"
+    },
+    "psicoterapia-adultos": {
+      serviceName: "Psicoterapia Adultos",
+      areaName: "Psicología"
+    },
+    "terapia-pareja": {
+      serviceName: "Terapia de Pareja",
+      areaName: "Psicología"
+    },
+    "evaluacion-psicodiagnostico": {
+      serviceName: "Evaluación y Psicodiagnóstico",
+      areaName: "Psicología"
+    }
+  };
+
+  const handleBookService = (serviceKey: string) => {
+    if (isLoading || isCheckingRole) {
+      return;
+    }
+
+    // Si el usuario está autenticado y es paciente, redirigir con parámetros
+    if (isAuthenticated && user && isPatient === true) {
+      const service = serviceMapping[serviceKey];
+      if (service) {
+        const params = new URLSearchParams({
+          area: service.areaName,
+          service: service.serviceName
+        });
+        router.push(`/dashboard/appointments?${params.toString()}`);
+      } else {
+        router.push("/dashboard/appointments");
+      }
+      return;
+    }
+
+    // Si no está autenticado, redirigir al login con redirect
+    const service = serviceMapping[serviceKey];
+    if (service) {
+      const params = new URLSearchParams({
+        area: service.areaName,
+        service: service.serviceName
+      });
+      const redirectUrl = `/dashboard/appointments?${params.toString()}`;
+      router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+    } else {
+      router.push("/login?redirect=/dashboard/appointments");
+    }
+  };
+
   return (
     <section className="bg-gradient-to-br from-teal-50 via-teal-100/50 to-teal-200/30 py-16 md:py-20 px-4 md:px-8">
       <div className="max-w-6xl mx-auto">
@@ -37,7 +136,10 @@ export default function HeroServicios() {
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Psicoterapia <br /> Infanto Juvenil
             </h4>
-            <button className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105">
+            <button 
+              onClick={() => handleBookService("psicoterapia-infanto-juvenil")}
+              className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer"
+            >
               <Calendar className="size-4" />
               Agendar
             </button>
@@ -59,7 +161,10 @@ export default function HeroServicios() {
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Psicoterapia <br /> Adultos
             </h4>
-            <button className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105">
+            <button 
+              onClick={() => handleBookService("psicoterapia-adultos")}
+              className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer"
+            >
               <Calendar className="size-4" />
               Agendar
             </button>
@@ -81,7 +186,10 @@ export default function HeroServicios() {
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Terapia <br /> de Pareja
             </h4>
-            <button className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105">
+            <button 
+              onClick={() => handleBookService("terapia-pareja")}
+              className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer"
+            >
               <Calendar className="size-4" />
               Agendar
             </button>
@@ -103,7 +211,10 @@ export default function HeroServicios() {
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Evaluación y <br /> Psicodiagnóstico
             </h4>
-            <button className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105">
+            <button 
+              onClick={() => handleBookService("evaluacion-psicodiagnostico")}
+              className="mt-4 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer"
+            >
               <Calendar className="size-4" />
               Agendar
             </button>

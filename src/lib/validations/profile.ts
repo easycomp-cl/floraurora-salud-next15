@@ -28,18 +28,6 @@ const validateRUT = (rut: string): boolean => {
   return dv === calculatedDV;
 };
 
-// Función para validar teléfono chileno (incluyendo formato WhatsApp)
-const validatePhone = (phone: string): boolean => {
-  // Limpiar el teléfono (quitar espacios, guiones, paréntesis, +)
-  const cleanPhone = phone.replace(/[\s\-\(\)\+]/g, "");
-  
-  // Verificar que sea un número chileno válido:
-  // - 8-9 dígitos (formato local): 12345678 o 123456789
-  // - 11 dígitos con código de país: 56912345678
-  // - 12 dígitos con código de país y +: 56912345678
-  return /^([2-9]\d{7,8}|569\d{8})$/.test(cleanPhone);
-};
-
 // Función para validar fecha de nacimiento (debe ser mayor de 18 años)
 const validateBirthDate = (date: string): boolean => {
   const birthDate = new Date(date);
@@ -57,43 +45,138 @@ const validateBirthDate = (date: string): boolean => {
 // Esquema base para usuario
 export const userProfileSchema = z.object({
   name: z
-    .string()
+    .string({
+      message: "El nombre debe ser un texto válido",
+    })
     .min(2, "El nombre debe tener al menos 2 caracteres")
     .max(50, "El nombre no puede exceder 50 caracteres")
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "El nombre solo puede contener letras y espacios"),
   
   last_name: z
-    .string()
+    .string({
+      message: "El apellido debe ser un texto válido",
+    })
     .min(2, "El apellido debe tener al menos 2 caracteres")
     .max(50, "El apellido no puede exceder 50 caracteres")
     .regex(/^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/, "El apellido solo puede contener letras y espacios"),
   
   phone_number: z
-    .string()
+    .string({
+      message: "El teléfono debe ser un texto válido",
+    })
     .min(1, "El teléfono es obligatorio")
-    .refine(validatePhone, "El teléfono debe ser un número chileno válido (8-9 dígitos o formato WhatsApp: +569 1234 5678)"),
+    .refine((phone) => {
+      // Verificar que no esté vacío
+      if (!phone || phone.trim().length === 0) {
+        return false;
+      }
+      
+      // Verificar que solo contenga números y el signo +
+      if (!/^[\d+]+$/.test(phone)) {
+        return false;
+      }
+      
+      // Verificar que el + solo esté al inicio y solo una vez
+      if (phone.includes("+") && !phone.startsWith("+")) {
+        return false;
+      }
+      if ((phone.match(/\+/g) || []).length > 1) {
+        return false;
+      }
+      
+      // Contar solo los dígitos (excluyendo el +)
+      const digitsOnly = phone.replace(/\+/g, "");
+      
+      // Verificar que tenga mínimo 8 dígitos
+      if (digitsOnly.length < 8) {
+        return false;
+      }
+      
+      // Verificar que tenga máximo 12 caracteres TOTALES (incluyendo el signo +)
+      if (phone.length > 12) {
+        return false;
+      }
+      
+      return true;
+    }, {
+      message: "El teléfono no es válido. Debe tener entre 8 y 12 caracteres y puede incluir el signo + al inicio",
+    }),
   
   address: z
-    .string()
+    .string({
+      message: "La dirección debe ser un texto válido",
+    })
     .min(10, "La dirección debe tener al menos 10 caracteres")
     .max(200, "La dirección no puede exceder 200 caracteres"),
   
+  region: z
+    .preprocess(
+      (val) => {
+        if (val === "" || val === null || val === undefined) return undefined;
+        const num = typeof val === "string" ? parseInt(val, 10) : (typeof val === "number" ? val : undefined);
+        return (typeof num === "number" && !isNaN(num)) ? num : undefined;
+      },
+      z
+        .number({
+          message: "Debes seleccionar una región válida",
+        })
+        .int("La región seleccionada no es válida")
+        .positive("Debes seleccionar una región")
+    ),
+  
+  municipality: z
+    .union([
+      z.number().int().positive(),
+      z.undefined(),
+    ])
+    .refine((val) => val !== undefined, {
+      message: "Debes seleccionar una comuna",
+    })
+    .transform((val) => {
+      if (val === undefined) {
+        throw new z.ZodError([{
+          code: "custom",
+          path: [],
+          message: "Debes seleccionar una comuna",
+        }]);
+      }
+      return val;
+    })
+    .pipe(
+      z.number({
+        message: "Debes seleccionar una comuna válida",
+      })
+      .int("La comuna seleccionada no es válida")
+      .positive("Debes seleccionar una comuna")
+    ),
+  
   birth_date: z
-    .string()
+    .string({
+      message: "La fecha de nacimiento debe ser una fecha válida",
+    })
     .min(1, "La fecha de nacimiento es obligatoria")
     .refine(validateBirthDate, "Debes ser mayor de 18 años"),
   
   gender: z
-    .string()
-    .optional()
-    .or(z.literal("")),
+    .string({
+      message: "Debes seleccionar un género",
+    })
+    .min(1, "El género es obligatorio")
+    .refine(
+      (val) => val !== "" && val !== null && val !== undefined && val.trim() !== "",
+      "Debes seleccionar un género"
+    ),
   
   nationality: z
-    .string()
+    .string({
+      message: "La nacionalidad debe ser un texto válido",
+    })
     .min(1, "La nacionalidad es obligatoria"),
   
   rut: z
-    .string()
+    .string({
+      message: "El RUT debe ser un texto válido",
+    })
     .min(1, "El RUT es obligatorio")
     .refine(validateRUT, "El RUT no es válido. Formato: 12.345.678-9"),
 });
@@ -148,6 +231,8 @@ export const profileFormSchema = z.object({
   last_name: userProfileSchema.shape.last_name,
   phone_number: userProfileSchema.shape.phone_number,
   address: userProfileSchema.shape.address,
+  region: userProfileSchema.shape.region,
+  municipality: userProfileSchema.shape.municipality,
   birth_date: userProfileSchema.shape.birth_date,
   gender: userProfileSchema.shape.gender,
   nationality: userProfileSchema.shape.nationality,
@@ -190,31 +275,28 @@ const formatRUTDigits = (digits: string): string => {
   return `${digits.slice(0, -6)}.${digits.slice(-6, -3)}.${digits.slice(-3)}`;
 };
 
-// Función para formatear teléfono mientras el usuario escribe
+// Función para formatear teléfono mientras el usuario escribe (solo permite números y + al inicio)
 export const formatPhone = (value: string): string => {
   // Limpiar el valor manteniendo solo números y +
   const cleanValue = value.replace(/[^\d+]/g, "");
   
-  if (cleanValue.length === 0) return "";
+  // Verificar si tiene + al inicio
+  const hasPlusAtStart = cleanValue.startsWith("+");
   
-  // Si empieza con +569 (formato WhatsApp)
-  if (cleanValue.startsWith("+569")) {
-    const digits = cleanValue.slice(4); // Quitar +569
-    if (digits.length <= 4) return `+569 ${digits}`;
-    if (digits.length <= 8) return `+569 ${digits.slice(0, 4)} ${digits.slice(4)}`;
-    return `+569 ${digits.slice(0, 4)} ${digits.slice(4, 8)}`;
+  // Remover todos los + y luego agregar solo uno al inicio si estaba presente
+  const digitsOnly = cleanValue.replace(/\+/g, "");
+  
+  // Limitar a máximo 12 caracteres TOTALES (incluyendo el signo +)
+  // Si tiene +, máximo 11 dígitos (total 12 con el +)
+  // Si no tiene +, máximo 12 dígitos
+  let limitedDigits: string;
+  if (hasPlusAtStart) {
+    // Si tiene +, máximo 11 dígitos (porque el + cuenta como 1 carácter)
+    limitedDigits = digitsOnly.slice(0, 11);
+    return `+${limitedDigits}`;
+  } else {
+    // Si no tiene +, máximo 12 dígitos
+    limitedDigits = digitsOnly.slice(0, 12);
+    return limitedDigits;
   }
-  
-  // Si empieza con 569 (formato WhatsApp sin +)
-  if (cleanValue.startsWith("569")) {
-    const digits = cleanValue.slice(3); // Quitar 569
-    if (digits.length <= 4) return `569 ${digits}`;
-    if (digits.length <= 8) return `569 ${digits.slice(0, 4)} ${digits.slice(4)}`;
-    return `569 ${digits.slice(0, 4)} ${digits.slice(4, 8)}`;
-  }
-  
-  // Formato local (8-9 dígitos)
-  if (cleanValue.length <= 4) return cleanValue;
-  if (cleanValue.length <= 8) return `${cleanValue.slice(0, 4)} ${cleanValue.slice(4)}`;
-  return `${cleanValue.slice(0, 4)} ${cleanValue.slice(4, 8)}`;
 };

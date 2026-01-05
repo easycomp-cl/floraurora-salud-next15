@@ -2,10 +2,108 @@
 
 import Image from "next/image";
 import { Check, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
+import { useState, useEffect } from "react";
 import logoImge from "../../../components/Fotos/logo.png";
 import equipoImg from "../../../components/Fotos/psicologos.png";
 
 export default function ProfessionalsPage() {
+  const router = useRouter();
+  const { isAuthenticated, user, isLoading } = useAuthState();
+  const [isPatient, setIsPatient] = useState<boolean | null>(null);
+  const [isCheckingRole, setIsCheckingRole] = useState(false);
+
+  // Verificar si el usuario es paciente
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkUserRole = async () => {
+      if (!isAuthenticated || !user) {
+        setIsPatient(null);
+        return;
+      }
+
+      try {
+        setIsCheckingRole(true);
+        const profile = await profileService.getUserProfileByUuid(user.id);
+        if (!isMounted) return;
+        
+        const role = profile?.role ?? null;
+        setIsPatient(role === 2); // role 2 = paciente
+      } catch (error) {
+        console.error("Error verificando rol del usuario:", error);
+        if (isMounted) {
+          setIsPatient(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingRole(false);
+        }
+      }
+    };
+
+    checkUserRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user]);
+
+  // Mapeo de profesionales hardcodeados a IDs
+  // IMPORTANTE: Dr. Carlos Rodríguez debe usar los datos del profesional "rafa"
+  // Reemplazar el professionalId con el ID real del profesional "rafa" de la base de datos
+  const professionalMapping: { [key: string]: { professionalId: number; areaName: string } } = {
+    "carlos": {
+      professionalId: 1, // TODO: Reemplazar con el ID real del profesional "rafa" de la tabla professionals
+      areaName: "Psicología"
+    },
+    "maria": {
+      professionalId: 2, // ID temporal
+      areaName: "Psicología"
+    },
+    "ana": {
+      professionalId: 3, // ID temporal
+      areaName: "Psicología"
+    }
+  };
+
+  const handleBookWithProfessional = (professionalKey: string) => {
+    if (isLoading || isCheckingRole) {
+      return;
+    }
+
+    const professional = professionalMapping[professionalKey];
+    if (!professional) {
+      return;
+    }
+
+    // Si el usuario está autenticado
+    if (isAuthenticated && user) {
+      // Solo los pacientes pueden agendar citas
+      if (isPatient === true) {
+        const params = new URLSearchParams({
+          area: professional.areaName,
+          professionalId: professional.professionalId.toString()
+        });
+        router.push(`/dashboard/appointments?${params.toString()}`);
+      } else {
+        // Si no es paciente (profesional o admin), redirigir al dashboard
+        router.push("/dashboard");
+      }
+      return;
+    }
+
+    // Si no está autenticado, redirigir al login con redirect
+    const params = new URLSearchParams({
+      area: professional.areaName,
+      professionalId: professional.professionalId.toString()
+    });
+    const redirectUrl = `/dashboard/appointments?${params.toString()}`;
+    router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+  };
+
   return (
     <main className="min-h-screen bg-white">
       {/* Header Section con estilo similar a Nosotros */}
@@ -86,7 +184,10 @@ export default function ProfessionalsPage() {
                     Español e Inglés
                   </div>
                 </div>
-                <button className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg">
+                <button 
+                  onClick={() => handleBookWithProfessional("maria")}
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+                >
                   Agendar con María
                 </button>
               </div>
@@ -123,7 +224,10 @@ export default function ProfessionalsPage() {
                     10+ años de experiencia
                   </div>
                 </div>
-                <button className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg">
+                <button 
+                  onClick={() => handleBookWithProfessional("carlos")}
+                  className="w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+                >
                   Agendar con Carlos
                 </button>
               </div>
@@ -160,7 +264,10 @@ export default function ProfessionalsPage() {
                     Certificada en TCC
                   </div>
                 </div>
-                <button className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg">
+                <button 
+                  onClick={() => handleBookWithProfessional("ana")}
+                  className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+                >
                   Agendar con Ana
                 </button>
               </div>
@@ -181,7 +288,10 @@ export default function ProfessionalsPage() {
               Nuestros profesionales están aquí para ayudarte. Agenda tu primera
               sesión y descubre cómo podemos apoyarte en tu crecimiento personal.
             </p>
-            <button className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg">
+            <button 
+              onClick={() => router.push("/dashboard/appointments")}
+              className="bg-gradient-to-r from-teal-600 to-teal-700 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+            >
               Agendar Primera Sesión
             </button>
           </div>

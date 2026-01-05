@@ -3,12 +3,18 @@
 import { User, Heart, Users, Check, Eye } from "lucide-react";
 import Image from "next/image";
 import React, { useEffect, useRef, useState, useCallback } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
 import logoImge from "../../Fotos/logo.png";
 import serviciosImg from "../../Fotos/servicios.jpg";
 
 export default function Servicios() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated, user, isLoading } = useAuthState();
+  const [isPatient, setIsPatient] = useState<boolean | null>(null);
+  const [isCheckingRole, setIsCheckingRole] = useState(false);
   const [highlightedService, setHighlightedService] = useState<string | null>(
     null
   );
@@ -301,6 +307,96 @@ export default function Servicios() {
     };
   }, [pathname]);
 
+  // Verificar si el usuario es paciente
+  useEffect(() => {
+    let isMounted = true;
+
+    const checkUserRole = async () => {
+      if (!isAuthenticated || !user) {
+        setIsPatient(null);
+        return;
+      }
+
+      try {
+        setIsCheckingRole(true);
+        const profile = await profileService.getUserProfileByUuid(user.id);
+        if (!isMounted) return;
+        
+        const role = profile?.role ?? null;
+        setIsPatient(role === 2); // role 2 = paciente
+      } catch (error) {
+        console.error("Error verificando rol del usuario:", error);
+        if (isMounted) {
+          setIsPatient(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingRole(false);
+        }
+      }
+    };
+
+    checkUserRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user]);
+
+  // Mapeo de servicios a nombres de especialidades en la BD
+  const serviceMapping: { [key: string]: { serviceName: string; areaName: string } } = {
+    "psicoterapia-infanto-juvenil": {
+      serviceName: "Psicoterapia Infanto Juvenil",
+      areaName: "Psicología"
+    },
+    "psicoterapia-adultos": {
+      serviceName: "Psicoterapia Adultos",
+      areaName: "Psicología"
+    },
+    "terapia-pareja": {
+      serviceName: "Terapia de Pareja",
+      areaName: "Psicología"
+    },
+    "evaluacion-psicodiagnostico": {
+      serviceName: "Evaluación y Psicodiagnóstico",
+      areaName: "Psicología"
+    }
+  };
+
+  const handleBookService = (serviceKey: string) => {
+    if (isLoading || isCheckingRole) {
+      return;
+    }
+
+    // Si el usuario está autenticado y es paciente, redirigir con parámetros
+    if (isAuthenticated && user && isPatient === true) {
+      const service = serviceMapping[serviceKey];
+      if (service) {
+        const params = new URLSearchParams({
+          area: service.areaName,
+          service: service.serviceName
+        });
+        router.push(`/dashboard/appointments?${params.toString()}`);
+      } else {
+        router.push("/dashboard/appointments");
+      }
+      return;
+    }
+
+    // Si no está autenticado, redirigir al login con redirect
+    const service = serviceMapping[serviceKey];
+    if (service) {
+      const params = new URLSearchParams({
+        area: service.areaName,
+        service: service.serviceName
+      });
+      const redirectUrl = `/dashboard/appointments?${params.toString()}`;
+      router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+    } else {
+      router.push("/login?redirect=/dashboard/appointments");
+    }
+  };
+
   // Función para obtener las clases de destacado
   const getHighlightClasses = (serviceId: string) => {
     if (highlightedService === serviceId) {
@@ -401,7 +497,10 @@ export default function Servicios() {
                   </li>
                 </ul>
               </div>
-              <button className="mt-auto w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg">
+              <button 
+                onClick={() => handleBookService("psicoterapia-infanto-juvenil")}
+                className="mt-auto w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
                 Agendar Sesión
               </button>
             </div>
@@ -446,7 +545,10 @@ export default function Servicios() {
                   </li>
                 </ul>
               </div>
-              <button className="mt-auto w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white font-semibold py-3 rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg">
+              <button 
+                onClick={() => handleBookService("psicoterapia-adultos")}
+                className="mt-auto w-full bg-gradient-to-r from-teal-600 to-teal-700 text-white font-semibold py-3 rounded-lg hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
                 Agendar Sesión
               </button>
             </div>
@@ -491,7 +593,10 @@ export default function Servicios() {
                   </li>
                 </ul>
               </div>
-              <button className="mt-auto w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg">
+              <button 
+                onClick={() => handleBookService("terapia-pareja")}
+                className="mt-auto w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white font-semibold py-3 rounded-lg hover:from-purple-700 hover:to-purple-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
                 Agendar Sesión
               </button>
             </div>
@@ -533,7 +638,10 @@ export default function Servicios() {
                   </li>
                 </ul>
               </div>
-              <button className="mt-auto w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold py-3 rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-md hover:shadow-lg">
+              <button 
+                onClick={() => handleBookService("evaluacion-psicodiagnostico")}
+                className="mt-auto w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold py-3 rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
                 Agendar Sesión
               </button>
             </div>

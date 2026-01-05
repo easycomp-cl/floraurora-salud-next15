@@ -207,6 +207,227 @@ export const appointmentService = {
     }
   },
 
+  // Obtener profesionales que ofrecen un servicio específico (por nombre de especialidad)
+  async getProfessionalsByService(serviceName: string, areaFilter?: number): Promise<Professional[]> {
+    try {
+      // Primero obtener el ID del área si se proporciona
+      const areaId: number | undefined = areaFilter;
+      
+      // Buscar profesionales que tengan la especialidad con el nombre especificado
+      const { data: professionalSpecialties, error: psError } = await supabase
+        .from('professional_specialties')
+        .select(`
+          professional_id,
+          specialties!inner(
+            id,
+            name,
+            title_id
+          )
+        `)
+        .ilike('specialties.name', `%${serviceName}%`)
+        .eq('specialties.is_active', true);
+
+      if (psError) {
+        console.error('Error fetching professionals by service:', psError);
+        throw psError;
+      }
+
+      if (!professionalSpecialties || professionalSpecialties.length === 0) {
+        return [];
+      }
+
+      // Obtener IDs únicos de profesionales
+      const professionalIds = Array.from(
+        new Set(
+          (professionalSpecialties as Array<{ 
+            professional_id?: unknown; 
+            specialties?: { id?: unknown; name?: unknown; title_id?: unknown } | { id?: unknown; name?: unknown; title_id?: unknown }[] | null 
+          }>)
+            .map((ps) => {
+              // Si hay filtro de área, verificar que la especialidad pertenezca a esa área
+              if (areaId && ps.specialties) {
+                // specialties puede ser un objeto único o un array
+                const specialty = Array.isArray(ps.specialties) ? ps.specialties[0] : ps.specialties;
+                if (specialty && Number(specialty.title_id) !== areaId) {
+                  return null;
+                }
+              }
+              return ps.professional_id ? Number(ps.professional_id) : null;
+            })
+            .filter((id): id is number => id !== null)
+        )
+      );
+
+      if (professionalIds.length === 0) {
+        return [];
+      }
+
+      // Obtener los profesionales completos
+      const query = supabase
+        .from('professionals')
+        .select(`
+          id,
+          profile_description,
+          professional_titles!inner(
+            id,
+            title_name
+          ),
+          users!inner(
+            name,
+            last_name,
+            email,
+            phone_number,
+            avatar_url,
+            gender
+          )
+        `)
+        .in('id', professionalIds)
+        .eq('is_active', true)
+        .eq('users.is_active', true);
+
+      // Si hay filtro de área, aplicarlo también aquí
+      if (areaId) {
+        query.eq('title_id', areaId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Obtener las especialidades para cada profesional (igual que en getProfessionals)
+      const professionalsWithSpecialties = await Promise.all(
+        (data || []).map(async (prof: { id: unknown; profile_description: unknown; professional_titles: unknown; users: unknown }) => {
+          const { data: specialtiesData, error: specialtiesError } = await supabase
+            .from('professional_specialties')
+            .select(`
+              specialties(
+                name
+              )
+            `)
+            .eq('professional_id', Number(prof.id));
+
+          if (specialtiesError) {
+            console.warn(`Error fetching specialties for professional ${Number(prof.id)}:`, specialtiesError);
+          }
+
+          const specialties = specialtiesData?.map((ps: { specialties: unknown }) => {
+            const specialty = ps.specialties as { name?: unknown } | null;
+            return specialty?.name ? String(specialty.name) : null;
+          }).filter((name): name is string => Boolean(name)) || [];
+
+          const users = prof.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown; avatar_url?: unknown; gender?: unknown };
+          const professionalTitles = prof.professional_titles as { title_name?: unknown; id?: unknown };
+          const profData = prof as { resume_url?: unknown; is_active?: unknown; created_at?: unknown };
+
+          return {
+            id: Number(prof.id),
+            user_id: String(prof.id),
+            name: String(users?.name || ''),
+            last_name: String(users?.last_name || ''),
+            email: String(users?.email || ''),
+            phone_number: String(users?.phone_number || ''),
+            title_name: String(professionalTitles?.title_name || ''),
+            title_id: Number(professionalTitles?.id || 0),
+            profile_description: String(prof.profile_description || ''),
+            resume_url: String(profData?.resume_url || ''),
+            avatar_url: users?.avatar_url ? String(users.avatar_url) : undefined,
+            gender: users?.gender ? String(users.gender) : undefined,
+            specialties: specialties,
+            is_active: Boolean(profData?.is_active),
+            created_at: String(profData?.created_at || new Date().toISOString())
+          };
+        })
+      );
+      
+      return professionalsWithSpecialties.sort((a, b) => `${a.name} ${a.last_name}`.localeCompare(`${b.name} ${b.last_name}`));
+    } catch (error) {
+      console.error('Error fetching professionals by service:', error);
+      throw error;
+    }
+  },
+
+  // Obtener un profesional específico por ID
+  async getProfessionalById(professionalId: number): Promise<Professional | null> {
+    try {
+      const { data, error } = await supabase
+        .from('professionals')
+        .select(`
+          id,
+          profile_description,
+          professional_titles!inner(
+            id,
+            title_name
+          ),
+          users!inner(
+            name,
+            last_name,
+            email,
+            phone_number,
+            avatar_url,
+            gender
+          )
+        `)
+        .eq('id', professionalId)
+        .eq('is_active', true)
+        .eq('users.is_active', true)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') {
+          return null; // No encontrado
+        }
+        throw error;
+      }
+
+      if (!data) {
+        return null;
+      }
+
+      // Obtener especialidades del profesional
+      const { data: specialtiesData, error: specialtiesError } = await supabase
+        .from('professional_specialties')
+        .select(`
+          specialties(
+            name
+          )
+        `)
+        .eq('professional_id', professionalId);
+
+      if (specialtiesError) {
+        console.warn(`Error fetching specialties for professional ${professionalId}:`, specialtiesError);
+      }
+
+      const specialties = specialtiesData?.map((ps: { specialties: unknown }) => {
+        const specialty = ps.specialties as { name?: unknown } | null;
+        return specialty?.name ? String(specialty.name) : null;
+      }).filter((name): name is string => Boolean(name)) || [];
+
+      const users = data.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown; avatar_url?: unknown; gender?: unknown };
+      const professionalTitles = data.professional_titles as { title_name?: unknown; id?: unknown };
+      const profData = data as { resume_url?: unknown; is_active?: unknown; created_at?: unknown };
+
+      return {
+        id: Number(data.id),
+        user_id: String(data.id),
+        name: String(users?.name || ''),
+        last_name: String(users?.last_name || ''),
+        email: String(users?.email || ''),
+        phone_number: String(users?.phone_number || ''),
+        title_name: String(professionalTitles?.title_name || ''),
+        title_id: Number(professionalTitles?.id || 0),
+        profile_description: String(data.profile_description || ''),
+        resume_url: String(profData?.resume_url || ''),
+        avatar_url: users?.avatar_url ? String(users.avatar_url) : undefined,
+        gender: users?.gender ? String(users.gender) : undefined,
+        specialties: specialties,
+        is_active: Boolean(profData?.is_active),
+        created_at: String(profData?.created_at || new Date().toISOString())
+      };
+    } catch (error) {
+      console.error('Error fetching professional by id:', error);
+      throw error;
+    }
+  },
+
   // Obtener todos los profesionales activos con sus especialidades y títulos
   async getProfessionals(areaFilter?: number): Promise<Professional[]> {
     try {
@@ -223,7 +444,9 @@ export const appointmentService = {
             name,
             last_name,
             email,
-            phone_number
+            phone_number,
+            avatar_url,
+            gender
           )
         `)
         .eq('title_id', areaFilter || 0)
@@ -255,7 +478,7 @@ export const appointmentService = {
             return specialty?.name ? String(specialty.name) : null;
           }).filter((name): name is string => Boolean(name)) || [];
 
-          const users = prof.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown };
+          const users = prof.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown; avatar_url?: unknown; gender?: unknown };
           const professionalTitles = prof.professional_titles as { title_name?: unknown; id?: unknown };
           const profData = prof as { resume_url?: unknown; is_active?: unknown; created_at?: unknown };
 
@@ -270,6 +493,8 @@ export const appointmentService = {
             title_id: Number(professionalTitles?.id || 0),
             profile_description: String(prof.profile_description || ''),
             resume_url: String(profData?.resume_url || ''),
+            avatar_url: users?.avatar_url ? String(users.avatar_url) : undefined,
+            gender: users?.gender ? String(users.gender) : undefined,
             specialties: specialties,
             is_active: Boolean(profData?.is_active),
             created_at: String(profData?.created_at || new Date().toISOString())

@@ -24,6 +24,8 @@ export interface User {
   password?: string;
   created_at: string;
   address?: string;
+  region?: number;
+  municipality?: number;
   user_id: string; // UUID de Supabase Auth
   avatar_url?: string;
 }
@@ -334,6 +336,14 @@ export const profileService = {
     // Verificar campos básicos requeridos de la tabla users
     if (!user.name || !user.last_name || !user.email) return false;
 
+    // Verificar campos de dirección requeridos (región y comuna)
+    // Estos campos son obligatorios para pacientes y profesionales
+    if (user.role === 2 || user.role === 3) {
+      if (!user.region || !user.municipality) {
+        return false;
+      }
+    }
+
     // Verificar el rol (1=admin, 2=patient, 3=professional)
     switch (user.role) {
       case 1: // admin
@@ -343,8 +353,8 @@ export const profileService = {
         const patientProfile = await this.getPatientProfile(user.id);
         return !!patientProfile && 
                !!patientProfile.emergency_contact_name &&
-               !!patientProfile.emergency_contact_phone &&
-               !!patientProfile.health_insurances_id;
+               !!patientProfile.emergency_contact_phone;
+               // health_insurances_id se ignora por ahora
       case 3: // professional
         const professionalProfile = await this.getProfessionalProfile(user.id);
         return !!professionalProfile && 
@@ -388,6 +398,17 @@ export const profileService = {
     const user = await this.getUserProfileByUuid(userId);
     if (!user) throw new Error('User not found');
 
+    // Verificar que haya datos para actualizar
+    if (!profileData || Object.keys(profileData).length === 0) {
+      // No hay cambios, devolver el perfil actual
+      const { data: currentData } = await supabaseTyped
+        .from('patients')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      return currentData;
+    }
+
     const { data, error } = await supabaseTyped
       .from('patients')
       .update(profileData)
@@ -396,7 +417,23 @@ export const profileService = {
       .single();
     
     if (error) {
+      // Verificar si el error tiene información útil
+      const hasErrorInfo = error.code || error.message || error.details || error.hint;
+      
+      // Si el error está vacío o no tiene información útil, puede ser que no haya cambios
+      // En ese caso, devolver el perfil actual sin lanzar error
+      if (!hasErrorInfo) {
+        const { data: currentData } = await supabaseTyped
+          .from('patients')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        return currentData;
+      }
+      
+      // Solo loguear si el error tiene información útil
       console.error('Error updating patient profile:', error);
+      
       throw error;
     }
     
@@ -408,6 +445,21 @@ export const profileService = {
     // Primero obtener el usuario para conseguir su id
     const user = await this.getUserProfileByUuid(userId);
     if (!user) throw new Error('User not found');
+
+    // Verificar que haya datos para actualizar
+    if (!profileData || Object.keys(profileData).length === 0) {
+      // No hay cambios, devolver el perfil actual
+      const { data: currentData } = await supabaseTyped
+        .from('professionals')
+        .select(`
+          *,
+          title:professional_titles(*),
+          approach:therapeutic_approaches(*)
+        `)
+        .eq('id', user.id)
+        .single();
+      return currentData;
+    }
 
     const { data, error } = await supabaseTyped
       .from('professionals')
@@ -421,7 +473,27 @@ export const profileService = {
       .single();
     
     if (error) {
+      // Verificar si el error tiene información útil
+      const hasErrorInfo = error.code || error.message || error.details || error.hint;
+      
+      // Si el error está vacío o no tiene información útil, puede ser que no haya cambios
+      // En ese caso, devolver el perfil actual sin lanzar error
+      if (!hasErrorInfo) {
+        const { data: currentData } = await supabaseTyped
+          .from('professionals')
+          .select(`
+            *,
+            title:professional_titles(*),
+            approach:therapeutic_approaches(*)
+          `)
+          .eq('id', user.id)
+          .single();
+        return currentData;
+      }
+      
+      // Solo loguear si el error tiene información útil
       console.error('Error updating professional profile:', error);
+      
       throw error;
     }
     
@@ -442,25 +514,107 @@ export const profileService = {
       throw new Error("No tienes permisos para actualizar este perfil");
     }
     
-    // Realizar la actualización directamente sin verificar existencia previa
+    // Verificar que haya datos para actualizar
+    if (!profileData || Object.keys(profileData).length === 0) {
+      // No hay cambios, devolver el perfil actual
+      const { data: currentData } = await supabaseTyped
+        .from('users')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+      return currentData;
+    }
+    
+    // Obtener los datos actuales para comparar
+    const { data: currentUser, error: fetchError } = await supabaseTyped
+      .from('users')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+    
+    if (fetchError) {
+      console.error('Error obteniendo usuario actual:', fetchError);
+      throw new Error('Error al obtener el perfil del usuario');
+    }
+    
+    if (!currentUser) {
+      throw new Error('Usuario no encontrado');
+    }
+    
+    // Verificar si hay cambios reales comparando los valores
+    const hasChanges = Object.keys(profileData).some(key => {
+      const newValue = profileData[key as keyof typeof profileData];
+      const currentValue = currentUser[key as keyof typeof currentUser];
+      return newValue !== currentValue;
+    });
+    
+    // Si no hay cambios reales, devolver los datos actuales sin hacer update
+    if (!hasChanges) {
+      console.log('No hay cambios reales en los datos, devolviendo datos actuales');
+      return currentUser;
+    }
+    
+    // Realizar la actualización solo si hay cambios reales
+    // Usar .maybeSingle() para evitar error 406 cuando no hay filas afectadas
     const { data, error } = await supabaseTyped
       .from('users')
       .update(profileData)
       .eq('user_id', userId)
       .select()
-      .single();
+      .maybeSingle();
     
     if (error) {
-      console.error('Error updating user profile:', error);
+      // Manejar específicamente el error PGRST116 (0 rows) - puede ocurrir cuando:
+      // 1. La actualización no afectó ninguna fila (valores iguales)
+      // 2. No existe el usuario con ese user_id
+      if (error.code === 'PGRST116' && error.details?.includes('0 rows')) {
+        // Si llegamos aquí, devolver los datos actuales que ya obtuvimos
+        console.log('Actualización no afectó filas, devolviendo datos actuales');
+        return currentUser;
+      }
+      
+      // Verificar si el error tiene información útil
+      const hasErrorInfo = error.code || error.message || error.details || error.hint;
+      
+      // Si el error está vacío o no tiene información útil, puede ser que no haya cambios
+      // En ese caso, devolver el perfil actual sin lanzar error
+      if (!hasErrorInfo) {
+        const { data: currentData } = await supabaseTyped
+          .from('users')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        return currentData;
+      }
+      
+      // Serializar el error de forma más completa para debugging
+      const errorInfo = {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        // Intentar serializar el objeto completo
+        fullError: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      };
+      
+      console.error('Error updating user profile:', errorInfo);
+      console.error('Error object:', error);
       
       // Detectar error de RUT duplicado
-      if (error.code === '23505' && (error.message.includes('Users_rut_key') || error.message.includes('rut'))) {
+      if (error.code === '23505' && (error.message?.includes('Users_rut_key') || error.message?.includes('rut'))) {
         const customError = new Error('Este RUT ya está registrado') as Error & { code?: string };
         customError.code = 'RUT_DUPLICATE';
         throw customError;
       }
       
       throw error;
+    }
+    
+    // Si data es null, significa que la actualización no afectó ninguna fila
+    // Devolver los datos actuales que ya obtuvimos
+    if (!data) {
+      console.log('Actualización completada pero no se devolvieron datos, usando datos actuales');
+      return currentUser;
     }
     
     return data;

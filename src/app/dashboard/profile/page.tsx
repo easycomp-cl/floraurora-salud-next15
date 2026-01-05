@@ -21,8 +21,9 @@ import { getFullUserProfileData } from "@/lib/userdata/profile-data";
 //Datos de perfil completo
 
 // Importamos las interfaces necesarias de profile-data.ts y services/profileService.ts
-import { UserProfileData } from "@/lib/userdata/profile-data";
+import { UserProfileData, DetailedUserDataMappped } from "@/lib/userdata/profile-data";
 import { countries, genderOptions } from "@/lib/data/countries";
+import { supabaseTyped } from "@/utils/supabase/client";
 
 // Importar validaciones con Zod
 import {
@@ -39,6 +40,8 @@ type FormDataState = Partial<{
   email: string;
   phone_number: string;
   address: string;
+  region: number;
+  municipality: number;
   birth_date: string;
   gender: string;
   nationality: string;
@@ -46,6 +49,17 @@ type FormDataState = Partial<{
   patientProfile: Partial<PatientProfile>;
   professionalProfile: Partial<ProfessionalProfile>;
 }>;
+
+type Region = {
+  id: number;
+  name: string;
+};
+
+type Municipality = {
+  id: number;
+  name: string;
+  region_id: number;
+};
 
 // Función para traducir el rol al español
 const translateRole = (role: string): string => {
@@ -79,6 +93,10 @@ export default function UserProfilePage() {
   const [therapeuticApproaches, setTherapeuticApproaches] = useState<
     TherapeuticApproach[]
   >([]);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
+  const [isLoadingMunicipalities, setIsLoadingMunicipalities] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,14 +118,19 @@ export default function UserProfilePage() {
           error: null, // Clear any previous errors on successful fetch
         }));
         // Initialize formData with current profile data for editing
+        const userRegion = (data.user as DetailedUserDataMappped & { region?: number })?.region;
+        const userMunicipality = (data.user as DetailedUserDataMappped & { municipality?: number })?.municipality;
+        
         setFormData(() => ({
           name: data.user?.name || "",
           last_name: data.user?.last_name || "",
           email: data.user?.email || "",
           phone_number: data.user?.phone_number || "",
           address: data.user?.address || "",
+          region: userRegion || undefined,
+          municipality: userMunicipality || undefined,
           birth_date: data.user?.birth_date || "",
-          gender: data.user?.gender || "",
+          gender: data.user?.gender || "No especificar",
           nationality: data.user?.nationality || "",
           rut: data.user?.rut || "",
           patientProfile:
@@ -135,6 +158,11 @@ export default function UserProfilePage() {
               : undefined,
         }));
 
+        // Cargar comunas si el usuario tiene una región
+        if (userRegion) {
+          fetchMunicipalities(userRegion);
+        }
+
         // Cargar títulos profesionales si es un profesional
         if (data.user?.role === "professional") {
           const titles = await profileService.getProfessionalTitles();
@@ -160,6 +188,11 @@ export default function UserProfilePage() {
             }
           }
         }
+        
+        // Cargar comunas si el usuario tiene una región
+        if (userRegion) {
+          fetchMunicipalities(userRegion);
+        }
       } else {
         setProfileData((prev: UserProfileData) => ({
           ...prev,
@@ -179,8 +212,81 @@ export default function UserProfilePage() {
     }
   };
 
+  // Función para cargar las regiones
+  const fetchRegions = async () => {
+    try {
+      setIsLoadingRegions(true);
+      const { data, error } = await supabaseTyped
+        .from("regions")
+        .select("id, name")
+        .order("name");
+      
+      if (error) {
+        console.error("Error fetching regions:", error);
+        setRegions([]);
+        return;
+      }
+      
+      setRegions((data || []) as Region[]);
+    } catch (error) {
+      console.error("Error loading regions:", error);
+      setRegions([]);
+    } finally {
+      setIsLoadingRegions(false);
+    }
+  };
+
+  // Función para cargar las comunas según la región seleccionada
+  const fetchMunicipalities = async (regionId: number | undefined) => {
+    if (!regionId) {
+      setMunicipalities([]);
+      return;
+    }
+
+    try {
+      setIsLoadingMunicipalities(true);
+      const { data, error } = await supabaseTyped
+        .from("municipalities")
+        .select("id, name, region_id")
+        .eq("region_id", regionId)
+        .order("name");
+      
+      if (error) {
+        console.error("Error fetching municipalities:", error);
+        setMunicipalities([]);
+        return;
+      }
+      
+      setMunicipalities((data || []) as Municipality[]);
+    } catch (error) {
+      console.error("Error loading municipalities:", error);
+      setMunicipalities([]);
+    } finally {
+      setIsLoadingMunicipalities(false);
+    }
+  };
+
+  // Cargar comunas cuando cambie la región seleccionada
+  useEffect(() => {
+    if (formData.region) {
+      fetchMunicipalities(formData.region);
+      // Si cambia la región, limpiar la comuna seleccionada
+      setFormData((prev) => {
+        if (prev.municipality) {
+          return { ...prev, municipality: undefined };
+        }
+        return prev;
+      });
+    } else {
+      setMunicipalities([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.region]);
+
   useEffect(() => {
     fetchUserProfile();
+    fetchRegions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // El array vacío asegura que se ejecute solo una vez al montar el componente
 
   if (profileData.loading) {
@@ -375,13 +481,26 @@ export default function UserProfilePage() {
     setSpecialtyError("");
 
     // Preparar datos para validación
-    const validationData: ProfileFormData = {
+    // Asegurar que region sea un número válido (el esquema lo requiere)
+    const regionValue = formData.region && typeof formData.region === "number" && formData.region > 0
+      ? formData.region
+      : undefined;
+    // Asegurar que municipality sea un número válido
+    const municipalityValue = formData.municipality && typeof formData.municipality === "number" && formData.municipality > 0
+      ? formData.municipality
+      : undefined;
+    
+    // El esquema tiene preprocess que maneja undefined, pero TypeScript requiere number
+    // Pasamos undefined si no hay valor válido, y el esquema validará y mostrará error apropiado
+    const validationData = {
       name: formData.name || "",
       last_name: formData.last_name || "",
       phone_number: formData.phone_number || "",
       address: formData.address || "",
+      region: regionValue,
+      municipality: municipalityValue,
       birth_date: formData.birth_date || "",
-      gender: formData.gender || "",
+      gender: formData.gender || "No especificar",
       nationality: formData.nationality || "",
       rut: formData.rut || "",
       patientProfile:
@@ -422,7 +541,32 @@ export default function UserProfilePage() {
         const errors: Record<string, string> = {};
         error.issues.forEach((err) => {
           const fieldName = err.path.map(String).join(".");
-          errors[fieldName] = err.message;
+          // Mejorar mensajes de error genéricos
+          let message = err.message;
+          
+          // Traducir mensajes genéricos de Zod a mensajes más profesionales
+          if (message === "Invalid input" || message.toLowerCase().includes("invalid")) {
+            // Mensajes más específicos según el campo
+            const fieldMessages: Record<string, string> = {
+              region: "Debes seleccionar una región válida",
+              municipality: "Debes seleccionar una comuna válida",
+              birth_date: "Debes ingresar una fecha de nacimiento válida",
+              name: "El nombre no es válido",
+              last_name: "El apellido no es válido",
+              phone_number: "El teléfono no es válido",
+              address: "La dirección no es válida",
+              rut: "El RUT no es válido",
+              nationality: "La nacionalidad no es válida",
+              "professionalProfile.title_id": "Debes seleccionar una profesión válida",
+              "professionalProfile.profile_description": "La descripción del perfil no es válida",
+              "patientProfile.emergency_contact_name": "El nombre del contacto de emergencia no es válido",
+              "patientProfile.emergency_contact_phone": "El teléfono de contacto de emergencia no es válido",
+            };
+            
+            message = fieldMessages[fieldName] || `El campo ${fieldName} contiene un valor inválido`;
+          }
+          
+          errors[fieldName] = message;
         });
         setFormErrors(errors);
         return;
@@ -451,6 +595,12 @@ export default function UserProfilePage() {
       if (formData.address && formData.address !== profileData.user.address) {
         userUpdateData.address = formData.address;
       }
+      if (formData.region !== undefined && formData.region !== (profileData.user as DetailedUserDataMappped & { region?: number })?.region) {
+        userUpdateData.region = formData.region;
+      }
+      if (formData.municipality !== undefined && formData.municipality !== (profileData.user as DetailedUserDataMappped & { municipality?: number })?.municipality) {
+        userUpdateData.municipality = formData.municipality;
+      }
       if (
         formData.birth_date &&
         formData.birth_date !== profileData.user.birth_date
@@ -458,7 +608,7 @@ export default function UserProfilePage() {
         userUpdateData.birth_date = formData.birth_date;
       }
       if (formData.gender !== undefined && formData.gender !== profileData.user.gender) {
-        userUpdateData.gender = formData.gender || undefined;
+        userUpdateData.gender = formData.gender || "No especificar";
       }
       if (
         formData.nationality &&
@@ -478,66 +628,157 @@ export default function UserProfilePage() {
       }
 
       if (profileData.user.role === "patient") {
-        const patientUpdateData: Partial<PatientProfile> = {
-          emergency_contact_name:
-            formData.patientProfile?.emergency_contact_name || "",
-          emergency_contact_phone:
-            formData.patientProfile?.emergency_contact_phone || "",
-        };
+        const patientUpdateData: Partial<PatientProfile> = {};
+        
+        // Solo agregar campos que han cambiado
+        if (formData.patientProfile?.emergency_contact_name !== undefined) {
+          patientUpdateData.emergency_contact_name = formData.patientProfile.emergency_contact_name || "";
+        }
+        if (formData.patientProfile?.emergency_contact_phone !== undefined) {
+          patientUpdateData.emergency_contact_phone = formData.patientProfile.emergency_contact_phone || "";
+        }
         
         // Verificar si existe el perfil de paciente
         if (profileData.profile) {
-          // Actualizar perfil existente
-          await profileService.updatePatientProfile(
-            profileData.user.user_id,
-            patientUpdateData
-          );
+          // Solo actualizar si hay cambios
+          if (Object.keys(patientUpdateData).length > 0) {
+            await profileService.updatePatientProfile(
+              profileData.user.user_id,
+              patientUpdateData
+            );
+          }
         } else {
-          // Crear nuevo perfil de paciente
-          await profileService.createPatientProfile(
-            profileData.user.user_id,
-            {
-              emergency_contact_name: patientUpdateData.emergency_contact_name || "",
-              emergency_contact_phone: patientUpdateData.emergency_contact_phone || "",
-              health_insurances_id: 0, // Valor por defecto
-            }
-          );
+          // Crear nuevo perfil de paciente solo si hay datos
+          if (Object.keys(patientUpdateData).length > 0 || 
+              formData.patientProfile?.emergency_contact_name || 
+              formData.patientProfile?.emergency_contact_phone) {
+            await profileService.createPatientProfile(
+              profileData.user.user_id,
+              {
+                emergency_contact_name: formData.patientProfile?.emergency_contact_name || "",
+                emergency_contact_phone: formData.patientProfile?.emergency_contact_phone || "",
+                health_insurances_id: 0, // Valor por defecto
+              }
+            );
+          }
         }
       } else if (
         profileData.user.role === "professional" &&
         formData.professionalProfile
       ) {
-        const professionalUpdateData: Partial<ProfessionalProfile> = {
-          title_id: formData.professionalProfile.title_id,
-          approach_id: formData.professionalProfile.approach_id || null,
-          profile_description: formData.professionalProfile.profile_description,
-        };
-        await profileService.updateProfessionalProfile(
-          profileData.user.user_id,
-          professionalUpdateData
-        );
+        const professionalUpdateData: Partial<ProfessionalProfile> = {};
+        const currentProfile = profileData.profile as ProfessionalProfile | undefined;
+        
+        // Solo agregar campos que han cambiado
+        if (formData.professionalProfile.title_id !== undefined && 
+            formData.professionalProfile.title_id !== currentProfile?.title_id) {
+          professionalUpdateData.title_id = formData.professionalProfile.title_id;
+        }
+        if (formData.professionalProfile.approach_id !== undefined && 
+            formData.professionalProfile.approach_id !== currentProfile?.approach_id) {
+          professionalUpdateData.approach_id = formData.professionalProfile.approach_id || null;
+        }
+        if (formData.professionalProfile.profile_description !== undefined && 
+            formData.professionalProfile.profile_description !== currentProfile?.profile_description) {
+          professionalUpdateData.profile_description = formData.professionalProfile.profile_description;
+        }
+        
+        // Solo actualizar si hay cambios
+        if (Object.keys(professionalUpdateData).length > 0) {
+          await profileService.updateProfessionalProfile(
+            profileData.user.user_id,
+            professionalUpdateData
+          );
+        }
 
-        // Actualizar especialidades si hay un perfil profesional
+        // Actualizar especialidades si hay un perfil profesional y las especialidades han cambiado
         if (
           profileData.profile &&
           (profileData.profile as ProfessionalProfile).id
         ) {
-          const professionalId = (profileData.profile as ProfessionalProfile)
-            .id;
-          await profileService.updateProfessionalSpecialties(
-            professionalId,
-            selectedSpecialties
-          );
+          const professionalId = (profileData.profile as ProfessionalProfile).id;
+          // Solo actualizar si las especialidades han cambiado
+          const currentSpecialties = (profileData.profile as ProfessionalProfile).specialties?.map(s => s.id) || [];
+          const specialtiesChanged = JSON.stringify(currentSpecialties.sort()) !== JSON.stringify(selectedSpecialties.sort());
+          
+          if (specialtiesChanged) {
+            await profileService.updateProfessionalSpecialties(
+              professionalId,
+              selectedSpecialties
+            );
+          }
         }
       }
       setIsEditing(false);
       // Recargar los datos del perfil para asegurar que estén actualizados
       await fetchUserProfile(); // Volvemos a cargar los datos después de guardar
     } catch (error: unknown) {
-      console.error("Error al guardar el perfil:", error);
+      // Función auxiliar para extraer información del error
+      const getErrorInfo = (err: unknown) => {
+        if (err instanceof Error) {
+          return {
+            name: err.name,
+            message: err.message,
+            stack: err.stack,
+            // Intentar obtener propiedades adicionales
+            ...(err as unknown as Record<string, unknown>),
+          };
+        }
+        if (typeof err === 'object' && err !== null) {
+          // Intentar serializar todas las propiedades
+          const errorObj = err as Record<string, unknown>;
+          return {
+            ...errorObj,
+            // Intentar serializar propiedades no enumerables
+            serialized: JSON.stringify(err, Object.getOwnPropertyNames(err)),
+          };
+        }
+        return { raw: String(err) };
+      };
+
+      const errorInfo = getErrorInfo(error);
+      const errorObj = error as { code?: string; message?: string; details?: string; hint?: string };
+      const hasErrorInfo = errorObj?.code || errorObj?.message || errorObj?.details || errorObj?.hint || (errorInfo && 'message' in errorInfo ? errorInfo.message : undefined);
+      
+      // Manejar específicamente el error PGRST116 (0 rows) - actualización no afectó filas
+      // También manejar errores relacionados con 406 (Not Acceptable) que pueden ocurrir
+      // cuando la actualización no afecta filas y se usa .single()
+      if (errorObj?.code === 'PGRST116' && errorObj?.details?.includes('0 rows')) {
+        console.log("Actualización no afectó filas (valores probablemente iguales), recargando perfil");
+        setIsEditing(false);
+        await fetchUserProfile();
+        return;
+      }
+      
+      // Manejar errores relacionados con actualizaciones que no afectan filas
+      // (pueden aparecer como diferentes códigos de error dependiendo de la versión de Supabase)
+      if (errorObj?.message?.includes('0 rows') || errorObj?.details?.includes('0 rows')) {
+        console.log("No se detectaron cambios en la actualización, recargando perfil");
+        setIsEditing(false);
+        await fetchUserProfile();
+        return;
+      }
+      
+      // Log detallado del error para debugging
+      console.error("Error al guardar el perfil:", {
+        errorInfo,
+        errorObj,
+        hasErrorInfo,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
+      });
+      
+      // Si el error está vacío o no tiene información útil, puede ser que no haya cambios
+      // En ese caso, simplemente cerrar el modo de edición sin mostrar error
+      if (!hasErrorInfo) {
+        console.warn("Error sin información útil, asumiendo que no hay cambios");
+        setIsEditing(false);
+        await fetchUserProfile();
+        return;
+      }
       
       // Detectar error de RUT duplicado
-      const errorObj = error as { code?: string; message?: string };
       if (errorObj?.code === 'RUT_DUPLICATE' || 
           (errorObj?.code === '23505' && (errorObj?.message?.includes('Users_rut_key') || errorObj?.message?.includes('rut')))) {
         setFormErrors((prev) => ({
@@ -558,7 +799,7 @@ export default function UserProfilePage() {
       
       setProfileData((prev) => ({
         ...prev,
-        error: "Error al guardar los cambios.",
+        error: ('message' in errorInfo ? errorInfo.message : undefined) || errorObj?.message || "Error al guardar los cambios.",
       }));
     }
   };
@@ -761,7 +1002,7 @@ export default function UserProfilePage() {
                       type="text"
                       value={formData.address || ""}
                       onChange={handleInputChange}
-                      placeholder="Calle 123, Comuna, Región"
+                      placeholder="Calle 123, Comuna"
                       className={formErrors.address ? "border-red-500" : ""}
                     />
                     {formErrors.address && (
@@ -773,6 +1014,123 @@ export default function UserProfilePage() {
                 ) : (
                   <p className="text-gray-900 font-medium py-2">
                     {profileData.user.address || "No especificado"}
+                  </p>
+                )}
+              </div>
+              <div className="md:col-span-1">
+                <Label htmlFor="region" className="text-sm font-medium text-gray-700 mb-1.5 block">Región *</Label>
+                {isEditing ? (
+                  <div>
+                    {isLoadingRegions ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                        Cargando regiones...
+                      </div>
+                    ) : regions.length === 0 ? (
+                      <div className="w-full px-3 py-2 border border-red-300 rounded-md bg-red-50 text-red-600 text-sm">
+                        No se pudieron cargar las regiones. Por favor, recarga la página.
+                      </div>
+                    ) : (
+                      <select
+                        id="region"
+                        name="region"
+                        value={formData.region || ""}
+                        onChange={(e) => {
+                          const value = e.target.value ? parseInt(e.target.value, 10) : undefined;
+                          setFormData((prev) => ({ ...prev, region: value }));
+                          // Limpiar error al cambiar
+                          if (formErrors.region) {
+                            setFormErrors((prev) => {
+                              const newErrors = { ...prev };
+                              delete newErrors.region;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.region ? "border-red-500" : ""
+                        }`}
+                      >
+                        <option value="">Selecciona una región</option>
+                        {regions.map((region) => (
+                          <option key={region.id} value={region.id}>
+                            {region.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {formErrors.region && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {formErrors.region}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-900 font-medium py-2">
+                    {regions.find((r) => r.id === (profileData.user as DetailedUserDataMappped & { region?: number })?.region)?.name || "No especificado"}
+                  </p>
+                )}
+              </div>
+              <div className="md:col-span-1">
+                <Label htmlFor="municipality" className="text-sm font-medium text-gray-700 mb-1.5 block">Comuna *</Label>
+                {isEditing ? (
+                  <div>
+                    {!formData.region ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                        Primero selecciona una región
+                      </div>
+                    ) : isLoadingMunicipalities ? (
+                      <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                        Cargando comunas...
+                      </div>
+                    ) : municipalities.length === 0 ? (
+                      <div className="w-full px-3 py-2 border border-yellow-300 rounded-md bg-yellow-50 text-yellow-600 text-sm">
+                        No se encontraron comunas para esta región
+                      </div>
+                    ) : (
+                      <select
+                        id="municipality"
+                        name="municipality"
+                        value={formData.municipality ? String(formData.municipality) : ""}
+                        onChange={(e) => {
+                          const selectedValue = e.target.value;
+                          const value = selectedValue && selectedValue !== "" ? parseInt(selectedValue, 10) : undefined;
+                          setFormData((prev) => ({ ...prev, municipality: value }));
+                          // Limpiar error al cambiar
+                          if (formErrors.municipality) {
+                            setFormErrors((prev) => {
+                              const newErrors = { ...prev };
+                              delete newErrors.municipality;
+                              return newErrors;
+                            });
+                          }
+                        }}
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                          formErrors.municipality ? "border-red-500" : ""
+                        }`}
+                      >
+                        <option value="">Selecciona una comuna</option>
+                        {municipalities.map((municipality) => (
+                          <option key={municipality.id} value={municipality.id}>
+                            {municipality.name}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {formErrors.municipality && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {formErrors.municipality}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-900 font-medium py-2">
+                    {(() => {
+                      const userMunicipalityId = (profileData.user as DetailedUserDataMappped & { municipality?: number })?.municipality;
+                      if (!userMunicipalityId) return "No especificado";
+                      const municipality = municipalities.find((m) => m.id === userMunicipalityId);
+                      // Si no está en el array de municipalities, puede que aún se estén cargando
+                      return municipality?.name || "Cargando...";
+                    })()}
                   </p>
                 )}
               </div>
@@ -807,13 +1165,12 @@ export default function UserProfilePage() {
                     <select
                       id="gender"
                       name="gender"
-                      value={formData.gender || ""}
+                      value={formData.gender || "No especificar"}
                       onChange={handleInputChange}
                       className={`flex w-full rounded-md border px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
                         formErrors.gender ? "border-red-500" : "border-input"
                       }`}
                     >
-                      <option value="">Seleccionar género</option>
                       {genderOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
@@ -1163,7 +1520,7 @@ export default function UserProfilePage() {
                       phone_number: profileData.user?.phone_number || "",
                       address: profileData.user?.address || "",
                       birth_date: profileData.user?.birth_date || "",
-                      gender: profileData.user?.gender || "",
+                      gender: profileData.user?.gender || "No especificar",
                       nationality: profileData.user?.nationality || "",
                       rut: profileData.user?.rut || "",
                       patientProfile:

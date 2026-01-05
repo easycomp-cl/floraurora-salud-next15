@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { UserService } from "@/lib/services/userService";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
 import type { User } from "@supabase/supabase-js";
 
 export default function AuthCallback() {
@@ -14,6 +15,13 @@ export default function AuthCallback() {
     let redirectAttempted = false;
     let processingStarted = false;
     let timeoutId: NodeJS.Timeout | null = null;
+    
+    // Leer el redirect inmediatamente al montar el componente para evitar que se pierda
+    let savedRedirectOnMount: string | null = null;
+    if (typeof window !== "undefined") {
+      savedRedirectOnMount = localStorage.getItem("auth_redirect");
+      console.log("🔍 Callback montado: Redirect guardado al inicio:", savedRedirectOnMount);
+    }
 
     // Verificar si hay errores en la URL (usuario canceló el login)
     if (typeof window !== "undefined") {
@@ -98,20 +106,112 @@ export default function AuthCallback() {
           }
         }
 
-        // Redirigir al dashboard
+        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
+          ? localStorage.getItem("auth_redirect") 
+          : null);
+        
+        console.log("🔍 Callback: Redirect guardado en localStorage:", savedRedirect);
+        
+        // Limpiar el redirect guardado
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth_redirect");
+        }
+
+        // Obtener el perfil del usuario para determinar su rol
+        let userRole: number | null = null;
+        try {
+          const profile = await profileService.getUserProfileByUuid(user.id);
+          userRole = profile?.role ?? null;
+        } catch (roleError) {
+          console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+        }
+
+        // Determinar el destino según el rol del usuario
+        let redirectTo: string;
+        
+        // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
+        if (savedRedirect) {
+          // Solo usar el redirect guardado si el usuario es paciente (role === 2)
+          if (userRole === 2) {
+            console.log("✅ Usuario es paciente, usando redirect guardado:", savedRedirect);
+            redirectTo = savedRedirect;
+          } else {
+            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
+            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
+            redirectTo = "/dashboard";
+          }
+        } else {
+          // Si no hay redirect guardado, determinar el destino según el rol
+          console.log("⚠️ No hay redirect guardado, determinando destino por rol");
+          if (userRole === 2) {
+            // Si es paciente, redirigir a appointments
+            redirectTo = "/dashboard/appointments";
+          } else {
+            // Para profesionales y admins, ir al dashboard normal
+            redirectTo = "/dashboard";
+          }
+        }
+        
         if (mounted && !redirectAttempted) {
           redirectAttempted = true;
           setTimeout(() => {
-            router.push("/dashboard");
+            router.push(redirectTo);
           }, 1000);
         }
       } catch (verifyError) {
         console.error("⚠️ Error al verificar/crear usuario:", verifyError);
+        
+        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
+          ? localStorage.getItem("auth_redirect") 
+          : null);
+        
+        console.log("🔍 Callback (error): Redirect guardado en localStorage:", savedRedirect);
+        
+        // Limpiar el redirect guardado
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth_redirect");
+        }
+
+        // Obtener el perfil del usuario para determinar su rol
+        let userRole: number | null = null;
+        try {
+          const profile = await profileService.getUserProfileByUuid(user.id);
+          userRole = profile?.role ?? null;
+        } catch (roleError) {
+          console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+        }
+
+        // Determinar el destino según el rol del usuario
+        let redirectTo: string;
+        
+        // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
+        if (savedRedirect) {
+          // Solo usar el redirect guardado si el usuario es paciente (role === 2)
+          if (userRole === 2) {
+            console.log("✅ Usuario es paciente (error), usando redirect guardado:", savedRedirect);
+            redirectTo = savedRedirect;
+          } else {
+            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
+            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
+            redirectTo = "/dashboard";
+          }
+        } else {
+          // Si no hay redirect guardado, determinar el destino según el rol
+          console.log("⚠️ No hay redirect guardado (error), determinando destino por rol");
+          if (userRole === 2) {
+            redirectTo = "/dashboard/appointments";
+          } else {
+            redirectTo = "/dashboard";
+          }
+        }
+        
         // Aún así intentar redirigir
         if (mounted && !redirectAttempted) {
           redirectAttempted = true;
           setTimeout(() => {
-            router.push("/dashboard");
+            router.push(redirectTo);
           }, 1000);
         }
       }
@@ -123,10 +223,59 @@ export default function AuthCallback() {
     }
 
     // Timeout de seguridad para evitar que se quede colgado
-    timeoutId = setTimeout(() => {
+    timeoutId = setTimeout(async () => {
       if (mounted && !redirectAttempted) {
         redirectAttempted = true;
-        router.push("/dashboard");
+        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
+          ? localStorage.getItem("auth_redirect") 
+          : null);
+        
+        console.log("🔍 Callback (timeout): Redirect guardado en localStorage:", savedRedirect);
+        
+        // Limpiar el redirect guardado
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("auth_redirect");
+        }
+
+        // Obtener el perfil del usuario para determinar su rol
+        let userRole: number | null = null;
+        if (user) {
+          try {
+            const profile = await profileService.getUserProfileByUuid(user.id);
+            userRole = profile?.role ?? null;
+          } catch (roleError) {
+            console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+          }
+        }
+
+        // Determinar el destino según el rol del usuario
+        let redirectTo: string;
+        
+        // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
+        if (savedRedirect && user) {
+          // Solo usar el redirect guardado si el usuario es paciente (role === 2)
+          if (userRole === 2) {
+            console.log("✅ Usuario es paciente (timeout), usando redirect guardado:", savedRedirect);
+            redirectTo = savedRedirect;
+          } else {
+            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
+            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
+            redirectTo = "/dashboard";
+          }
+        } else if (user) {
+          // Si no hay redirect guardado, determinar el destino según el rol
+          console.log("⚠️ No hay redirect guardado (timeout), determinando destino por rol");
+          if (userRole === 2) {
+            redirectTo = "/dashboard/appointments";
+          } else {
+            redirectTo = "/dashboard";
+          }
+        } else {
+          redirectTo = "/dashboard";
+        }
+        
+        router.push(redirectTo);
       }
     }, 10000); // 10 segundos
 

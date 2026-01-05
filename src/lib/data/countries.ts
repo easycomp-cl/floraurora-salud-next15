@@ -89,7 +89,7 @@ export const countries: Country[] = [
 ];
 
 export const genderOptions = [
-  { value: "", label: "No especificar" },
+  { value: "No especificar", label: "No especificar" },
   { value: "Masculino", label: "Masculino" },
   { value: "Femenino", label: "Femenino" },
 ];

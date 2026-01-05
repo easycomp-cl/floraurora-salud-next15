@@ -174,6 +174,12 @@ export async function clientSignInWithGoogle() {
       throw new Error('❌ Variables de entorno de Supabase no configuradas. Verifica tu archivo .env.local');
     }
     
+    // Verificar si hay un redirect guardado antes de iniciar OAuth
+    const savedRedirect = typeof window !== 'undefined' 
+      ? localStorage.getItem("auth_redirect") 
+      : null;
+    console.log("🔐 clientSignInWithGoogle: Redirect guardado antes de OAuth:", savedRedirect);
+    
     // Detectar dinámicamente la URL actual del navegador
     const currentUrl = typeof window !== 'undefined' 
       ? window.location.origin 
@@ -202,6 +208,12 @@ export async function clientSignInWithGoogle() {
     }
 
     if (data.url) {
+      // Verificar nuevamente que el redirect sigue guardado antes de redirigir
+      const verifyRedirect = typeof window !== 'undefined' 
+        ? localStorage.getItem("auth_redirect") 
+        : null;
+      console.log("🔐 clientSignInWithGoogle: Verificación final antes de redirigir:", verifyRedirect);
+      
       // Redirigir inmediatamente a Google
       window.location.href = data.url;
     } else {

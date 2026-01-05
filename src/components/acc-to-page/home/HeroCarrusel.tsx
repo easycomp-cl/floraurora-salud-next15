@@ -3,6 +3,9 @@ import logoImg from "../../Fotos/logo.png";
 import React from "react";
 import Image from "next/image";
 import trabajoImg from "../../Fotos/trabajo.jpg";
+import { useRouter } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
+import { profileService } from "@/lib/services/profileService";
 
 // Import Swiper React components
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -110,6 +113,10 @@ export default function HeroCarrusel() {
   const nextButtonRef = React.useRef<HTMLButtonElement>(null);
   const swiperRef = React.useRef<SwiperInstance | null>(null);
   const autoplayTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const router = useRouter();
+  const { isAuthenticated, user, isLoading } = useAuthState();
+  const [isPatient, setIsPatient] = React.useState<boolean | null>(null);
+  const [isCheckingRole, setIsCheckingRole] = React.useState(false);
 
   // Comentado: Selección aleatoria de frases
   // React.useEffect(() => {
@@ -129,6 +136,42 @@ export default function HeroCarrusel() {
   //     return nuevaFrase;
   //   });
   // }, []);
+
+  // Verificar si el usuario es paciente
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const checkUserRole = async () => {
+      if (!isAuthenticated || !user) {
+        setIsPatient(null);
+        return;
+      }
+
+      try {
+        setIsCheckingRole(true);
+        const profile = await profileService.getUserProfileByUuid(user.id);
+        if (!isMounted) return;
+        
+        const role = profile?.role ?? null;
+        setIsPatient(role === 2); // role 2 = paciente
+      } catch (error) {
+        console.error("Error verificando rol del usuario:", error);
+        if (isMounted) {
+          setIsPatient(null);
+        }
+      } finally {
+        if (isMounted) {
+          setIsCheckingRole(false);
+        }
+      }
+    };
+
+    checkUserRole();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, user]);
 
   React.useEffect(() => {
     let isMounted = true;
@@ -163,6 +206,32 @@ export default function HeroCarrusel() {
     };
   }, []);
 
+  // Manejar clic en el botón de agendar consulta
+  const handleBookAppointmentClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    
+    // Si está cargando, no hacer nada
+    if (isLoading || isCheckingRole) {
+      return;
+    }
+
+    // Si el usuario está autenticado y es paciente, redirigir a agendar cita
+    if (isAuthenticated && user && isPatient === true) {
+      router.push("/dashboard/appointments");
+      return;
+    }
+
+    // Si el usuario está autenticado pero no es paciente, mostrar mensaje o redirigir
+    if (isAuthenticated && user && isPatient === false) {
+      // Podríamos mostrar un mensaje o redirigir al dashboard
+      router.push("/dashboard");
+      return;
+    }
+
+    // Si no está autenticado, redirigir al login con redirect
+    router.push("/login?redirect=/dashboard/appointments");
+  };
+
   const banners: Banner[] = React.useMemo(() => {
     // Banner principal hardcoded (siempre presente)
     const hardcodedBanners: Banner[] = [
@@ -170,7 +239,7 @@ export default function HeroCarrusel() {
         titulo: "FlorAurora Salud",
         descripcion: "Cuidamos el bienestar de las personas, desde la raíz",
         botonTexto: "Agenda una consulta",
-        botonUrl: "/agenda",
+        botonUrl: "/dashboard/appointments", // Cambiar la URL base
         imagen: trabajoImg,
       },
     ];
@@ -354,6 +423,11 @@ export default function HeroCarrusel() {
                                 ? "noopener noreferrer"
                                 : undefined
                             }
+                            onClick={
+                              banner.botonTexto === "Agenda una consulta" && !banner.botonUrl?.startsWith("http")
+                                ? handleBookAppointmentClick
+                                : undefined
+                            }
                           >
                             {banner.botonTexto}
                           </a>
@@ -425,6 +499,11 @@ export default function HeroCarrusel() {
                               rel={
                                 banner.botonUrl?.startsWith("http")
                                   ? "noopener noreferrer"
+                                  : undefined
+                              }
+                              onClick={
+                                banner.botonTexto === "Agenda una consulta" && !banner.botonUrl?.startsWith("http")
+                                  ? handleBookAppointmentClick
                                   : undefined
                               }
                             >

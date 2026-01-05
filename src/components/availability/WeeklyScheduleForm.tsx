@@ -63,14 +63,20 @@ export function WeeklyScheduleForm({
     );
   };
 
-  const removeTimeSlot = async (rule: AvailabilityRule) => {
+  const removeTimeSlot = async (e: React.MouseEvent<HTMLButtonElement>, rule: AvailabilityRule) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (rule.id) {
       try {
         await AvailabilityService.deleteAvailabilityRule(rule.id);
         setWeeklyRules((prev) => prev.filter((r) => r.id !== rule.id));
+        // Recargar los horarios después de eliminar
+        await loadWeeklyRules();
         onUpdate();
       } catch (error) {
         console.error("Error al eliminar regla:", error);
+        alert("Error al eliminar el horario. Por favor, intenta nuevamente.");
       }
     } else {
       setWeeklyRules((prev) => prev.filter((r) => r !== rule));
@@ -196,6 +202,7 @@ export function WeeklyScheduleForm({
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-medium text-lg">{day.label}</h3>
                 <Button
+                  type="button"
                   onClick={() => addTimeSlot(day.value)}
                   size="sm"
                   variant="outline"
@@ -240,10 +247,12 @@ export function WeeklyScheduleForm({
 
                           <div className="flex items-center gap-2">
                             <Button
-                              onClick={() => removeTimeSlot(rule)}
+                              type="button"
+                              onClick={(e) => removeTimeSlot(e, rule)}
                               size="sm"
                               variant="destructive"
-                              className="p-2"
+                              className="p-2 h-8 w-8 rounded-md hover:bg-red-600 hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md"
+                              title="Eliminar horario"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -307,6 +316,7 @@ export function WeeklyScheduleForm({
 
                         <div className="flex items-center gap-2 ml-auto">
                           <Button
+                            type="button"
                             onClick={() => saveTimeSlot(rule)}
                             size="sm"
                             disabled={
@@ -318,10 +328,12 @@ export function WeeklyScheduleForm({
                           </Button>
 
                           <Button
-                            onClick={() => removeTimeSlot(rule)}
+                            type="button"
+                            onClick={(e) => removeTimeSlot(e, rule)}
                             size="sm"
                             variant="destructive"
-                            className="p-2"
+                            className="p-2 h-8 w-8 rounded-md hover:bg-red-600 hover:scale-105 transition-all duration-200 shadow-sm hover:shadow-md"
+                            title="Eliminar horario"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

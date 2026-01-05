@@ -287,7 +287,7 @@ export default function PaymentPlanStep({
                   >
                     He leído y acepto los{" "}
                     <Link
-                      href="/terms"
+                      href="/terms?type=professional"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:text-primary/80 underline font-medium"
