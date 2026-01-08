@@ -16,8 +16,33 @@ export async function POST(request: Request) {
     
     if (!teamEmailResult.success) {
       console.error('❌ Error al enviar email al equipo:', teamEmailResult.error);
+      
+      // Detectar error específico de créditos excedidos
+      if ('errorCode' in teamEmailResult && teamEmailResult.errorCode === 'CREDITS_EXCEEDED') {
+        return NextResponse.json(
+          { 
+            error: 'El servicio de email temporalmente no está disponible debido a límites de créditos. Por favor, contacta directamente a contacto@floraurorasalud.cl o al WhatsApp +56 9 5868 5129.',
+            errorCode: 'CREDITS_EXCEEDED'
+          },
+          { status: 503 } // Service Unavailable
+        );
+      }
+      
+      // Detectar error de Sender Identity no verificada
+      if ('errorCode' in teamEmailResult && teamEmailResult.errorCode === 'SENDER_IDENTITY_NOT_VERIFIED') {
+        console.error('⚠️ Error de configuración de SendGrid: La dirección de remitente no está verificada');
+        return NextResponse.json(
+          { 
+            error: 'Error de configuración del servicio de email. Por favor, contacta directamente a contacto@floraurorasalud.cl o al WhatsApp +56 9 5868 5129.',
+            errorCode: 'SENDER_IDENTITY_NOT_VERIFIED',
+            technicalDetails: teamEmailResult.error
+          },
+          { status: 500 }
+        );
+      }
+      
       return NextResponse.json(
-        { error: 'Error al enviar el email al equipo' },
+        { error: teamEmailResult.error || 'Error al enviar el email al equipo' },
         { status: 500 }
       );
     }

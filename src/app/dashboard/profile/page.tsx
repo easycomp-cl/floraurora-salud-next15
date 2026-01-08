@@ -28,7 +28,6 @@ import { supabaseTyped } from "@/utils/supabase/client";
 // Importar validaciones con Zod
 import {
   profileFormSchema,
-  ProfileFormData,
   formatRUT,
   formatPhone,
 } from "@/lib/validations/profile";
@@ -280,7 +279,6 @@ export default function UserProfilePage() {
     } else {
       setMunicipalities([]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData.region]);
 
   useEffect(() => {

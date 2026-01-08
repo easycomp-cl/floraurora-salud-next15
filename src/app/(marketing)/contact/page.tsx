@@ -44,6 +44,10 @@ export default function ContactPage() {
       const result = await response.json();
 
       if (!response.ok) {
+        // Mensaje de error más específico para créditos excedidos
+        if (result.errorCode === 'CREDITS_EXCEEDED') {
+          throw new Error(result.error || "El servicio de email temporalmente no está disponible. Por favor, contacta directamente a contacto@floraurorasalud.cl o al WhatsApp +56 9 5868 5129.");
+        }
         throw new Error(result.error || "Error al enviar el mensaje");
       }
 

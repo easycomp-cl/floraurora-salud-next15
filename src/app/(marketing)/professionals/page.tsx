@@ -5,7 +5,9 @@ import { Check, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { profileService } from "@/lib/services/profileService";
+import { appointmentService } from "@/lib/services/appointmentService";
 import { useState, useEffect } from "react";
+import type { Professional } from "@/lib/types/appointment";
 import logoImge from "../../../components/Fotos/logo.png";
 import equipoImg from "../../../components/Fotos/psicologos.png";
 
@@ -14,6 +16,8 @@ export default function ProfessionalsPage() {
   const { isAuthenticated, user, isLoading } = useAuthState();
   const [isPatient, setIsPatient] = useState<boolean | null>(null);
   const [isCheckingRole, setIsCheckingRole] = useState(false);
+  const [dbProfessionals, setDbProfessionals] = useState<Professional[]>([]);
+  const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(true);
 
   // Verificar si el usuario es paciente
   useEffect(() => {
@@ -51,6 +55,37 @@ export default function ProfessionalsPage() {
     };
   }, [isAuthenticated, user]);
 
+  // Cargar profesionales de la base de datos
+  useEffect(() => {
+    const loadProfessionals = async () => {
+      try {
+        setIsLoadingProfessionals(true);
+        // Obtener profesionales de todas las áreas (sin filtro)
+        // Necesitamos obtenerlos por área y combinarlos
+        const areas = await appointmentService.getAreas();
+        const allProfessionals: Professional[] = [];
+        
+        for (const area of areas) {
+          try {
+            const professionals = await appointmentService.getProfessionals(area.id);
+            allProfessionals.push(...professionals);
+          } catch (error) {
+            console.error(`Error cargando profesionales del área ${area.title_name}:`, error);
+          }
+        }
+        
+        setDbProfessionals(allProfessionals);
+      } catch (error) {
+        console.error("Error cargando profesionales:", error);
+        setDbProfessionals([]);
+      } finally {
+        setIsLoadingProfessionals(false);
+      }
+    };
+
+    loadProfessionals();
+  }, []);
+
   // Mapeo de profesionales hardcodeados a IDs
   // IMPORTANTE: Dr. Carlos Rodríguez debe usar los datos del profesional "rafa"
   // Reemplazar el professionalId con el ID real del profesional "rafa" de la base de datos
@@ -69,11 +104,35 @@ export default function ProfessionalsPage() {
     }
   };
 
-  const handleBookWithProfessional = (professionalKey: string) => {
+  const handleBookWithProfessional = (professionalKey: string, professionalId?: number, areaName?: string) => {
     if (isLoading || isCheckingRole) {
       return;
     }
 
+    // Si se pasa un professionalId y areaName directamente (profesionales de BD)
+    if (professionalId && areaName) {
+      if (isAuthenticated && user) {
+        if (isPatient === true) {
+          const params = new URLSearchParams({
+            area: areaName,
+            professionalId: professionalId.toString()
+          });
+          router.push(`/dashboard/appointments?${params.toString()}`);
+        } else {
+          router.push("/dashboard");
+        }
+        return;
+      }
+      const params = new URLSearchParams({
+        area: areaName,
+        professionalId: professionalId.toString()
+      });
+      const redirectUrl = `/dashboard/appointments?${params.toString()}`;
+      router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+      return;
+    }
+
+    // Para profesionales de ejemplo
     const professional = professionalMapping[professionalKey];
     if (!professional) {
       return;
@@ -151,7 +210,12 @@ export default function ProfessionalsPage() {
       {/* Professionals Grid */}
       <section className="bg-gradient-to-br from-teal-50 via-teal-100/50 to-teal-200/30 py-16 md:py-20">
         <div className="max-w-6xl mx-auto px-6 md:px-8">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {isLoadingProfessionals ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600 text-lg">Cargando profesionales...</p>
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Dr. María González */}
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1">
               <div className="h-64 bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center relative">
@@ -272,7 +336,101 @@ export default function ProfessionalsPage() {
                 </button>
               </div>
             </div>
-          </div>
+
+            {/* Profesionales de la base de datos */}
+            {dbProfessionals.map((professional) => {
+              const fullName = `${professional.name} ${professional.last_name}`.trim();
+              const gradientColors = [
+                "from-blue-400 to-indigo-600",
+                "from-teal-400 to-teal-600",
+                "from-purple-400 to-purple-600",
+                "from-pink-400 to-rose-600",
+                "from-green-400 to-emerald-600",
+                "from-orange-400 to-amber-600",
+              ];
+              const gradientIndex = professional.id % gradientColors.length;
+              const gradient = gradientColors[gradientIndex];
+              const bgColors = [
+                "from-blue-600/80 to-indigo-700/80",
+                "from-teal-600/80 to-teal-700/80",
+                "from-purple-600/80 to-purple-700/80",
+                "from-pink-600/80 to-rose-700/80",
+                "from-green-600/80 to-emerald-700/80",
+                "from-orange-600/80 to-amber-700/80",
+              ];
+              const bgOverlay = bgColors[gradientIndex];
+              const buttonColors = [
+                "from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800",
+                "from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800",
+                "from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800",
+                "from-pink-600 to-pink-700 hover:from-pink-700 hover:to-pink-800",
+                "from-green-600 to-green-700 hover:from-green-700 hover:to-green-800",
+                "from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800",
+              ];
+              const buttonGradient = buttonColors[gradientIndex];
+              const titleColor = [
+                "text-blue-600",
+                "text-teal-600",
+                "text-purple-600",
+                "text-pink-600",
+                "text-green-600",
+                "text-orange-600",
+              ];
+              const titleColorClass = titleColor[gradientIndex];
+
+              return (
+                <div
+                  key={professional.id}
+                  className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1"
+                >
+                  <div className={`h-64 bg-gradient-to-br ${gradient} flex items-center justify-center relative overflow-hidden`}>
+                    <div className={`absolute inset-0 bg-gradient-to-br ${bgOverlay}`}></div>
+                    {professional.avatar_url ? (
+                      <Image
+                        src={professional.avatar_url}
+                        alt={fullName}
+                        fill
+                        className="object-cover relative z-10"
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      />
+                    ) : (
+                      <User className="w-24 h-24 text-white relative z-10" strokeWidth={1.5} />
+                    )}
+                  </div>
+                  <div className="p-6 md:p-8">
+                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2">
+                      {professional.name && professional.last_name
+                        ? `${professional.name} ${professional.last_name}`
+                        : professional.name || professional.email || "Profesional"}
+                    </h3>
+                    <p className={`${titleColorClass} font-semibold mb-4 text-lg`}>
+                      {professional.title_name || "Profesional"}
+                    </p>
+                    <p className="text-gray-600 mb-6 leading-relaxed line-clamp-3">
+                      {professional.profile_description || "Profesional certificado con experiencia en terapia online."}
+                    </p>
+                    {professional.specialties && professional.specialties.length > 0 && (
+                      <div className="space-y-3 mb-6">
+                        {professional.specialties.slice(0, 3).map((specialty, idx) => (
+                          <div key={idx} className="flex items-center text-sm md:text-base text-gray-600">
+                            <Check className="w-5 h-5 text-teal-500 mr-2 flex-shrink-0" />
+                            {specialty}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => handleBookWithProfessional("", professional.id, professional.title_name)}
+                      className={`w-full bg-gradient-to-r ${buttonGradient} text-white py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer`}
+                    >
+                      Agendar con {professional.name || "este profesional"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            </div>
+          )}
         </div>
       </section>
 

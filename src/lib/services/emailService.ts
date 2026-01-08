@@ -76,11 +76,37 @@ export async function sendEmail({
   to,
   subject,
   html,
-  from = process.env.FROM_EMAIL || 'noreply@easycomp.cl',
+  from = process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
   replyTo,
   cc,
   bcc,
 }: SendEmailParams) {
+  // 🔍 LOGS TEMPORALES PARA DEPURACIÓN
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📧 [DEBUG] CONFIGURACIÓN DE ENVÍO DE EMAIL');
+  console.log('═══════════════════════════════════════════════════════');
+  console.log('📤 FROM (remitente):', from);
+  console.log('📥 TO (destinatario):', to);
+  console.log('📋 SUBJECT (asunto):', subject);
+  console.log('↩️  REPLY-TO:', replyTo || '(no configurado)');
+  console.log('📎 CC:', cc || '(no configurado)');
+  console.log('📎 BCC:', bcc || '(no configurado)');
+  console.log('🔑 SENDGRID_API_KEY configurada:', process.env.SENDGRID_API_KEY ? '✅ SÍ' : '❌ NO');
+  console.log('🔑 SENDGRID_API_KEY (primeros 10 chars):', process.env.SENDGRID_API_KEY ? `${process.env.SENDGRID_API_KEY.substring(0, 10)}...` : 'N/A');
+  console.log('📧 FROM_EMAIL (env var):', process.env.FROM_EMAIL || '(no configurado, usando default)');
+  console.log('📧 CONTACT_EMAIL (env var):', process.env.CONTACT_EMAIL || '(no configurado)');
+  console.log('📏 Tamaño del HTML:', `${(html.length / 1024).toFixed(2)} KB`);
+  
+  // ⚠️ Validación de dominio común
+  const domainTypoCheck = from.includes('floraaurorasalud');
+  if (domainTypoCheck) {
+    console.log('⚠️  [ADVERTENCIA] Posible typo detectado: "floraaurorasalud" (doble "a")');
+    console.log('⚠️  [ADVERTENCIA] El dominio correcto debería ser: "floraurorasalud.cl" (una sola "a")');
+    console.log('⚠️  [ADVERTENCIA] Verifica la variable de entorno FROM_EMAIL');
+  }
+  
+  console.log('═══════════════════════════════════════════════════════');
+  
   try {
     const msg = {
       to,
@@ -92,6 +118,7 @@ export async function sendEmail({
       bcc,
     };
 
+    console.log('📤 [DEBUG] Enviando email con SendGrid...');
     const response = await sgMail.send(msg);
     const [sendGridResponse] = response;
     const headers =
@@ -101,6 +128,11 @@ export async function sendEmail({
       (headers["x-message-id"] as string | undefined) ??
       (headers["X-Message-Id"] as string | undefined);
 
+    console.log('✅ [DEBUG] Email enviado exitosamente');
+    console.log('📊 [DEBUG] Status Code:', statusCode ?? "desconocido");
+    console.log('🆔 [DEBUG] Message ID:', messageId || "N/A");
+    console.log('═══════════════════════════════════════════════════════');
+    
     console.log(
       `[emailService] Email enviado | to=${to} | subject="${subject}" | status=${statusCode ?? "desconocido"}${
         messageId ? ` | messageId=${messageId}` : ""
@@ -109,13 +141,58 @@ export async function sendEmail({
 
     return { success: true, response };
   } catch (error: unknown) {
-    console.error('Error al enviar email:', error);
+    console.error('❌ [DEBUG] Error al enviar email');
+    console.error('═══════════════════════════════════════════════════════');
+    console.error('Error completo:', error);
     
+    // Detectar errores específicos de SendGrid
     if (error && typeof error === 'object' && 'response' in error) {
-      const sendGridError = error as { response?: { body?: unknown } };
+      const sendGridError = error as { 
+        code?: number;
+        response?: { 
+          body?: {
+            errors?: Array<{ message?: string; field?: string | null; help?: string | null }>;
+          };
+        };
+      };
+      
       console.error('Error response:', sendGridError.response?.body);
+      
+      // Detectar errores específicos de SendGrid
+      const errors = sendGridError.response?.body?.errors;
+      if (errors && errors.length > 0) {
+        const firstError = errors[0];
+        
+        // Detectar error de créditos excedidos
+        if (firstError.message?.includes('Maximum credits exceeded') || 
+            firstError.message?.includes('credits') ||
+            sendGridError.code === 401) {
+          return {
+            success: false,
+            error: 'Límite de créditos de email excedido. Por favor, contacta al administrador del sistema.',
+            errorCode: 'CREDITS_EXCEEDED',
+            errorDetails: firstError.message
+          };
+        }
+        
+        // Detectar error de Sender Identity no verificada
+        if (firstError.message?.includes('Sender Identity') || 
+            firstError.message?.includes('does not match a verified') ||
+            firstError.field === 'from' ||
+            sendGridError.code === 403) {
+          const fromAddress = from || process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl';
+          return {
+            success: false,
+            error: `La dirección de correo "${fromAddress}" no está verificada en SendGrid. Por favor, verifica la identidad del remitente en SendGrid.`,
+            errorCode: 'SENDER_IDENTITY_NOT_VERIFIED',
+            errorDetails: firstError.message,
+            helpUrl: 'https://sendgrid.com/docs/for-developers/sending-email/sender-identity/'
+          };
+        }
+      }
     }
     
+    console.error('═══════════════════════════════════════════════════════');
     const errorMessage = error instanceof Error ? error.message : 'Error al enviar el email';
     return { 
       success: false, 
@@ -145,7 +222,7 @@ export async function sendContactEmail(data: ContactFormData) {
 
   return await sendEmail({
     to: process.env.CONTACT_EMAIL || 'contacto@floraurorasalud.cl',
-    from: process.env.FROM_EMAIL || 'noreply@easycomp.cl',
+    from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
     subject,
     html,
     replyTo: data.email,
@@ -171,7 +248,7 @@ export async function sendContactConfirmationEmail(data: ContactFormData) {
 
   return await sendEmail({
     to: data.email,
-    from: process.env.FROM_EMAIL || 'noreply@easycomp.cl',
+    from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
     subject,
     html,
   });
