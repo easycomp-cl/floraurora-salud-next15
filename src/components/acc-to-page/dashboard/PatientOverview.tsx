@@ -21,8 +21,12 @@ import {
   Calendar,
   User,
   AlertCircle,
+  Star,
 } from "lucide-react";
 import Link from "next/link";
+import SatisfactionSurveyReminder from "@/components/satisfaction-survey/SatisfactionSurveyReminder";
+import SatisfactionSurveyDialog from "@/components/satisfaction-survey/SatisfactionSurveyDialog";
+import { satisfactionSurveyService } from "@/lib/services/satisfactionSurveyService";
 
 interface PatientMetrics {
   totalAppointments: number;
@@ -38,6 +42,8 @@ export function PatientOverview() {
   const [recentAppointments, setRecentAppointments] = useState<AppointmentWithUsers[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [surveyDialogOpen, setSurveyDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithUsers | null>(null);
 
   useEffect(() => {
     const loadPatientData = async () => {
@@ -136,6 +142,67 @@ export function PatientOverview() {
     );
   };
 
+  const handleOpenSurvey = async (appointment: AppointmentWithUsers) => {
+    if (!appointment.patient_id || !appointment.professional_id) {
+      return;
+    }
+
+    // Verificar si puede calificar
+    try {
+      const status = await satisfactionSurveyService.getAppointmentSurveyStatus(
+        appointment.id,
+        appointment.scheduled_at
+      );
+
+      if (!status.canRate) {
+        if (status.hasRated) {
+          alert("Ya has calificado esta cita.");
+        } else if (!status.isWithin7Days) {
+          alert("El plazo para calificar esta cita ha expirado (máximo 7 días después de la cita).");
+        } else {
+          alert("Esta cita aún no ha finalizado.");
+        }
+        return;
+      }
+
+      setSelectedAppointment(appointment);
+      setSurveyDialogOpen(true);
+    } catch (error) {
+      console.error("Error verificando estado de encuesta:", error);
+      alert("Ocurrió un error al verificar el estado de la encuesta.");
+    }
+  };
+
+  const handleSurveySuccess = () => {
+    setSurveyDialogOpen(false);
+    setSelectedAppointment(null);
+    // Recargar datos
+    if (user) {
+      const loadPatientData = async () => {
+        try {
+          const profile = await profileService.getUserProfileByUuid(user.id);
+          if (profile) {
+            const appointments = await appointmentService.getAppointmentsForPatient(profile.id);
+            const now = new Date();
+            const pastAppointments = appointments
+              .filter(apt => {
+                const scheduledDate = new Date(apt.scheduled_at);
+                return scheduledDate <= now || apt.status === "completed";
+              })
+              .sort((a, b) => 
+                new Date(b.scheduled_at).getTime() - new Date(a.scheduled_at).getTime()
+              )
+              .slice(0, 5);
+            setRecentAppointments(pastAppointments);
+          }
+        } catch (err) {
+          console.error("Error recargando datos:", err);
+        }
+      };
+      loadPatientData();
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8">
@@ -156,6 +223,9 @@ export function PatientOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Recordatorio de encuesta de satisfacción */}
+      <SatisfactionSurveyReminder />
+
       {/* Métricas principales */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
@@ -326,32 +396,51 @@ export function PatientOverview() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentAppointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <p className="font-semibold text-gray-900">
-                        {formatDate(appointment.scheduled_at)}
-                      </p>
-                      {getStatusBadge(appointment.status)}
+              {recentAppointments.map((appointment) => {
+                const appointmentDate = new Date(appointment.scheduled_at);
+                const now = new Date();
+                const isPast = appointmentDate <= now || appointment.status === "completed";
+                
+                return (
+                  <div
+                    key={appointment.id}
+                    className="p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold text-gray-900">
+                          {formatDate(appointment.scheduled_at)}
+                        </p>
+                        {getStatusBadge(appointment.status)}
+                      </div>
+                      {appointment.professional && (
+                        <p className="text-sm text-gray-600 flex items-center gap-2">
+                          <User className="h-4 w-4" />
+                          {`${appointment.professional.name || ""} ${appointment.professional.last_name || ""}`.trim() || "Profesional no disponible"}
+                        </p>
+                      )}
+                      {appointment.service && (
+                        <p className="text-sm text-gray-500">
+                          {appointment.service}
+                        </p>
+                      )}
+                      {isPast && appointment.patient_id && appointment.professional_id && (
+                        <div className="pt-2 border-t">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenSurvey(appointment)}
+                            className="w-full sm:w-auto"
+                          >
+                            <Star className="h-4 w-4 mr-2" />
+                            Calificar experiencia
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                    {appointment.professional && (
-                      <p className="text-sm text-gray-600 flex items-center gap-2">
-                        <User className="h-4 w-4" />
-                        {`${appointment.professional.name || ""} ${appointment.professional.last_name || ""}`.trim() || "Profesional no disponible"}
-                      </p>
-                    )}
-                    {appointment.service && (
-                      <p className="text-sm text-gray-500">
-                        {appointment.service}
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -389,6 +478,19 @@ export function PatientOverview() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de encuesta de satisfacción */}
+      {selectedAppointment && selectedAppointment.patient_id && selectedAppointment.professional_id && (
+        <SatisfactionSurveyDialog
+          appointmentId={selectedAppointment.id}
+          patientId={selectedAppointment.patient_id}
+          professionalId={selectedAppointment.professional_id}
+          scheduledAt={selectedAppointment.scheduled_at}
+          open={surveyDialogOpen}
+          onOpenChange={setSurveyDialogOpen}
+          onSuccess={handleSurveySuccess}
+        />
+      )}
     </div>
   );
 }

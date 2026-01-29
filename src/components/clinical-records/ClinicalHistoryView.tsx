@@ -1,10 +1,28 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, Calendar, Search } from "lucide-react";
-import type { ClinicalHistory, PatientIntakeRecord, ClinicalEvolutionRecord } from "@/lib/services/clinicalRecordService";
-import ClinicalRecordCard from "./ClinicalRecordCard";
+import {
+  FileText,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import type {
+  ClinicalHistory,
+  PatientIntakeRecord,
+  ClinicalEvolutionRecord,
+} from "@/lib/services/clinicalRecordService";
 import PatientIntakeForm from "./PatientIntakeForm";
+import AppointmentClinicalForm from "./AppointmentClinicalForm";
+import PatientDataDisplay from "./PatientDataDisplay";
+import {
+  appointmentService,
+  type AppointmentWithUsers,
+} from "@/lib/services/appointmentService";
 import supabase from "@/utils/supabase/client";
 
 interface ClinicalHistoryViewProps {
@@ -19,7 +37,7 @@ interface ClinicalHistoryViewProps {
  */
 async function loadClinicalHistoryData(
   patientId: number,
-  professionalId: number
+  professionalId: number,
 ): Promise<ClinicalHistory> {
   // Obtener ficha de ingreso
   const { data: intakeRecord, error: intakeError } = await supabase
@@ -58,11 +76,17 @@ export default function ClinicalHistoryView({
   professionalId,
   className = "",
 }: ClinicalHistoryViewProps) {
-  const [clinicalHistory, setClinicalHistory] = useState<ClinicalHistory | null>(null);
+  const [clinicalHistory, setClinicalHistory] =
+    useState<ClinicalHistory | null>(null);
+  const [appointments, setAppointments] = useState<AppointmentWithUsers[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
   const [showIntakeForm, setShowIntakeForm] = useState(false);
+  const [expandedAppointments, setExpandedAppointments] = useState<Set<string>>(
+    new Set(),
+  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
 
   useEffect(() => {
     const loadClinicalHistory = async () => {
@@ -71,8 +95,26 @@ export default function ClinicalHistoryView({
         setError(null);
 
         // Cargar historial directamente usando el cliente de Supabase
-        const history = await loadClinicalHistoryData(patientId, professionalId);
+        const history = await loadClinicalHistoryData(
+          patientId,
+          professionalId,
+        );
         setClinicalHistory(history);
+
+        // Cargar citas del paciente con este profesional
+        const patientAppointments =
+          await appointmentService.getAppointmentsForPatient(patientId);
+        // Filtrar solo las citas con este profesional
+        const filteredAppointments = patientAppointments.filter(
+          (apt) => apt.professional_id === professionalId,
+        );
+        // Ordenar por fecha (más recientes primero)
+        filteredAppointments.sort((a, b) => {
+          const dateA = a.scheduled_at ? new Date(a.scheduled_at).getTime() : 0;
+          const dateB = b.scheduled_at ? new Date(b.scheduled_at).getTime() : 0;
+          return dateB - dateA;
+        });
+        setAppointments(filteredAppointments);
       } catch (err) {
         console.error("Error cargando historial clínico:", err);
         setError(err instanceof Error ? err.message : "Error desconocido");
@@ -97,18 +139,84 @@ export default function ClinicalHistoryView({
     }
   };
 
-  // Filtrar registros de evolución por término de búsqueda
-  const filteredRecords = clinicalHistory?.evolutionRecords.filter((record) => {
-    if (!searchTerm) return true;
-    const searchLower = searchTerm.toLowerCase();
+  const toggleAppointmentExpanded = (appointmentId: string) => {
+    setExpandedAppointments((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(appointmentId)) {
+        newSet.delete(appointmentId);
+      } else {
+        newSet.add(appointmentId);
+      }
+      return newSet;
+    });
+  };
+
+  const getStatusBadge = (status?: string | null) => {
+    const statusMap: Record<
+      string,
+      {
+        label: string;
+        className: string;
+        icon: React.ComponentType<{ className?: string }>;
+      }
+    > = {
+      confirmed: {
+        label: "Confirmada",
+        className: "bg-green-100 text-green-700",
+        icon: CheckCircle2,
+      },
+      pending: {
+        label: "Pendiente",
+        className: "bg-yellow-100 text-yellow-700",
+        icon: Clock,
+      },
+      pending_confirmation: {
+        label: "Pendiente Confirmación",
+        className: "bg-amber-100 text-amber-700",
+        icon: AlertCircle,
+      },
+      cancelled: {
+        label: "Cancelada",
+        className: "bg-red-100 text-red-700",
+        icon: XCircle,
+      },
+      completed: {
+        label: "Completada",
+        className: "bg-blue-100 text-blue-700",
+        icon: CheckCircle2,
+      },
+    };
+
+    const statusInfo = statusMap[status || "pending"] || statusMap.pending;
+    const Icon = statusInfo.icon;
+
     return (
-      record.diagnosis?.toLowerCase().includes(searchLower) ||
-      record.observations?.toLowerCase().includes(searchLower) ||
-      record.session_development?.toLowerCase().includes(searchLower) ||
-      record.treatment_applied?.toLowerCase().includes(searchLower) ||
-      record.notes?.toLowerCase().includes(searchLower)
+      <span
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusInfo.className}`}
+      >
+        <Icon className="h-3 w-3" />
+        {statusInfo.label}
+      </span>
     );
-  }) || [];
+  };
+
+  // Calcular paginación para las citas
+  const totalAppointments = appointments.length;
+  const totalPages = Math.ceil(totalAppointments / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedAppointments = appointments.slice(startIndex, endIndex);
+
+  // Resetear a la primera página cuando cambia itemsPerPage
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -134,6 +242,227 @@ export default function ClinicalHistoryView({
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Historial de Sesiones */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Historial de Sesiones
+            {appointments && (
+              <span className="text-sm font-normal text-gray-500">
+                ({appointments.length} cita
+                {appointments.length !== 1 ? "s" : ""})
+              </span>
+            )}
+          </h2>
+
+          {/* Selector de items por página */}
+          {appointments.length > 0 && (
+            <div className="flex items-center gap-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600">
+                Mostrar:
+              </label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Lista de citas */}
+        {appointments.length === 0 ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">
+              No hay citas registradas para este paciente
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-4">
+              {paginatedAppointments.map((appointment) => {
+                const appointmentId = String(appointment.id);
+                const appointmentDate = appointment.scheduled_at
+                  ? new Date(appointment.scheduled_at)
+                  : null;
+                const isExpanded = expandedAppointments.has(appointmentId);
+
+                return (
+                  <div
+                    key={appointmentId}
+                    className="bg-white border border-gray-200 rounded-lg overflow-hidden"
+                  >
+                    {/* Encabezado de la cita */}
+                    <div className="p-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              Cita{" "}
+                              {appointmentId.startsWith("APT-")
+                                ? appointmentId
+                                : `APT-${appointmentId.padStart(8, "0")}`}
+                            </h3>
+                            {getStatusBadge(appointment.status)}
+                          </div>
+                          {appointmentDate && (
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                <span>
+                                  {appointmentDate.toLocaleDateString("es-CL", {
+                                    year: "numeric",
+                                    month: "long",
+                                    day: "numeric",
+                                  })}
+                                  {", "}
+                                  {appointmentDate.toLocaleTimeString("es-CL", {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })}
+                                </span>
+                              </div>
+                              {appointment.duration_minutes && (
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-4 w-4" />
+                                  <span>
+                                    {appointment.duration_minutes} minutos
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() =>
+                            toggleAppointmentExpanded(appointmentId)
+                          }
+                          className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                        >
+                          {isExpanded ? "Ocultar" : "Ver/Editar"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Formulario clínico desplegable */}
+                    {isExpanded && (
+                      <div className="p-4 bg-gray-50">
+                        <AppointmentClinicalForm
+                          appointmentId={appointmentId}
+                          patientId={patientId}
+                          professionalId={professionalId}
+                          onSuccess={() => {
+                            // Recargar datos si es necesario
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Controles de paginación */}
+            {totalPages > 1 && (
+              <div className="mt-6 flex items-center justify-between border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <span>
+                    Mostrando {startIndex + 1} -{" "}
+                    {Math.min(endIndex, totalAppointments)} de{" "}
+                    {totalAppointments} citas
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {/* Botón Anterior */}
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`
+                      inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md
+                      ${
+                        currentPage === 1
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                      }
+                    `}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </button>
+
+                  {/* Números de página */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                      (page) => {
+                        // Mostrar primera página, última página, página actual y páginas adyacentes
+                        if (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        ) {
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => handlePageChange(page)}
+                              className={`
+                              px-3 py-2 text-sm font-medium rounded-md
+                              ${
+                                page === currentPage
+                                  ? "bg-blue-600 text-white"
+                                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                              }
+                            `}
+                            >
+                              {page}
+                            </button>
+                          );
+                        } else if (
+                          page === currentPage - 2 ||
+                          page === currentPage + 2
+                        ) {
+                          return (
+                            <span key={page} className="px-2 text-gray-500">
+                              ...
+                            </span>
+                          );
+                        }
+                        return null;
+                      },
+                    )}
+                  </div>
+
+                  {/* Botón Siguiente */}
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`
+                      inline-flex items-center gap-1 px-3 py-2 text-sm font-medium rounded-md
+                      ${
+                        currentPage === totalPages
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
+                      }
+                    `}
+                  >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Ficha de Ingreso */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -141,14 +470,6 @@ export default function ClinicalHistoryView({
             <FileText className="h-5 w-5" />
             Ficha de Ingreso
           </h2>
-          {!clinicalHistory?.intakeRecord && (
-            <button
-              onClick={() => setShowIntakeForm(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium"
-            >
-              Crear Ficha de Ingreso
-            </button>
-          )}
         </div>
 
         {showIntakeForm || !clinicalHistory?.intakeRecord ? (
@@ -158,150 +479,12 @@ export default function ClinicalHistoryView({
             onSuccess={handleIntakeFormSuccess}
           />
         ) : (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <span className="text-sm font-medium text-gray-600">Nombre Completo:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.full_name || "N/A"}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">RUT:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.rut || "N/A"}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Fecha de Nacimiento:</span>
-                <p className="text-gray-900">
-                  {clinicalHistory.intakeRecord.birth_date
-                    ? new Date(clinicalHistory.intakeRecord.birth_date).toLocaleDateString("es-CL")
-                    : "N/A"}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Edad:</span>
-                <p className="text-gray-900">
-                  {clinicalHistory.intakeRecord.age ? `${clinicalHistory.intakeRecord.age} años` : "N/A"}
-                </p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Sexo/Género:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.gender || "N/A"}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Email:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.email || "N/A"}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Teléfono:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.phone || "N/A"}</p>
-              </div>
-              <div>
-                <span className="text-sm font-medium text-gray-600">Dirección:</span>
-                <p className="text-gray-900">{clinicalHistory.intakeRecord.address || "N/A"}</p>
-              </div>
-            </div>
-
-            {clinicalHistory.intakeRecord.medical_history && (
-              <div className="mt-4 pt-4 border-t">
-                <span className="text-sm font-medium text-gray-600">Historia Médica/Psicológica Previa:</span>
-                <p className="text-gray-900 mt-1 whitespace-pre-wrap">
-                  {clinicalHistory.intakeRecord.medical_history}
-                </p>
-              </div>
-            )}
-
-            {clinicalHistory.intakeRecord.family_history && (
-              <div className="mt-4 pt-4 border-t">
-                <span className="text-sm font-medium text-gray-600">Antecedentes Familiares:</span>
-                <p className="text-gray-900 mt-1 whitespace-pre-wrap">
-                  {clinicalHistory.intakeRecord.family_history}
-                </p>
-              </div>
-            )}
-
-            {clinicalHistory.intakeRecord.consultation_reason && (
-              <div className="mt-4 pt-4 border-t">
-                <span className="text-sm font-medium text-gray-600">Motivo de Consulta:</span>
-                <p className="text-gray-900 mt-1 whitespace-pre-wrap">
-                  {clinicalHistory.intakeRecord.consultation_reason}
-                </p>
-              </div>
-            )}
-
-            <div className="mt-4 pt-4 border-t">
-              <button
-                onClick={() => setShowIntakeForm(true)}
-                className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Editar Ficha de Ingreso
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Historial de Sesiones */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Historial de Sesiones
-            {clinicalHistory?.evolutionRecords && (
-              <span className="text-sm font-normal text-gray-500">
-                ({clinicalHistory.evolutionRecords.length} sesión{clinicalHistory.evolutionRecords.length !== 1 ? "es" : ""})
-              </span>
-            )}
-          </h2>
-        </div>
-
-        {/* Barra de búsqueda */}
-        {clinicalHistory && clinicalHistory.evolutionRecords.length > 0 && (
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar en historial..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Lista de fichas de evolución */}
-        {filteredRecords.length === 0 ? (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
-            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">
-              {searchTerm
-                ? "No se encontraron sesiones que coincidan con la búsqueda"
-                : clinicalHistory?.evolutionRecords.length === 0
-                ? "No hay fichas de evolución registradas aún"
-                : "No hay registros que mostrar"}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filteredRecords.map((record) => {
-              // Necesitamos obtener la fecha de la cita asociada
-              // Por ahora usamos created_at como aproximación
-              const appointmentDate = record.created_at;
-              return (
-                <ClinicalRecordCard
-                  key={record.id}
-                  record={record}
-                  appointmentDate={appointmentDate}
-                  onClick={() => {
-                    // Aquí podrías abrir un modal o navegar a una página de detalle
-                  }}
-                />
-              );
-            })}
-          </div>
+          <PatientDataDisplay
+            patientId={patientId}
+            professionalId={professionalId}
+          />
         )}
       </div>
     </div>
   );
 }
-

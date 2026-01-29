@@ -16,6 +16,8 @@ import {
   CreditCard,
   DollarSign,
   FileText,
+  PlayCircle,
+  Star,
 } from "lucide-react";
 import SIIIcon from "@/components/icons/SIIIcon";
 
@@ -150,6 +152,12 @@ export const adminNavigationItems: NavItem[] = [
     description: "Estadísticas y reportes descargables",
   },
   {
+    label: "Valoraciones",
+    href: "/admin/ratings",
+    icon: Star,
+    description: "Calificaciones y encuestas de satisfacción",
+  },
+  {
     label: "Configuración",
     href: "/admin/settings",
     icon: Settings2,
@@ -173,6 +181,14 @@ const adminMenuNavItem: NavItem = {
     href: item.href,
     description: item.description,
   })),
+};
+
+// Elemento de navegación para Tutoriales (disponible para profesionales y admin)
+const tutorialsNavItem: NavItem = {
+  label: "Tutoriales",
+  href: "/dashboard/tutorials",
+  icon: PlayCircle,
+  description: "Videos de ayuda para el usuario",
 };
 
 // Elementos adicionales para profesionales
@@ -212,7 +228,8 @@ export const professionalNavItems: NavItem[] = [
 // Función para obtener elementos de navegación basados en el rol
 export function getAuthenticatedNavItems(userRole?: number): NavItem[] {
   if (userRole === 1) {
-    return [dashboardNavItem, adminMenuNavItem, profileNavItem];
+    // Admin: Dashboard, Panel administrativo, Tutoriales, Perfil
+    return [dashboardNavItem, adminMenuNavItem, tutorialsNavItem, profileNavItem];
   }
 
   const items = [...baseAuthenticatedNavItems];
@@ -224,6 +241,8 @@ export function getAuthenticatedNavItems(userRole?: number): NavItem[] {
   // Agregar elementos específicos para profesionales
   if (userRole === 3) {
     items.push(...professionalNavItems);
+    // Agregar Tutoriales para profesionales
+    items.push(tutorialsNavItem);
   }
   
   return items;

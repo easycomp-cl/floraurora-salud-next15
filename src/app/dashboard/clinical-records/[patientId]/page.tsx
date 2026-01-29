@@ -1,22 +1,30 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { History, Shield, ArrowLeft, Loader2 } from "lucide-react";
 import ClinicalHistoryView from "@/components/clinical-records/ClinicalHistoryView";
+import PatientDataDisplay from "@/components/clinical-records/PatientDataDisplay";
+import ClinicalEvolutionForm from "@/components/clinical-records/ClinicalEvolutionForm";
+import { appointmentService } from "@/lib/services/appointmentService";
+import type { AppointmentWithUsers } from "@/lib/services/appointmentService";
 
 type TabType = "history" | "audit";
 
 export default function ClinicalRecordsPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: authLoading } = useAuthState();
   const patientId = params.patientId as string;
+  const appointmentId = searchParams.get("appointmentId");
   const [activeTab, setActiveTab] = useState<TabType>("history");
   const [userRole, setUserRole] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [appointment, setAppointment] = useState<AppointmentWithUsers | null>(null);
+  const [isLoadingAppointment, setIsLoadingAppointment] = useState(false);
 
   useEffect(() => {
     // Esperar a que termine la carga de autenticación antes de verificar
@@ -48,6 +56,26 @@ export default function ClinicalRecordsPage() {
 
     loadUserProfile();
   }, [isAuthenticated, user, router, authLoading]);
+
+  // Cargar datos de la cita si hay appointmentId
+  useEffect(() => {
+    if (appointmentId && professionalId) {
+      const loadAppointment = async () => {
+        try {
+          setIsLoadingAppointment(true);
+          const data = await appointmentService.getAppointmentById(appointmentId);
+          if (data) {
+            setAppointment(data);
+          }
+        } catch (error) {
+          console.error("Error cargando cita:", error);
+        } finally {
+          setIsLoadingAppointment(false);
+        }
+      };
+      loadAppointment();
+    }
+  }, [appointmentId, professionalId]);
 
   if (authLoading || isLoading) {
     return (
@@ -155,10 +183,53 @@ export default function ClinicalRecordsPage() {
       {/* Tab Content */}
       <div>
         {activeTab === "history" && (
-          <ClinicalHistoryView
-            patientId={patientIdNum}
-            professionalId={professionalId}
-          />
+          <>
+            {/* Si hay appointmentId, mostrar datos del paciente y formulario de sesión */}
+            {appointmentId ? (
+              isLoadingAppointment ? (
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                  </div>
+                </div>
+              ) : !appointment ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-700">Cita no encontrada</p>
+                </div>
+              ) : !appointment.scheduled_at || !appointment.duration_minutes ? (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-yellow-700">
+                    La cita no tiene fecha y hora programadas. No se puede crear una ficha de evolución.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Datos del paciente (solo lectura) */}
+                  <PatientDataDisplay
+                    patientId={patientIdNum}
+                    professionalId={professionalId}
+                  />
+
+                  {/* Formulario de evolución de la sesión */}
+                  <ClinicalEvolutionForm
+                    appointmentId={appointmentId}
+                    scheduledAt={appointment.scheduled_at}
+                    durationMinutes={appointment.duration_minutes}
+                    onSuccess={() => {
+                      // Recargar la página o actualizar el historial
+                      router.refresh();
+                    }}
+                  />
+                </div>
+              )
+            ) : (
+              /* Si no hay appointmentId, mostrar historial clínico completo */
+              <ClinicalHistoryView
+                patientId={patientIdNum}
+                professionalId={professionalId}
+              />
+            )}
+          </>
         )}
 
         {activeTab === "audit" && isAdmin && (

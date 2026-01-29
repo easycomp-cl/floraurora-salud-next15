@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Download, FileSpreadsheet, Filter, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { Download, FileSpreadsheet, Filter, ArrowUpDown, ArrowUp, ArrowDown, FileDown } from "lucide-react";
 
 interface AppointmentRow {
   id: string;
@@ -30,6 +30,8 @@ interface AppointmentRow {
   created_at: string;
   is_rescheduled?: boolean | null;
   rescheduled_at?: string | null;
+  bhe_pdf_path?: string | null;
+  bhe_job_id?: string | null;
 }
 
 type TabType = "all" | "rescheduled";
@@ -96,6 +98,7 @@ export default function ReportsDashboard() {
   const [sortField, setSortField] = useState<SortField>("scheduled_at");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [searchTerm, setSearchTerm] = useState("");
+  const [downloadingBheId, setDownloadingBheId] = useState<string | null>(null);
 
   const loadProfessionalsAndServices = useCallback(async () => {
     try {
@@ -343,6 +346,30 @@ export default function ReportsDashboard() {
     ) : (
       <ArrowDown className="h-4 w-4 text-primary" />
     );
+  };
+
+  const handleBheDownload = async (pdfPath: string, appointmentId: string) => {
+    try {
+      setDownloadingBheId(appointmentId);
+      
+      const response = await fetch(`/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`);
+      
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "No se pudo generar la URL de descarga");
+      }
+
+      const { download_url } = await response.json();
+      
+      // Abrir la URL de descarga en una nueva pestaña
+      window.open(download_url, "_blank");
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Error inesperado al descargar el PDF.";
+      setError(message);
+    } finally {
+      setDownloadingBheId(null);
+    }
   };
 
   return (
@@ -629,18 +656,21 @@ export default function ReportsDashboard() {
                       <SortIcon field="amount" />
                     </button>
                   </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    BHE
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 text-gray-700">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={activeTab === "rescheduled" ? 8 : 7} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={activeTab === "rescheduled" ? 9 : 8} className="px-4 py-6 text-center text-gray-500">
                       Cargando datos...
                     </td>
                   </tr>
                 ) : paginatedAppointments.length === 0 ? (
                   <tr>
-                    <td colSpan={activeTab === "rescheduled" ? 8 : 7} className="px-4 py-6 text-center text-gray-500">
+                    <td colSpan={activeTab === "rescheduled" ? 9 : 8} className="px-4 py-6 text-center text-gray-500">
                       {searchTerm
                         ? "No se encontraron citas con los filtros de búsqueda."
                         : "No hay citas registradas con los filtros seleccionados."}
@@ -668,6 +698,20 @@ export default function ReportsDashboard() {
                       <td className="px-4 py-3">{row.professional_name ?? "—"}</td>
                       <td className="px-4 py-3">{row.status ?? "Sin estado"}</td>
                       <td className="px-4 py-3">{formatCurrency(row.amount)}</td>
+                      <td className="px-4 py-3">
+                        {row.bhe_pdf_path ? (
+                          <button
+                            onClick={() => handleBheDownload(row.bhe_pdf_path!, row.id)}
+                            disabled={downloadingBheId === row.id}
+                            className="flex items-center justify-center gap-1 text-blue-600 hover:text-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Descargar PDF de BHE"
+                          >
+                            <FileDown className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}

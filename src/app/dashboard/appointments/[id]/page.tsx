@@ -174,7 +174,7 @@ export default function AppointmentDetailPage() {
               {appointment.patient_id && (
                 <button
                   onClick={() =>
-                    router.push(`/dashboard/clinical-records/${appointment.patient_id}`)
+                    router.push(`/dashboard/clinical-records/${appointment.patient_id}?appointmentId=${appointment.id}`)
                   }
                   className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
                 >
@@ -216,7 +216,7 @@ export default function AppointmentDetailPage() {
                     </p>
                     <button
                       onClick={() =>
-                        router.push(`/dashboard/clinical-records/${appointment.patient_id}`)
+                        router.push(`/dashboard/clinical-records/${appointment.patient_id}?appointmentId=${appointment.id}`)
                       }
                       className="text-xs text-yellow-800 underline mt-1 hover:text-yellow-900"
                     >

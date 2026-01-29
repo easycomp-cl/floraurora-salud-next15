@@ -26,6 +26,8 @@ export interface User {
   address?: string;
   region?: number;
   municipality?: number;
+  gender?: string;
+  nationality?: string;
   user_id: string; // UUID de Supabase Auth
   avatar_url?: string;
 }

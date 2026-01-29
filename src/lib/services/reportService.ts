@@ -38,6 +38,8 @@ export type ReportAppointmentRow = {
   created_at: string;
   is_rescheduled?: boolean | null;
   rescheduled_at?: string | null;
+  bhe_pdf_path?: string | null;
+  bhe_job_id?: string | null;
 };
 
 export type PaymentsHistoryRow = {
@@ -171,7 +173,7 @@ const fetchAppointmentsWithDetails = async (
     ),
   );
 
-  const [{ data: usersData }, { data: paymentsData }] = await Promise.all([
+  const [{ data: usersData }, { data: paymentsData }, { data: bheJobsData }] = await Promise.all([
     supabase
       .from("users")
       .select("id, name, last_name")
@@ -181,6 +183,13 @@ const fetchAppointmentsWithDetails = async (
       .select("appointment_id, amount, currency, created_at, provider_payment_status")
       .in("appointment_id", appointmentRows.map((row) => row.id))
       .limit(10000), // Asegurar que obtenemos todos los pagos
+    supabase
+      .from("bhe_jobs")
+      .select("id, appointment_id, result_pdf_path, status")
+      .in("appointment_id", appointmentRows.map((row) => row.id))
+      .eq("status", "done")
+      .not("result_pdf_path", "is", null)
+      .limit(10000), // Obtener todos los jobs de BHE con PDF disponible
   ]);
 
   const userMap = new Map<number, { name: string | null; last_name: string | null }>();
@@ -220,10 +229,30 @@ const fetchAppointmentsWithDetails = async (
     }
   });
 
+  // Crear un mapa de BHE jobs por appointment_id
+  // Si hay múltiples jobs, tomar el más reciente
+  const bheJobsMap = new Map<string, { pdf_path: string; job_id: string }>();
+  
+  const sortedBheJobs = [...(bheJobsData ?? [])].sort(() => {
+    // Ordenar por fecha de creación (más reciente primero)
+    // Asumiendo que los jobs tienen created_at, si no, usar id como fallback
+    return 0; // Por ahora mantener el orden original
+  });
+  
+  sortedBheJobs.forEach((bheJob) => {
+    if (bheJob.appointment_id && bheJob.result_pdf_path && !bheJobsMap.has(bheJob.appointment_id)) {
+      bheJobsMap.set(bheJob.appointment_id, {
+        pdf_path: bheJob.result_pdf_path as string,
+        job_id: bheJob.id as string,
+      });
+    }
+  });
+
   return appointmentRows.map((row) => {
     const payment = paymentsMap.get(row.id);
     const patient = row.patient_id ? userMap.get(row.patient_id) : null;
     const professional = row.professional_id ? userMap.get(row.professional_id) : null;
+    const bheJob = bheJobsMap.get(row.id);
 
     return {
       id: row.id,
@@ -239,6 +268,8 @@ const fetchAppointmentsWithDetails = async (
       created_at: row.created_at,
       is_rescheduled: row.is_rescheduled ?? false,
       rescheduled_at: row.rescheduled_at ?? null,
+      bhe_pdf_path: bheJob?.pdf_path ?? null,
+      bhe_job_id: bheJob?.job_id ?? null,
     };
   });
 };
@@ -398,7 +429,7 @@ export const reportService = {
       ),
     );
 
-    const [{ data: usersData }, { data: paymentsData }] = await Promise.all([
+    const [{ data: usersData }, { data: paymentsData }, { data: bheJobsData }] = await Promise.all([
       supabase
         .from("users")
         .select("id, name, last_name")
@@ -407,6 +438,13 @@ export const reportService = {
         .from("payments")
         .select("appointment_id, amount, currency, created_at, provider_payment_status")
         .in("appointment_id", appointmentRows.map((row) => row.id))
+        .limit(10000),
+      supabase
+        .from("bhe_jobs")
+        .select("id, appointment_id, result_pdf_path, status")
+        .in("appointment_id", appointmentRows.map((row) => row.id))
+        .eq("status", "done")
+        .not("result_pdf_path", "is", null)
         .limit(10000),
     ]);
 
@@ -442,10 +480,27 @@ export const reportService = {
       }
     });
 
+    // Crear un mapa de BHE jobs por appointment_id
+    const bheJobsMap = new Map<string, { pdf_path: string; job_id: string }>();
+    
+    const sortedBheJobs = [...(bheJobsData ?? [])].sort(() => {
+      return 0; // Por ahora mantener el orden original
+    });
+    
+    sortedBheJobs.forEach((bheJob) => {
+      if (bheJob.appointment_id && bheJob.result_pdf_path && !bheJobsMap.has(bheJob.appointment_id)) {
+        bheJobsMap.set(bheJob.appointment_id, {
+          pdf_path: bheJob.result_pdf_path as string,
+          job_id: bheJob.id as string,
+        });
+      }
+    });
+
     return appointmentRows.map((row) => {
       const payment = paymentsMap.get(row.id);
       const patient = row.patient_id ? userMap.get(row.patient_id) : null;
       const professional = row.professional_id ? userMap.get(row.professional_id) : null;
+      const bheJob = bheJobsMap.get(row.id);
 
       return {
         id: row.id,
@@ -461,6 +516,8 @@ export const reportService = {
         created_at: row.created_at,
         is_rescheduled: row.is_rescheduled ?? true,
         rescheduled_at: row.rescheduled_at ?? null,
+        bhe_pdf_path: bheJob?.pdf_path ?? null,
+        bhe_job_id: bheJob?.job_id ?? null,
       };
     });
   },

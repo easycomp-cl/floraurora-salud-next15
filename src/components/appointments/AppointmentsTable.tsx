@@ -16,8 +16,10 @@ import type {
 } from "@/lib/services/appointmentService";
 import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
 import JoinMeetingButton from "./JoinMeetingButton";
-import { FileText } from "lucide-react";
+import { FileText, FileDown, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
+import SatisfactionSurveyDialog from "@/components/satisfaction-survey/SatisfactionSurveyDialog";
+import { satisfactionSurveyService, type SatisfactionSurvey } from "@/lib/services/satisfactionSurveyService";
 
 type AppointmentsTableMode = "patient" | "professional" | "admin";
 
@@ -119,6 +121,11 @@ export default function AppointmentsTable({
     string | number | null
   >(null);
   const [clinicalRecordsMap, setClinicalRecordsMap] = useState<Map<string, boolean>>(new Map());
+  const [downloadingBheId, setDownloadingBheId] = useState<string | null>(null);
+  const [surveysMap, setSurveysMap] = useState<Map<string, SatisfactionSurvey>>(new Map());
+  const [surveyStatusMap, setSurveyStatusMap] = useState<Map<string, { canRate: boolean; hasRated: boolean }>>(new Map());
+  const [surveyDialogOpen, setSurveyDialogOpen] = useState(false);
+  const [selectedAppointmentForSurvey, setSelectedAppointmentForSurvey] = useState<AppointmentWithUsers | null>(null);
 
   // Cargar configuración de horas antes de confirmar usando el cliente de Supabase directamente
   useEffect(() => {
@@ -183,6 +190,51 @@ export default function AppointmentsTable({
     }
   }, [mode, data]);
 
+  // Cargar encuestas de satisfacción para pacientes
+  useEffect(() => {
+    if (mode === "patient" && data && data.length > 0) {
+      const loadSurveys = async () => {
+        const surveys = new Map<string, SatisfactionSurvey>();
+        const statuses = new Map<string, { canRate: boolean; hasRated: boolean }>();
+        
+        const promises = data.map(async (appointment) => {
+          try {
+            // Solo verificar citas completadas o pasadas
+            const appointmentDate = new Date(appointment.scheduled_at);
+            const now = new Date();
+            const isPast = appointmentDate <= now || appointment.status === "completed";
+            
+            if (isPast) {
+              const survey = await satisfactionSurveyService.getSurveyByAppointmentId(appointment.id);
+              if (survey) {
+                surveys.set(String(appointment.id), survey);
+              }
+              
+              // Verificar estado de calificación
+              const status = await satisfactionSurveyService.getAppointmentSurveyStatus(
+                appointment.id,
+                appointment.scheduled_at
+              );
+              
+              statuses.set(String(appointment.id), {
+                canRate: status.canRate,
+                hasRated: status.hasRated,
+              });
+            }
+          } catch (error) {
+            console.error(`Error cargando encuesta para cita ${appointment.id}:`, error);
+          }
+        });
+        
+        await Promise.all(promises);
+        setSurveysMap(surveys);
+        setSurveyStatusMap(statuses);
+      };
+      
+      loadSurveys();
+    }
+  }, [mode, data]);
+
   // Función para verificar si se puede confirmar asistencia
   const canConfirmAppointment = (appointment: AppointmentWithUsers) => {
     if (appointment.status !== "pending_confirmation") {
@@ -236,6 +288,31 @@ export default function AppointmentsTable({
   const handleOpenRescheduleModal = (appointment: AppointmentWithUsers) => {
     setSelectedAppointment(appointment);
     setRescheduleModalOpen(true);
+  };
+
+  // Función para descargar PDF de BHE
+  const handleBheDownload = async (pdfPath: string, appointmentId: string) => {
+    try {
+      setDownloadingBheId(appointmentId);
+      
+      const response = await fetch(`/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`);
+      
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        alert(payload?.error ?? "No se pudo generar la URL de descarga");
+        return;
+      }
+
+      const { download_url } = await response.json();
+      
+      // Abrir la URL de descarga en una nueva pestaña
+      window.open(download_url, "_blank");
+    } catch (err) {
+      console.error("Error descargando PDF de BHE:", err);
+      alert("Error inesperado al descargar el PDF.");
+    } finally {
+      setDownloadingBheId(null);
+    }
   };
 
   const tableData = useMemo<AppointmentRow[]>(() => {
@@ -467,21 +544,41 @@ export default function AppointmentsTable({
         id: "invoice_url",
         header: "Boleta",
         cell: ({ row }) => {
-          const url = row.original.invoice_url;
-          if (!url) {
-            return <span className="text-sm text-gray-400">Sin archivo</span>;
+          const appointment = row.original;
+          const bhePdfPath = appointment.bhe_pdf_path;
+          const invoiceUrl = appointment.invoice_url;
+          const appointmentId = String(appointment.id);
+          const isDownloading = downloadingBheId === appointmentId;
+
+          // Priorizar BHE si existe
+          if (bhePdfPath) {
+            return (
+              <button
+                onClick={() => handleBheDownload(bhePdfPath, appointmentId)}
+                disabled={isDownloading}
+                className="inline-flex items-center justify-center gap-1 px-2 py-1 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50 rounded transition-colors duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Descargar PDF de BHE"
+              >
+                <FileDown className="h-4 w-4" />
+              </button>
+            );
           }
 
-          return (
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors duration-200"
-            >
-              Descargar
-            </a>
-          );
+          // Si no hay BHE pero hay invoice_url, mostrar el enlace original
+          if (invoiceUrl) {
+            return (
+              <a
+                href={invoiceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-3 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors duration-200"
+              >
+                Descargar
+              </a>
+            );
+          }
+
+          return <span className="text-sm text-gray-400">Sin archivo</span>;
         },
       })
     );
@@ -543,11 +640,94 @@ export default function AppointmentsTable({
           },
         })
       );
+
+      // Agregar columna de calificación para pacientes
+      baseColumns.push(
+        columnHelper.display({
+          id: "satisfaction_survey",
+          header: "Calificación",
+          cell: ({ row }) => {
+            const appointment = row.original;
+            const appointmentId = String(appointment.id);
+            const survey = surveysMap.get(appointmentId);
+            const status = surveyStatusMap.get(appointmentId);
+            
+            // Solo mostrar para citas completadas o pasadas
+            const appointmentDate = new Date(appointment.scheduled_at);
+            const now = new Date();
+            const isPast = appointmentDate <= now || appointment.status === "completed";
+            
+            if (!isPast) {
+              return <span className="text-sm text-gray-400">—</span>;
+            }
+
+            // Si ya está calificada, mostrar las estrellas promedio
+            if (survey) {
+              const avgRating = Math.round(
+                (survey.professional_empathy_rating +
+                  survey.professional_punctuality_rating +
+                  survey.professional_satisfaction_rating +
+                  survey.platform_booking_rating +
+                  survey.platform_payment_rating +
+                  survey.platform_experience_rating) /
+                  6
+              );
+              
+              return (
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-4 w-4 ${
+                        star <= avgRating
+                          ? "fill-yellow-400 text-yellow-400"
+                          : "fill-gray-200 text-gray-300"
+                      }`}
+                    />
+                  ))}
+                  <span className="text-xs text-gray-600 ml-1">
+                    ({avgRating}/5)
+                  </span>
+                </div>
+              );
+            }
+
+            // Si puede calificar, mostrar botón
+            if (status?.canRate) {
+              return (
+                <button
+                  onClick={() => {
+                    if (appointment.patient_id && appointment.professional_id) {
+                      setSelectedAppointmentForSurvey(appointment);
+                      setSurveyDialogOpen(true);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                >
+                  <Star className="h-3 w-3" />
+                  Calificar
+                </button>
+              );
+            }
+
+            // Si no puede calificar (ya pasó el plazo o ya calificó)
+            if (status?.hasRated) {
+              return <span className="text-sm text-gray-400">Ya calificada</span>;
+            }
+
+            if (status && !status.canRate) {
+              return <span className="text-sm text-gray-400">Plazo vencido</span>;
+            }
+
+            return <span className="text-sm text-gray-400">—</span>;
+          },
+        })
+      );
     }
 
     return baseColumns as ColumnDef<AppointmentRow>[];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, confirmationHours, confirmingAppointmentId]);
+  }, [mode, confirmationHours, confirmingAppointmentId, surveysMap, surveyStatusMap]);
 
   const table = useReactTable({
     data: tableData,
@@ -722,6 +902,66 @@ export default function AppointmentsTable({
             // Aquí se implementará la lógica de reagendamiento cuando esté lista
             setRescheduleModalOpen(false);
             setSelectedAppointment(null);
+          }}
+        />
+      )}
+
+      {/* Dialog de encuesta de satisfacción */}
+      {selectedAppointmentForSurvey && selectedAppointmentForSurvey.patient_id && selectedAppointmentForSurvey.professional_id && (
+        <SatisfactionSurveyDialog
+          appointmentId={selectedAppointmentForSurvey.id}
+          patientId={selectedAppointmentForSurvey.patient_id}
+          professionalId={selectedAppointmentForSurvey.professional_id}
+          scheduledAt={selectedAppointmentForSurvey.scheduled_at}
+          open={surveyDialogOpen}
+          onOpenChange={(open) => {
+            setSurveyDialogOpen(open);
+            if (!open) {
+              setSelectedAppointmentForSurvey(null);
+            }
+          }}
+          onSuccess={async () => {
+            // Recargar encuestas después de calificar
+            if (mode === "patient" && data && data.length > 0) {
+              const surveys = new Map<string, SatisfactionSurvey>();
+              const statuses = new Map<string, { canRate: boolean; hasRated: boolean }>();
+              
+              const promises = data.map(async (appointment) => {
+                try {
+                  const appointmentDate = new Date(appointment.scheduled_at);
+                  const now = new Date();
+                  const isPast = appointmentDate <= now || appointment.status === "completed";
+                  
+                  if (isPast) {
+                    const survey = await satisfactionSurveyService.getSurveyByAppointmentId(appointment.id);
+                    if (survey) {
+                      surveys.set(String(appointment.id), survey);
+                    }
+                    
+                    const status = await satisfactionSurveyService.getAppointmentSurveyStatus(
+                      appointment.id,
+                      appointment.scheduled_at
+                    );
+                    
+                    statuses.set(String(appointment.id), {
+                      canRate: status.canRate,
+                      hasRated: status.hasRated,
+                    });
+                  }
+                } catch (error) {
+                  console.error(`Error recargando encuesta para cita ${appointment.id}:`, error);
+                }
+              });
+              
+              await Promise.all(promises);
+              setSurveysMap(surveys);
+              setSurveyStatusMap(statuses);
+            }
+            
+            // Llamar al callback de actualización si existe
+            if (onAppointmentUpdate) {
+              onAppointmentUpdate();
+            }
           }}
         />
       )}

@@ -300,6 +300,8 @@ export default function AppointmentScheduler() {
       setErrorMessage(null);
       setIsProcessingPayment(true);
 
+      // Si el horario aparece en la lista de disponibles, se puede agendar
+      // El backend ya filtró los horarios según la configuración (tiempo mínimo, disponibilidad, etc.)
       const scheduledDateTime = new Date(`${selectedDate}T${selectedTime}:00`);
       const requiresConfirmation =
         scheduledDateTime.getTime() - Date.now() >= 24 * 60 * 60 * 1000;

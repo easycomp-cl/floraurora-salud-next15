@@ -25,6 +25,8 @@ export type AppointmentWithUsers = RawAppointmentRow & {
   meeting_url: string | null;
   amount: number | null;
   invoice_url: string | null;
+  bhe_pdf_path?: string | null;
+  bhe_job_id?: string | null;
 };
 
 export type BasicUserInfo = {
@@ -148,14 +150,41 @@ const fetchAppointmentsWithUsers = async (filters: {
   const usersMap = await fetchUsersMap(userIds);
   const paymentsMap = await fetchPaymentsMap(rows.map((row) => row.id));
 
-  return rows.map((row) => ({
-    ...row,
-    patient: row.patient_id ? usersMap.get(row.patient_id) ?? null : null,
-    professional: row.professional_id ? usersMap.get(row.professional_id) ?? null : null,
-    meeting_url: row.meet_link ?? null,
-    amount: paymentsMap.get(String(row.id))?.amount ?? null,
-    invoice_url: paymentsMap.get(String(row.id))?.receipt_url ?? null,
-  }));
+  // Consultar BHE jobs para obtener PDFs asociados
+  const { data: bheJobsData } = await supabase
+    .from("bhe_jobs")
+    .select("id, appointment_id, result_pdf_path, status")
+    .in("appointment_id", rows.map((row) => row.id))
+    .eq("status", "done")
+    .not("result_pdf_path", "is", null);
+
+  // Crear un mapa de BHE jobs por appointment_id
+  const bheJobsMap = new Map<string, { pdf_path: string; job_id: string }>();
+  
+  (bheJobsData ?? []).forEach((bheJob) => {
+    if (bheJob.appointment_id && bheJob.result_pdf_path && !bheJobsMap.has(bheJob.appointment_id)) {
+      bheJobsMap.set(bheJob.appointment_id, {
+        pdf_path: bheJob.result_pdf_path as string,
+        job_id: bheJob.id as string,
+      });
+    }
+  });
+
+  return rows.map((row) => {
+    const payment = paymentsMap.get(String(row.id));
+    const bheJob = bheJobsMap.get(row.id);
+    
+    return {
+      ...row,
+      patient: row.patient_id ? usersMap.get(row.patient_id) ?? null : null,
+      professional: row.professional_id ? usersMap.get(row.professional_id) ?? null : null,
+      meeting_url: row.meet_link ?? null,
+      amount: payment?.amount ?? null,
+      invoice_url: payment?.receipt_url ?? null,
+      bhe_pdf_path: bheJob?.pdf_path ?? null,
+      bhe_job_id: bheJob?.job_id ?? null,
+    };
+  });
 };
 
 export const appointmentService = {
@@ -611,6 +640,51 @@ export const appointmentService = {
     }
   },
 
+  // Obtener el tiempo mínimo de anticipación desde las configuraciones (default: 5 horas)
+  async getMinAdvanceBookingHours(): Promise<number> {
+    try {
+      const { data: config } = await supabase
+        .from("system_configurations")
+        .select("config_value")
+        .eq("config_key", "min_advance_booking_hours")
+        .eq("is_active", true)
+        .single();
+
+      return config ? parseInt(config.config_value, 10) : 5; // Default: 5 horas
+    } catch (error) {
+      console.warn('Error obteniendo configuración de tiempo mínimo de anticipación, usando default (5 horas):', error);
+      return 5; // Default: 5 horas
+    }
+  },
+
+  // Verificar si un horario es válido (no ha pasado y cumple con el tiempo mínimo de anticipación)
+  async isTimeSlotValid(date: string, time: string): Promise<boolean> {
+    try {
+      const now = new Date();
+      const appointmentDateTime = new Date(`${date}T${time}:00`);
+      
+      // Verificar que el horario no haya pasado
+      if (appointmentDateTime <= now) {
+        return false;
+      }
+
+      // Obtener el tiempo mínimo de anticipación
+      const minHours = await this.getMinAdvanceBookingHours();
+      const minAdvanceTime = minHours * 60 * 60 * 1000; // Convertir a milisegundos
+      
+      // Verificar que haya al menos el tiempo mínimo de anticipación
+      const timeDifference = appointmentDateTime.getTime() - now.getTime();
+      if (timeDifference < minAdvanceTime) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error validando horario:', error);
+      return false;
+    }
+  },
+
   // Obtener horarios disponibles por profesional y fecha basados en disponibilidad real
   async getAvailableTimeSlots(
     professionalId: number, 
@@ -629,6 +703,11 @@ export const appointmentService = {
       if (selectedDate < today || selectedDate > twoWeeksFromNow) {
         return [];
       }
+
+      // Obtener el tiempo mínimo de anticipación una sola vez
+      const minHours = await this.getMinAdvanceBookingHours();
+      const minAdvanceTime = minHours * 60 * 60 * 1000; // Convertir a milisegundos
+      const now = new Date();
 
       // Obtener la configuración de disponibilidad del profesional y citas existentes
       const [weeklyRules, overrides, blockedSlots, existingAppointments] = await Promise.all([
@@ -691,7 +770,12 @@ export const appointmentService = {
             existingAppointments
           );
           
-          if (!isBlocked && !isBooked) {
+          // Verificar que el horario no haya pasado y cumpla con el tiempo mínimo de anticipación
+          const appointmentDateTime = new Date(`${date}T${timeSlot.start_time}:00`);
+          const timeDifference = appointmentDateTime.getTime() - now.getTime();
+          const isValidTime = appointmentDateTime > now && timeDifference >= minAdvanceTime;
+          
+          if (!isBlocked && !isBooked && isValidTime) {
             timeSlots.push({
               id: timeSlots.length + 1,
               professional_id: professionalId,
@@ -979,6 +1063,12 @@ export const appointmentService = {
     time: string
   ): Promise<boolean> {
     try {
+      // Primero validar que el horario no haya pasado y cumpla con el tiempo mínimo de anticipación
+      const isValidTime = await this.isTimeSlotValid(date, time);
+      if (!isValidTime) {
+        return false;
+      }
+
       // Crear fecha en zona horaria local para evitar problemas de UTC
       const selectedDate = new Date(date + 'T00:00:00');
       const dayOfWeek = selectedDate.getDay();

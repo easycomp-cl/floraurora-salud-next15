@@ -1,7 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  FileText,
+  Shield,
+} from "lucide-react";
 
 interface PatientIntakeFormProps {
   patientId: number;
@@ -18,9 +28,6 @@ interface IntakeFormData {
   email: string;
   phone: string;
   address: string;
-  medical_history: string;
-  family_history: string;
-  consultation_reason: string;
 }
 
 export default function PatientIntakeForm({
@@ -37,15 +44,16 @@ export default function PatientIntakeForm({
     email: "",
     phone: "",
     address: "",
-    medical_history: "",
-    family_history: "",
-    consultation_reason: "",
   });
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">(
+    "idle",
+  );
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [age, setAge] = useState<number | null>(null);
+  const [emergencyContactName, setEmergencyContactName] = useState<string>("");
+  const [emergencyContactPhone, setEmergencyContactPhone] =
+    useState<string>("");
 
   // Calcular edad desde fecha de nacimiento
   useEffect(() => {
@@ -54,7 +62,10 @@ export default function PatientIntakeForm({
       const today = new Date();
       let calculatedAge = today.getFullYear() - birthDate.getFullYear();
       const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      if (
+        monthDiff < 0 ||
+        (monthDiff === 0 && today.getDate() < birthDate.getDate())
+      ) {
         calculatedAge--;
       }
       setAge(calculatedAge);
@@ -70,7 +81,10 @@ export default function PatientIntakeForm({
         setIsLoading(true);
         // Importar dinámicamente para evitar problemas con SSR
         const { default: supabase } = await import("@/utils/supabase/client");
-        
+        const { profileService } = await import(
+          "@/lib/services/profileService"
+        );
+
         // Obtener ficha de ingreso directamente desde Supabase
         const { data: record, error } = await supabase
           .from("patient_intake_records")
@@ -80,20 +94,132 @@ export default function PatientIntakeForm({
           .maybeSingle();
 
         if (!error && record) {
+          // Si existe la ficha de ingreso, usar esos datos
+          // Normalizar el género para que coincida con los valores del select
+          let normalizedGender = "";
+          if (record.gender) {
+            const genderLower = record.gender.toLowerCase().trim();
+            // Mapear diferentes formatos posibles a los valores del select
+            if (
+              genderLower === "masculino" ||
+              genderLower === "male" ||
+              genderLower === "m"
+            ) {
+              normalizedGender = "masculino";
+            } else if (
+              genderLower === "femenino" ||
+              genderLower === "female" ||
+              genderLower === "f"
+            ) {
+              normalizedGender = "femenino";
+            } else if (genderLower === "otro" || genderLower === "other") {
+              normalizedGender = "otro";
+            } else if (
+              genderLower === "prefiero_no_decir" ||
+              genderLower === "prefer_not_to_say"
+            ) {
+              normalizedGender = "prefiero_no_decir";
+            } else {
+              // Si no coincide con ningún valor conocido, usar el valor original
+              normalizedGender = record.gender;
+            }
+          }
+
           setFormData({
             full_name: record.full_name || "",
             rut: record.rut || "",
             birth_date: record.birth_date || "",
-            gender: record.gender || "",
+            gender: normalizedGender,
             email: record.email || "",
             phone: record.phone || "",
             address: record.address || "",
-            medical_history: record.medical_history || "",
-            family_history: record.family_history || "",
-            consultation_reason: record.consultation_reason || "",
           });
           if (record.age) {
             setAge(record.age);
+          }
+
+          // Obtener datos del contacto de emergencia desde la tabla patients
+          const patientProfile =
+            await profileService.getPatientProfile(patientId);
+          if (patientProfile) {
+            setEmergencyContactName(
+              patientProfile.emergency_contact_name || "",
+            );
+            setEmergencyContactPhone(
+              patientProfile.emergency_contact_phone || "",
+            );
+          }
+        } else {
+          // Si no existe la ficha de ingreso, cargar datos del paciente desde la tabla users
+          const user = await profileService.getUserProfile(patientId);
+          if (user) {
+            const fullName =
+              `${user.name || ""} ${user.last_name || ""}`.trim();
+            // Normalizar el género para que coincida con los valores del select
+            let normalizedGender = "";
+            if (user.gender) {
+              const genderLower = user.gender.toLowerCase().trim();
+              // Mapear diferentes formatos posibles a los valores del select
+              if (
+                genderLower === "masculino" ||
+                genderLower === "male" ||
+                genderLower === "m"
+              ) {
+                normalizedGender = "masculino";
+              } else if (
+                genderLower === "femenino" ||
+                genderLower === "female" ||
+                genderLower === "f"
+              ) {
+                normalizedGender = "femenino";
+              } else if (genderLower === "otro" || genderLower === "other") {
+                normalizedGender = "otro";
+              } else if (
+                genderLower === "prefiero_no_decir" ||
+                genderLower === "prefer_not_to_say"
+              ) {
+                normalizedGender = "prefiero_no_decir";
+              } else {
+                // Si no coincide con ningún valor conocido, usar el valor original
+                normalizedGender = user.gender;
+              }
+            }
+
+            setFormData({
+              full_name: fullName || "",
+              rut: user.rut || "",
+              birth_date: user.birth_date || "",
+              gender: normalizedGender,
+              email: user.email || "",
+              phone: user.phone_number || "",
+              address: user.address || "",
+            });
+            // Calcular edad si hay fecha de nacimiento
+            if (user.birth_date) {
+              const birthDate = new Date(user.birth_date);
+              const today = new Date();
+              let calculatedAge = today.getFullYear() - birthDate.getFullYear();
+              const monthDiff = today.getMonth() - birthDate.getMonth();
+              if (
+                monthDiff < 0 ||
+                (monthDiff === 0 && today.getDate() < birthDate.getDate())
+              ) {
+                calculatedAge--;
+              }
+              setAge(calculatedAge);
+            }
+          }
+
+          // Obtener datos del contacto de emergencia desde la tabla patients
+          const patientProfile =
+            await profileService.getPatientProfile(patientId);
+          if (patientProfile) {
+            setEmergencyContactName(
+              patientProfile.emergency_contact_name || "",
+            );
+            setEmergencyContactPhone(
+              patientProfile.emergency_contact_phone || "",
+            );
           }
         }
       } catch (error) {
@@ -110,14 +236,13 @@ export default function PatientIntakeForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSaving(true);
     setSaveStatus("idle");
     setErrorMessage("");
 
     try {
       // Importar dinámicamente para evitar problemas con SSR
       const { default: supabase } = await import("@/utils/supabase/client");
-      
+
       // Verificar si existe registro
       const { data: existingRecord } = await supabase
         .from("patient_intake_records")
@@ -135,7 +260,10 @@ export default function PatientIntakeForm({
         const today = new Date();
         calculatedAge = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
-        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        if (
+          monthDiff < 0 ||
+          (monthDiff === 0 && today.getDate() < birthDate.getDate())
+        ) {
           calculatedAge--;
         }
       }
@@ -153,9 +281,6 @@ export default function PatientIntakeForm({
             email: formData.email || null,
             phone: formData.phone || null,
             address: formData.address || null,
-            medical_history: formData.medical_history || null,
-            family_history: formData.family_history || null,
-            consultation_reason: formData.consultation_reason || null,
           })
           .eq("patient_id", patientId)
           .eq("professional_id", professionalId)
@@ -178,9 +303,6 @@ export default function PatientIntakeForm({
             email: formData.email || null,
             phone: formData.phone || null,
             address: formData.address || null,
-            medical_history: formData.medical_history || null,
-            family_history: formData.family_history || null,
-            consultation_reason: formData.consultation_reason || null,
           })
           .select()
           .single();
@@ -197,10 +319,10 @@ export default function PatientIntakeForm({
       console.error("Error guardando ficha de ingreso:", error);
       setSaveStatus("error");
       setErrorMessage(
-        error instanceof Error ? error.message : "Error guardando ficha de ingreso"
+        error instanceof Error
+          ? error.message
+          : "Error guardando ficha de ingreso",
       );
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -217,245 +339,216 @@ export default function PatientIntakeForm({
 
   return (
     <div className={`border rounded-lg ${className}`}>
-      <div className="p-4 border-b bg-gray-50">
-        <h3 className="text-lg font-semibold text-gray-900">
-          Ficha de Ingreso del Paciente
-        </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Complete la información inicial del paciente
-        </p>
-      </div>
-
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
-        {/* Datos de Identificación */}
-        <div>
-          <h4 className="text-md font-semibold text-gray-900 mb-4">
-            Datos de Identificación
-          </h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="full_name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Nombre Completo *
-              </label>
-              <input
-                type="text"
-                id="full_name"
-                value={formData.full_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, full_name: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="rut"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                RUT *
-              </label>
-              <input
-                type="text"
-                id="rut"
-                value={formData.rut}
-                onChange={(e) =>
-                  setFormData({ ...formData, rut: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="12.345.678-9"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="birth_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Fecha de Nacimiento *
-              </label>
-              <input
-                type="date"
-                id="birth_date"
-                value={formData.birth_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, birth_date: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="age"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Edad
-              </label>
-              <input
-                type="number"
-                id="age"
-                value={age || ""}
-                disabled
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm bg-gray-50 text-gray-600"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Calculada automáticamente desde la fecha de nacimiento
-              </p>
-            </div>
-
-            <div>
-              <label
-                htmlFor="gender"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Sexo/Género
-              </label>
-              <select
-                id="gender"
-                value={formData.gender}
-                onChange={(e) =>
-                  setFormData({ ...formData, gender: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">Seleccione...</option>
-                <option value="masculino">Masculino</option>
-                <option value="femenino">Femenino</option>
-                <option value="otro">Otro</option>
-                <option value="prefiero_no_decir">Prefiero no decir</option>
-              </select>
-            </div>
-
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Correo Electrónico *
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="phone"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Teléfono *
-              </label>
-              <input
-                type="tel"
-                id="phone"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                required
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label
-                htmlFor="address"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Dirección
-              </label>
-              <input
-                type="text"
-                id="address"
-                value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
+        {/* Datos del Paciente - Visualización armónica */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-6 border border-blue-100">
+          <div className="flex items-center gap-2 mb-6">
+            <User className="h-5 w-5 text-blue-600" />
+            <h4 className="text-lg font-semibold text-gray-900">
+              Datos del Paciente
+            </h4>
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Nombre Completo */}
+            <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+              <div className="flex items-start gap-3">
+                <User className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                    Nombre Completo
+                  </p>
+                  <p className="text-gray-900 font-medium">
+                    {formData.full_name || "No especificado"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* RUT */}
+            <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+              <div className="flex items-start gap-3">
+                <FileText className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                    RUT
+                  </p>
+                  <p className="text-gray-900 font-medium">
+                    {formData.rut || "No especificado"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Fecha de Nacimiento */}
+            {formData.birth_date && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Fecha de Nacimiento
+                    </p>
+                    <p className="text-gray-900 font-medium">
+                      {new Date(formData.birth_date).toLocaleDateString(
+                        "es-CL",
+                        {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                        },
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edad */}
+            {age !== null && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Edad
+                    </p>
+                    <p className="text-gray-900 font-medium">{age} años</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Sexo/Género */}
+            {formData.gender && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <User className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Sexo/Género
+                    </p>
+                    <p className="text-gray-900 font-medium capitalize">
+                      {formData.gender === "masculino"
+                        ? "Masculino"
+                        : formData.gender === "femenino"
+                          ? "Femenino"
+                          : formData.gender === "otro"
+                            ? "Otro"
+                            : formData.gender === "prefiero_no_decir"
+                              ? "Prefiero no decir"
+                              : formData.gender}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Email */}
+            {formData.email && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Mail className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Correo Electrónico
+                    </p>
+                    <p className="text-gray-900 font-medium">
+                      {formData.email}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Teléfono */}
+            {formData.phone && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Phone className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Teléfono
+                    </p>
+                    <p className="text-gray-900 font-medium">
+                      {formData.phone}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Dirección */}
+            {formData.address && (
+              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 md:col-span-2">
+                <div className="flex items-start gap-3">
+                  <MapPin className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                      Dirección
+                    </p>
+                    <p className="text-gray-900 font-medium">
+                      {formData.address}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Contacto de Emergencia */}
+          {(emergencyContactName || emergencyContactPhone) && (
+            <div className="mt-6 pt-6 border-t border-blue-200">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="h-5 w-5 text-blue-600" />
+                <h5 className="text-md font-semibold text-gray-900">
+                  Contacto de Emergencia
+                </h5>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {emergencyContactName && (
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <User className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Nombre
+                        </p>
+                        <p className="text-gray-900 font-medium">
+                          {emergencyContactName}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {emergencyContactPhone && (
+                  <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200">
+                    <div className="flex items-start gap-3">
+                      <Phone className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                          Teléfono
+                        </p>
+                        <p className="text-gray-900 font-medium">
+                          {emergencyContactPhone}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Información Clínica Inicial */}
-        <div>
-          <h4 className="text-md font-semibold text-gray-900 mb-4">
-            Información Clínica Inicial
-          </h4>
-          <div className="space-y-4">
-            <div>
-              <label
-                htmlFor="medical_history"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Historia Médica/Psicológica Previa
-              </label>
-              <textarea
-                id="medical_history"
-                rows={4}
-                value={formData.medical_history}
-                onChange={(e) =>
-                  setFormData({ ...formData, medical_history: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describa la historia médica y psicológica previa del paciente..."
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="family_history"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Antecedentes Familiares
-              </label>
-              <textarea
-                id="family_history"
-                rows={4}
-                value={formData.family_history}
-                onChange={(e) =>
-                  setFormData({ ...formData, family_history: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describa los antecedentes familiares relevantes..."
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="consultation_reason"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Motivo de Consulta *
-              </label>
-              <textarea
-                id="consultation_reason"
-                rows={4}
-                value={formData.consultation_reason}
-                onChange={(e) =>
-                  setFormData({ ...formData, consultation_reason: e.target.value })
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Describa el motivo principal de la consulta..."
-                required
-              />
-            </div>
-          </div>
-        </div>
+        {/* Campos ocultos para el formulario */}
+        <input type="hidden" name="full_name" value={formData.full_name} />
+        <input type="hidden" name="rut" value={formData.rut} />
+        <input type="hidden" name="birth_date" value={formData.birth_date} />
+        <input type="hidden" name="gender" value={formData.gender} />
+        <input type="hidden" name="email" value={formData.email} />
+        <input type="hidden" name="phone" value={formData.phone} />
+        <input type="hidden" name="address" value={formData.address} />
 
         {errorMessage && (
           <div className="p-3 bg-red-50 border border-red-200 rounded-md">
@@ -476,35 +569,7 @@ export default function PatientIntakeForm({
             </div>
           </div>
         )}
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className={`
-              inline-flex items-center gap-2 px-6 py-2 rounded-md font-medium
-              ${
-                isSaving
-                  ? "bg-gray-400 text-white cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }
-            `}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4" />
-                Guardar Ficha de Ingreso
-              </>
-            )}
-          </button>
-        </div>
       </form>
     </div>
   );
 }
-

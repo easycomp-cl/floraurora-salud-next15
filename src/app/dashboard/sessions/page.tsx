@@ -7,6 +7,7 @@ import AppointmentsTable from "@/components/appointments/AppointmentsTable";
 import { appointmentService } from "@/lib/services/appointmentService";
 import { profileService } from "@/lib/services/profileService";
 import type { AppointmentWithUsers } from "@/lib/services/appointmentService";
+import SatisfactionSurveyReminder from "@/components/satisfaction-survey/SatisfactionSurveyReminder";
 
 type UserRole = 1 | 2 | 3 | null;
 
@@ -137,6 +138,9 @@ export default function SessionsPage() {
           {error}
         </div>
       )}
+
+      {/* Recordatorio de encuesta de satisfacción (solo para pacientes) */}
+      {role === 2 && <SatisfactionSurveyReminder />}
 
       {role === 1 ? (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">

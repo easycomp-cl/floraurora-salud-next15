@@ -1,6 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminServer } from "@/utils/supabase/server";
-import { deleteMeetEvent } from "@/lib/services/googleMeetService";
+import { NextResponse } from "next/server";
 
 /**
  * Cron job para cerrar sesiones de Google Meet que han excedido su duración
@@ -18,7 +16,7 @@ import { deleteMeetEvent } from "@/lib/services/googleMeetService";
  * 1. Descomentar el código de abajo
  * 2. Configurar cron job en Vercel (vercel.json) con schedule cada 5 minutos
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   // ⚠️ COMENTADO - Descomentar cuando tengas cron jobs configurados en Vercel
   return NextResponse.json({
     message: "Cron job deshabilitado temporalmente. Descomentar el código cuando tengas cron jobs configurados.",
