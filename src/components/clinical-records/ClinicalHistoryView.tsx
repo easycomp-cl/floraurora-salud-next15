@@ -10,6 +10,7 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import type {
   ClinicalHistory,
@@ -242,6 +243,32 @@ export default function ClinicalHistoryView({
 
   return (
     <div className={`space-y-6 ${className}`}>
+      {/* Ficha de Ingreso */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Ficha de Ingreso
+          </h2>
+        </div>
+
+        {showIntakeForm || !clinicalHistory?.intakeRecord ? (
+          <PatientIntakeForm
+            patientId={patientId}
+            professionalId={professionalId}
+            onSuccess={handleIntakeFormSuccess}
+          />
+        ) : (
+          <PatientDataDisplay
+            patientId={patientId}
+            professionalId={professionalId}
+          />
+        )}
+      </div>
+
+      {/* Línea separatoria */}
+      <div className="border-t border-gray-200 my-10"></div>
+
       {/* Historial de Sesiones */}
       <div>
         <div className="flex items-center justify-between mb-4">
@@ -295,6 +322,36 @@ export default function ClinicalHistoryView({
                   : null;
                 const isExpanded = expandedAppointments.has(appointmentId);
 
+                // Buscar el registro clínico correspondiente a esta cita
+                const clinicalRecord = clinicalHistory?.evolutionRecords?.find(
+                  (record) => record.appointment_id === appointmentId,
+                );
+
+                // Verificar si hay datos llenados
+                const hasData =
+                  clinicalRecord &&
+                  !!(
+                    (clinicalRecord.medical_history &&
+                      clinicalRecord.medical_history.trim()) ||
+                    (clinicalRecord.family_history &&
+                      clinicalRecord.family_history.trim()) ||
+                    (clinicalRecord.consultation_reason &&
+                      clinicalRecord.consultation_reason.trim()) ||
+                    (clinicalRecord.session_development &&
+                      clinicalRecord.session_development.trim()) ||
+                    (clinicalRecord.treatment_applied &&
+                      clinicalRecord.treatment_applied.trim()) ||
+                    (clinicalRecord.notes && clinicalRecord.notes.trim()) ||
+                    (clinicalRecord.evolution &&
+                      clinicalRecord.evolution.trim()) ||
+                    (clinicalRecord.observations &&
+                      clinicalRecord.observations.trim()) ||
+                    (clinicalRecord.diagnosis &&
+                      clinicalRecord.diagnosis.trim())
+                  );
+
+                const hasRecord = !!clinicalRecord;
+
                 return (
                   <div
                     key={appointmentId}
@@ -312,6 +369,13 @@ export default function ClinicalHistoryView({
                                 : `APT-${appointmentId.padStart(8, "0")}`}
                             </h3>
                             {getStatusBadge(appointment.status)}
+                            {/* Mostrar ícono si hay datos llenados */}
+                            {hasData && (
+                              <FileText
+                                className="h-5 w-5 text-gray-600"
+                                title="Ficha clínica con datos"
+                              />
+                            )}
                           </div>
                           {appointmentDate && (
                             <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -345,9 +409,22 @@ export default function ClinicalHistoryView({
                           onClick={() =>
                             toggleAppointmentExpanded(appointmentId)
                           }
-                          className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                          className={`inline-flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-md transition-colors cursor-pointer ${
+                            hasData
+                              ? "text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              : "text-green-600 hover:text-green-800 hover:bg-green-50"
+                          }`}
                         >
-                          {isExpanded ? "Ocultar" : "Ver/Editar"}
+                          {hasData ? (
+                            <FileText className="h-4 w-4" />
+                          ) : (
+                            <Pencil className="h-4 w-4" />
+                          )}
+                          {isExpanded
+                            ? "Ocultar"
+                            : hasData
+                              ? "Ver/Editar"
+                              : "Editar"}
                         </button>
                       </div>
                     </div>
@@ -460,29 +537,6 @@ export default function ClinicalHistoryView({
               </div>
             )}
           </>
-        )}
-      </div>
-
-      {/* Ficha de Ingreso */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Ficha de Ingreso
-          </h2>
-        </div>
-
-        {showIntakeForm || !clinicalHistory?.intakeRecord ? (
-          <PatientIntakeForm
-            patientId={patientId}
-            professionalId={professionalId}
-            onSuccess={handleIntakeFormSuccess}
-          />
-        ) : (
-          <PatientDataDisplay
-            patientId={patientId}
-            professionalId={professionalId}
-          />
         )}
       </div>
     </div>

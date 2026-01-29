@@ -16,10 +16,13 @@ import type {
 } from "@/lib/services/appointmentService";
 import RescheduleAppointmentModal from "./RescheduleAppointmentModal";
 import JoinMeetingButton from "./JoinMeetingButton";
-import { FileText, FileDown, Star } from "lucide-react";
+import { FileText, FileDown, Star, Pencil } from "lucide-react";
 import { useRouter } from "next/navigation";
 import SatisfactionSurveyDialog from "@/components/satisfaction-survey/SatisfactionSurveyDialog";
-import { satisfactionSurveyService, type SatisfactionSurvey } from "@/lib/services/satisfactionSurveyService";
+import {
+  satisfactionSurveyService,
+  type SatisfactionSurvey,
+} from "@/lib/services/satisfactionSurveyService";
 
 type AppointmentsTableMode = "patient" | "professional" | "admin";
 
@@ -120,12 +123,19 @@ export default function AppointmentsTable({
   const [confirmingAppointmentId, setConfirmingAppointmentId] = useState<
     string | number | null
   >(null);
-  const [clinicalRecordsMap, setClinicalRecordsMap] = useState<Map<string, boolean>>(new Map());
+  const [clinicalRecordsMap, setClinicalRecordsMap] = useState<
+    Map<string, { hasRecord: boolean; hasData: boolean }>
+  >(new Map());
   const [downloadingBheId, setDownloadingBheId] = useState<string | null>(null);
-  const [surveysMap, setSurveysMap] = useState<Map<string, SatisfactionSurvey>>(new Map());
-  const [surveyStatusMap, setSurveyStatusMap] = useState<Map<string, { canRate: boolean; hasRated: boolean }>>(new Map());
+  const [surveysMap, setSurveysMap] = useState<Map<string, SatisfactionSurvey>>(
+    new Map(),
+  );
+  const [surveyStatusMap, setSurveyStatusMap] = useState<
+    Map<string, { canRate: boolean; hasRated: boolean }>
+  >(new Map());
   const [surveyDialogOpen, setSurveyDialogOpen] = useState(false);
-  const [selectedAppointmentForSurvey, setSelectedAppointmentForSurvey] = useState<AppointmentWithUsers | null>(null);
+  const [selectedAppointmentForSurvey, setSelectedAppointmentForSurvey] =
+    useState<AppointmentWithUsers | null>(null);
 
   // Cargar configuración de horas antes de confirmar usando el cliente de Supabase directamente
   useEffect(() => {
@@ -133,7 +143,7 @@ export default function AppointmentsTable({
       try {
         // Importar dinámicamente para evitar problemas con SSR
         const { default: supabase } = await import("@/utils/supabase/client");
-        
+
         // Obtener configuración directamente desde Supabase
         const { data: configs, error } = await supabase
           .from("system_configurations")
@@ -141,7 +151,7 @@ export default function AppointmentsTable({
           .eq("is_active", true)
           .eq("config_key", "appointment_confirmation_hours_before")
           .maybeSingle();
-        
+
         if (!error && configs) {
           // Convertir el valor según su tipo de dato
           let value: number = 24;
@@ -165,19 +175,57 @@ export default function AppointmentsTable({
       const loadClinicalRecords = async () => {
         // Importar dinámicamente para evitar problemas con SSR
         const { default: supabase } = await import("@/utils/supabase/client");
-        const recordsMap = new Map<string, boolean>();
+        const recordsMap = new Map<
+          string,
+          { hasRecord: boolean; hasData: boolean }
+        >();
         const promises = data.map(async (appointment) => {
           try {
-            // Verificar directamente en Supabase si existe una ficha de evolución
-            const { data: evolutionRecord, error: evolutionError } = await supabase
-              .from("clinical_records")
-              .select("id")
-              .eq("appointment_id", appointment.id)
-              .maybeSingle();
-            
-            // Si hay un registro o el error es "no encontrado" (PGRST116), registrar el resultado
-            if (evolutionRecord || (evolutionError && evolutionError.code === "PGRST116")) {
-              recordsMap.set(String(appointment.id), !!evolutionRecord);
+            // Normalizar el appointmentId: asegurar que tenga el formato "APT-00000060"
+            let normalizedAppointmentId: string;
+            const appointmentIdStr = String(appointment.id);
+            if (appointmentIdStr.startsWith("APT-")) {
+              normalizedAppointmentId = appointmentIdStr;
+            } else {
+              const numericPart = appointmentIdStr.replace(/[^0-9]/g, "");
+              normalizedAppointmentId = `APT-${numericPart.padStart(8, "0")}`;
+            }
+
+            // Obtener los campos relevantes para verificar si hay datos llenados
+            const { data: evolutionRecord, error: evolutionError } =
+              await supabase
+                .from("clinical_records")
+                .select(
+                  "medical_history, family_history, consultation_reason, session_development, treatment_applied",
+                )
+                .eq("appointment_id", normalizedAppointmentId)
+                .maybeSingle();
+
+            // Manejar el caso cuando hay un registro o cuando no se encuentra (PGRST116)
+            if (evolutionRecord) {
+              // Hay un registro, verificar si tiene datos llenados
+              const hasRecord = true;
+              // Verificar si hay al menos un campo con datos (no vacío y no null)
+              const hasData = !!(
+                (evolutionRecord.medical_history &&
+                  evolutionRecord.medical_history.trim()) ||
+                (evolutionRecord.family_history &&
+                  evolutionRecord.family_history.trim()) ||
+                (evolutionRecord.consultation_reason &&
+                  evolutionRecord.consultation_reason.trim()) ||
+                (evolutionRecord.session_development &&
+                  evolutionRecord.session_development.trim()) ||
+                (evolutionRecord.treatment_applied &&
+                  evolutionRecord.treatment_applied.trim())
+              );
+
+              recordsMap.set(String(appointment.id), { hasRecord, hasData });
+            } else if (evolutionError && evolutionError.code === "PGRST116") {
+              // No hay registro, guardar como sin registro
+              recordsMap.set(String(appointment.id), {
+                hasRecord: false,
+                hasData: false,
+              });
             }
           } catch {
             // Ignorar errores silenciosamente
@@ -195,42 +243,53 @@ export default function AppointmentsTable({
     if (mode === "patient" && data && data.length > 0) {
       const loadSurveys = async () => {
         const surveys = new Map<string, SatisfactionSurvey>();
-        const statuses = new Map<string, { canRate: boolean; hasRated: boolean }>();
-        
+        const statuses = new Map<
+          string,
+          { canRate: boolean; hasRated: boolean }
+        >();
+
         const promises = data.map(async (appointment) => {
           try {
             // Solo verificar citas completadas o pasadas
             const appointmentDate = new Date(appointment.scheduled_at);
             const now = new Date();
-            const isPast = appointmentDate <= now || appointment.status === "completed";
-            
+            const isPast =
+              appointmentDate <= now || appointment.status === "completed";
+
             if (isPast) {
-              const survey = await satisfactionSurveyService.getSurveyByAppointmentId(appointment.id);
+              const survey =
+                await satisfactionSurveyService.getSurveyByAppointmentId(
+                  appointment.id,
+                );
               if (survey) {
                 surveys.set(String(appointment.id), survey);
               }
-              
+
               // Verificar estado de calificación
-              const status = await satisfactionSurveyService.getAppointmentSurveyStatus(
-                appointment.id,
-                appointment.scheduled_at
-              );
-              
+              const status =
+                await satisfactionSurveyService.getAppointmentSurveyStatus(
+                  appointment.id,
+                  appointment.scheduled_at,
+                );
+
               statuses.set(String(appointment.id), {
                 canRate: status.canRate,
                 hasRated: status.hasRated,
               });
             }
           } catch (error) {
-            console.error(`Error cargando encuesta para cita ${appointment.id}:`, error);
+            console.error(
+              `Error cargando encuesta para cita ${appointment.id}:`,
+              error,
+            );
           }
         });
-        
+
         await Promise.all(promises);
         setSurveysMap(surveys);
         setSurveyStatusMap(statuses);
       };
-      
+
       loadSurveys();
     }
   }, [mode, data]);
@@ -260,7 +319,7 @@ export default function AppointmentsTable({
         `/api/appointments/${appointmentId}/confirm`,
         {
           method: "POST",
-        }
+        },
       );
 
       if (!response.ok) {
@@ -294,9 +353,11 @@ export default function AppointmentsTable({
   const handleBheDownload = async (pdfPath: string, appointmentId: string) => {
     try {
       setDownloadingBheId(appointmentId);
-      
-      const response = await fetch(`/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`);
-      
+
+      const response = await fetch(
+        `/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`,
+      );
+
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         alert(payload?.error ?? "No se pudo generar la URL de descarga");
@@ -304,7 +365,7 @@ export default function AppointmentsTable({
       }
 
       const { download_url } = await response.json();
-      
+
       // Abrir la URL de descarga en una nueva pestaña
       window.open(download_url, "_blank");
     } catch (err) {
@@ -375,7 +436,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        })
+        }),
       );
     }
 
@@ -400,7 +461,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        })
+        }),
       );
     }
 
@@ -408,21 +469,21 @@ export default function AppointmentsTable({
       columnHelper.accessor("service", {
         header: "Servicio",
         cell: (info) => info.getValue() ?? "Sin servicio",
-      })
+      }),
     );
 
     baseColumns.push(
       columnHelper.accessor("amount", {
         header: "Monto",
         cell: ({ getValue }) => formatCurrency(getValue<number | null>()),
-      })
+      }),
     );
 
     baseColumns.push(
       columnHelper.accessor("area", {
         header: "Área",
         cell: (info) => info.getValue() ?? "Sin área",
-      })
+      }),
     );
 
     baseColumns.push(
@@ -432,7 +493,7 @@ export default function AppointmentsTable({
           const value = info.getValue();
           return value ? `${value} min` : "No definida";
         },
-      })
+      }),
     );
 
     baseColumns.push(
@@ -443,14 +504,14 @@ export default function AppointmentsTable({
           return (
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColorClasses(
-                status
+                status,
               )}`}
             >
               {statusLabel(status)}
             </span>
           );
         },
-      })
+      }),
     );
 
     baseColumns.push(
@@ -462,7 +523,7 @@ export default function AppointmentsTable({
             ? payment.charAt(0).toUpperCase() + payment.slice(1)
             : "Sin estado";
         },
-      })
+      }),
     );
 
     baseColumns.push(
@@ -476,7 +537,7 @@ export default function AppointmentsTable({
             <span className="text-sm text-gray-400">Sin notas</span>
           );
         },
-      })
+      }),
     );
 
     // Agregar columna de ficha clínica solo para profesionales
@@ -484,29 +545,49 @@ export default function AppointmentsTable({
       baseColumns.push(
         columnHelper.display({
           id: "clinical_record",
-          header: "Ficha Clínica",
+          header: "Ficha Clínica Digital",
           cell: ({ row }) => {
             const appointment = row.original;
-            const hasRecord = clinicalRecordsMap.get(String(appointment.id));
-            
-            if (hasRecord) {
+            const recordInfo = clinicalRecordsMap.get(String(appointment.id));
+            const hasData = recordInfo?.hasData ?? false;
+            const hasRecord = recordInfo?.hasRecord ?? false;
+
+            // Si no hay registro, no mostrar nada
+            if (!hasRecord) {
+              return null;
+            }
+
+            // Si hay datos, mostrar ícono y "Ver/Editar"
+            if (hasData) {
               return (
                 <button
-                  onClick={() => router.push(`/dashboard/appointments/${appointment.id}`)}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                  title="Ver ficha clínica"
+                  onClick={() =>
+                    router.push(`/dashboard/appointments/${appointment.id}`)
+                  }
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors cursor-pointer"
+                  title="Ver/Editar ficha clínica"
                 >
                   <FileText className="h-3 w-3" />
-                  Ver
+                  Ver/Editar
                 </button>
               );
             }
-            
+
+            // Si hay registro pero no hay datos, mostrar "Editar" con ícono de lápiz en verde
             return (
-              <span className="text-xs text-gray-400">Sin registro</span>
+              <button
+                onClick={() =>
+                  router.push(`/dashboard/appointments/${appointment.id}`)
+                }
+                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors cursor-pointer"
+                title="Editar ficha clínica"
+              >
+                <Pencil className="h-3 w-3" />
+                Editar
+              </button>
             );
           },
-        })
+        }),
       );
     }
 
@@ -536,7 +617,7 @@ export default function AppointmentsTable({
             />
           );
         },
-      })
+      }),
     );
 
     baseColumns.push(
@@ -580,7 +661,7 @@ export default function AppointmentsTable({
 
           return <span className="text-sm text-gray-400">Sin archivo</span>;
         },
-      })
+      }),
     );
 
     // Agregar columna de acciones para pacientes con citas pending_confirmation
@@ -638,7 +719,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        })
+        }),
       );
 
       // Agregar columna de calificación para pacientes
@@ -651,12 +732,13 @@ export default function AppointmentsTable({
             const appointmentId = String(appointment.id);
             const survey = surveysMap.get(appointmentId);
             const status = surveyStatusMap.get(appointmentId);
-            
+
             // Solo mostrar para citas completadas o pasadas
             const appointmentDate = new Date(appointment.scheduled_at);
             const now = new Date();
-            const isPast = appointmentDate <= now || appointment.status === "completed";
-            
+            const isPast =
+              appointmentDate <= now || appointment.status === "completed";
+
             if (!isPast) {
               return <span className="text-sm text-gray-400">—</span>;
             }
@@ -670,9 +752,9 @@ export default function AppointmentsTable({
                   survey.platform_booking_rating +
                   survey.platform_payment_rating +
                   survey.platform_experience_rating) /
-                  6
+                  6,
               );
-              
+
               return (
                 <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
@@ -712,22 +794,32 @@ export default function AppointmentsTable({
 
             // Si no puede calificar (ya pasó el plazo o ya calificó)
             if (status?.hasRated) {
-              return <span className="text-sm text-gray-400">Ya calificada</span>;
+              return (
+                <span className="text-sm text-gray-400">Ya calificada</span>
+              );
             }
 
             if (status && !status.canRate) {
-              return <span className="text-sm text-gray-400">Plazo vencido</span>;
+              return (
+                <span className="text-sm text-gray-400">Plazo vencido</span>
+              );
             }
 
             return <span className="text-sm text-gray-400">—</span>;
           },
-        })
+        }),
       );
     }
 
     return baseColumns as ColumnDef<AppointmentRow>[];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, confirmationHours, confirmingAppointmentId, surveysMap, surveyStatusMap]);
+  }, [
+    mode,
+    confirmationHours,
+    confirmingAppointmentId,
+    surveysMap,
+    surveyStatusMap,
+  ]);
 
   const table = useReactTable({
     data: tableData,
@@ -817,7 +909,7 @@ export default function AppointmentsTable({
                   >
                     {flexRender(
                       header.column.columnDef.header,
-                      header.getContext()
+                      header.getContext(),
                     )}
                     {{
                       asc: " 🔼",
@@ -907,64 +999,78 @@ export default function AppointmentsTable({
       )}
 
       {/* Dialog de encuesta de satisfacción */}
-      {selectedAppointmentForSurvey && selectedAppointmentForSurvey.patient_id && selectedAppointmentForSurvey.professional_id && (
-        <SatisfactionSurveyDialog
-          appointmentId={selectedAppointmentForSurvey.id}
-          patientId={selectedAppointmentForSurvey.patient_id}
-          professionalId={selectedAppointmentForSurvey.professional_id}
-          scheduledAt={selectedAppointmentForSurvey.scheduled_at}
-          open={surveyDialogOpen}
-          onOpenChange={(open) => {
-            setSurveyDialogOpen(open);
-            if (!open) {
-              setSelectedAppointmentForSurvey(null);
-            }
-          }}
-          onSuccess={async () => {
-            // Recargar encuestas después de calificar
-            if (mode === "patient" && data && data.length > 0) {
-              const surveys = new Map<string, SatisfactionSurvey>();
-              const statuses = new Map<string, { canRate: boolean; hasRated: boolean }>();
-              
-              const promises = data.map(async (appointment) => {
-                try {
-                  const appointmentDate = new Date(appointment.scheduled_at);
-                  const now = new Date();
-                  const isPast = appointmentDate <= now || appointment.status === "completed";
-                  
-                  if (isPast) {
-                    const survey = await satisfactionSurveyService.getSurveyByAppointmentId(appointment.id);
-                    if (survey) {
-                      surveys.set(String(appointment.id), survey);
+      {selectedAppointmentForSurvey &&
+        selectedAppointmentForSurvey.patient_id &&
+        selectedAppointmentForSurvey.professional_id && (
+          <SatisfactionSurveyDialog
+            appointmentId={selectedAppointmentForSurvey.id}
+            patientId={selectedAppointmentForSurvey.patient_id}
+            professionalId={selectedAppointmentForSurvey.professional_id}
+            scheduledAt={selectedAppointmentForSurvey.scheduled_at}
+            open={surveyDialogOpen}
+            onOpenChange={(open) => {
+              setSurveyDialogOpen(open);
+              if (!open) {
+                setSelectedAppointmentForSurvey(null);
+              }
+            }}
+            onSuccess={async () => {
+              // Recargar encuestas después de calificar
+              if (mode === "patient" && data && data.length > 0) {
+                const surveys = new Map<string, SatisfactionSurvey>();
+                const statuses = new Map<
+                  string,
+                  { canRate: boolean; hasRated: boolean }
+                >();
+
+                const promises = data.map(async (appointment) => {
+                  try {
+                    const appointmentDate = new Date(appointment.scheduled_at);
+                    const now = new Date();
+                    const isPast =
+                      appointmentDate <= now ||
+                      appointment.status === "completed";
+
+                    if (isPast) {
+                      const survey =
+                        await satisfactionSurveyService.getSurveyByAppointmentId(
+                          appointment.id,
+                        );
+                      if (survey) {
+                        surveys.set(String(appointment.id), survey);
+                      }
+
+                      const status =
+                        await satisfactionSurveyService.getAppointmentSurveyStatus(
+                          appointment.id,
+                          appointment.scheduled_at,
+                        );
+
+                      statuses.set(String(appointment.id), {
+                        canRate: status.canRate,
+                        hasRated: status.hasRated,
+                      });
                     }
-                    
-                    const status = await satisfactionSurveyService.getAppointmentSurveyStatus(
-                      appointment.id,
-                      appointment.scheduled_at
+                  } catch (error) {
+                    console.error(
+                      `Error recargando encuesta para cita ${appointment.id}:`,
+                      error,
                     );
-                    
-                    statuses.set(String(appointment.id), {
-                      canRate: status.canRate,
-                      hasRated: status.hasRated,
-                    });
                   }
-                } catch (error) {
-                  console.error(`Error recargando encuesta para cita ${appointment.id}:`, error);
-                }
-              });
-              
-              await Promise.all(promises);
-              setSurveysMap(surveys);
-              setSurveyStatusMap(statuses);
-            }
-            
-            // Llamar al callback de actualización si existe
-            if (onAppointmentUpdate) {
-              onAppointmentUpdate();
-            }
-          }}
-        />
-      )}
+                });
+
+                await Promise.all(promises);
+                setSurveysMap(surveys);
+                setSurveyStatusMap(statuses);
+              }
+
+              // Llamar al callback de actualización si existe
+              if (onAppointmentUpdate) {
+                onAppointmentUpdate();
+              }
+            }}
+          />
+        )}
     </div>
   );
 }

@@ -195,6 +195,8 @@ export async function createMeetLink(
 
     // Crear evento en Google Calendar con Google Meet
     // Usar el formato correcto según la documentación de Google Calendar API v3
+    // NOTA: No usamos conferenceData para evitar que Google Calendar cree un segundo enlace
+    // En su lugar, usamos el espacio de Meet creado manualmente y lo agregamos en la descripción
     const event: {
       summary: string;
       description: string;
@@ -204,14 +206,6 @@ export async function createMeetLink(
         email: string;
         displayName?: string;
         self?: boolean;
-      };
-      conferenceData?: {
-        createRequest: {
-          requestId: string;
-          conferenceSolutionKey?: {
-            type?: string;
-          };
-        };
       };
       attendees?: Array<{
         email: string;
@@ -267,16 +261,9 @@ export async function createMeetLink(
     // Agregar el link de Meet OPEN en la descripción del evento
     event.description = `${event.description}\n\nEnlace de videollamada: ${meetUri}`;
 
-    // También agregar configuración de Google Meet para el calendario
-    // (aunque preferimos usar el espacio OPEN creado)
-    event.conferenceData = {
-      createRequest: {
-        requestId: `meet-${params.appointmentId}-${Date.now()}`,
-        conferenceSolutionKey: {
-          type: "hangoutsMeet",
-        },
-      },
-    };
+    // NO agregar conferenceData para evitar que Google Calendar cree un segundo enlace diferente
+    // Estamos usando el espacio de Meet creado manualmente con createMeetSpace()
+    // que ya está incluido en la descripción del evento
 
     console.log(
       `[GoogleMeet] Creando evento de Meet para cita ${params.appointmentId}`
@@ -312,35 +299,8 @@ export async function createMeetLink(
       );
     }
 
-    // Verificar primero si el calendario permite conferencias de tipo hangoutsMeet
-    try {
-      const calendarInfo = await calendar.calendars.get({
-        calendarId: calendarIdToUse,
-      });
-
-      const allowedTypes = calendarInfo.data.conferenceProperties?.allowedConferenceSolutionTypes || [];
-      console.log(
-        `[GoogleMeet] Tipos de conferencia permitidos en el calendario:`,
-        allowedTypes
-      );
-
-      // Si hangoutsMeet no está permitido, intentar sin especificar el tipo
-      if (!allowedTypes.includes("hangoutsMeet")) {
-        console.warn(
-          `[GoogleMeet] El calendario no permite "hangoutsMeet", intentando sin especificar tipo`
-        );
-        // Eliminar el tipo y dejar que Google lo determine
-        if (event.conferenceData?.createRequest) {
-          delete (event.conferenceData.createRequest as { type?: string }).type;
-        }
-      }
-    } catch (calendarError) {
-      console.warn(
-        `[GoogleMeet] No se pudo verificar propiedades del calendario:`,
-        calendarError instanceof Error ? calendarError.message : String(calendarError)
-      );
-      // Continuar con el intento de crear el evento
-    }
+    // Ya no necesitamos verificar conferenceProperties porque no estamos usando conferenceData
+    // Estamos usando el espacio de Meet creado manualmente
 
     // Intentar crear el evento
     // Si falla porque el profesional no tiene calendario accesible, usar el calendario de Workspace
@@ -349,7 +309,6 @@ export async function createMeetLink(
       response = await calendar.events.insert({
         calendarId: calendarIdToUse,
         requestBody: event,
-        conferenceDataVersion: 1,
       });
     } catch (calendarError: unknown) {
       const errorMessage = calendarError instanceof Error ? calendarError.message : String(calendarError);
@@ -368,7 +327,6 @@ export async function createMeetLink(
         response = await calendar.events.insert({
           calendarId: calendarIdToUse,
           requestBody: eventWithoutOrganizer,
-          conferenceDataVersion: 1,
         });
       } else {
         throw calendarError;
@@ -378,23 +336,12 @@ export async function createMeetLink(
     const createdEvent = response.data;
 
     // Usar el espacio de Meet creado con acceso OPEN
-    // Si el evento también tiene un enlace de conferencia, preferimos el espacio OPEN
+    // Este es el único enlace que se usará, evitando confusión con múltiples enlaces
     const meetLink = meetUri;
     
-    // Si el evento tiene un enlace de conferencia, lo usamos como fallback
-    // pero preferimos el espacio OPEN que creamos
-    if (createdEvent.conferenceData?.entryPoints) {
-      const calendarMeetLink =
-        createdEvent.conferenceData.entryPoints.find(
-          (ep) => ep.entryPointType === "video"
-        )?.uri || createdEvent.conferenceData.entryPoints[0]?.uri;
-      
-      // Usar el espacio OPEN que creamos, no el del calendario
-      // El espacio OPEN garantiza entrada sin aprobación
-      console.log(
-        `[GoogleMeet] Usando espacio OPEN creado: ${meetLink} (en lugar del del calendario: ${calendarMeetLink})`
-      );
-    }
+    console.log(
+      `[GoogleMeet] Usando espacio OPEN creado: ${meetLink}`
+    );
 
     if (!meetLink) {
       throw new Error("No se encontró el enlace de Google Meet");

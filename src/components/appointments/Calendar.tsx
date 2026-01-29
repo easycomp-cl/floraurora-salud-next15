@@ -40,18 +40,24 @@ export default function Calendar({
 
   // Limitar navegación a máximo 2 semanas en el futuro
   const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalizar a medianoche para comparaciones de fecha
   const twoWeeksFromNow = new Date(today.getTime() + 14 * 24 * 60 * 60 * 1000);
+  twoWeeksFromNow.setHours(23, 59, 59, 999); // Incluir todo el último día
 
   const nextMonth = () => {
     const nextMonthDate = addMonths(currentMonth, 1);
-    if (nextMonthDate <= twoWeeksFromNow) {
+    const nextMonthStart = startOfMonth(nextMonthDate);
+    // Permitir navegar si el inicio del mes siguiente está dentro del rango de 2 semanas
+    if (nextMonthStart <= twoWeeksFromNow) {
       setCurrentMonth(nextMonthDate);
     }
   };
 
   const prevMonth = () => {
     const prevMonthDate = subMonths(currentMonth, 1);
-    if (prevMonthDate >= today) {
+    const prevMonthStart = startOfMonth(prevMonthDate);
+    // Permitir navegar hacia atrás si el mes anterior no es anterior a hoy
+    if (prevMonthStart >= startOfMonth(today)) {
       setCurrentMonth(prevMonthDate);
     }
   };
@@ -117,7 +123,9 @@ export default function Calendar({
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={prevMonth}
-            disabled={subMonths(currentMonth, 1) < today}
+            disabled={
+              startOfMonth(subMonths(currentMonth, 1)) < startOfMonth(today)
+            }
             className="p-2 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-5 h-5" />
@@ -129,7 +137,9 @@ export default function Calendar({
 
           <button
             onClick={nextMonth}
-            disabled={addMonths(currentMonth, 1) > twoWeeksFromNow}
+            disabled={
+              startOfMonth(addMonths(currentMonth, 1)) > twoWeeksFromNow
+            }
             className="p-2 hover:bg-gray-100 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight className="w-5 h-5" />

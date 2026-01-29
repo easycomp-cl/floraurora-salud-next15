@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
-import { History, Shield, ArrowLeft, Loader2 } from "lucide-react";
+import { Shield, ArrowLeft, Loader2 } from "lucide-react";
 import ClinicalHistoryView from "@/components/clinical-records/ClinicalHistoryView";
 import PatientDataDisplay from "@/components/clinical-records/PatientDataDisplay";
 import ClinicalEvolutionForm from "@/components/clinical-records/ClinicalEvolutionForm";
 import { appointmentService } from "@/lib/services/appointmentService";
 import type { AppointmentWithUsers } from "@/lib/services/appointmentService";
 
-type TabType = "history" | "audit";
+type TabType = "audit";
 
 export default function ClinicalRecordsPage() {
   const params = useParams();
@@ -19,11 +19,13 @@ export default function ClinicalRecordsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuthState();
   const patientId = params.patientId as string;
   const appointmentId = searchParams.get("appointmentId");
-  const [activeTab, setActiveTab] = useState<TabType>("history");
+  const [activeTab, setActiveTab] = useState<TabType | null>(null);
   const [userRole, setUserRole] = useState<number | null>(null);
   const [professionalId, setProfessionalId] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [appointment, setAppointment] = useState<AppointmentWithUsers | null>(null);
+  const [appointment, setAppointment] = useState<AppointmentWithUsers | null>(
+    null,
+  );
   const [isLoadingAppointment, setIsLoadingAppointment] = useState(false);
 
   useEffect(() => {
@@ -41,7 +43,9 @@ export default function ClinicalRecordsPage() {
       try {
         setIsLoading(true);
         // Usar profileService en lugar de fetch para evitar problemas con cookies
-        const { profileService } = await import("@/lib/services/profileService");
+        const { profileService } = await import(
+          "@/lib/services/profileService"
+        );
         const profile = await profileService.getUserProfileByUuid(user.id);
         if (profile) {
           setUserRole(profile.role);
@@ -63,7 +67,8 @@ export default function ClinicalRecordsPage() {
       const loadAppointment = async () => {
         try {
           setIsLoadingAppointment(true);
-          const data = await appointmentService.getAppointmentById(appointmentId);
+          const data =
+            await appointmentService.getAppointmentById(appointmentId);
           if (data) {
             setAppointment(data);
           }
@@ -144,24 +149,23 @@ export default function ClinicalRecordsPage() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => setActiveTab("history")}
-            className={`
-              flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
-              ${
-                activeTab === "history"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }
-            `}
-          >
-            <History className="h-4 w-4" />
-            Historial Clínico
-          </button>
-          {isAdmin && (
+      {/* Tabs - Solo Auditoría para admins */}
+      {isAdmin && (
+        <div className="border-b border-gray-200 mb-6">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => setActiveTab(null)}
+              className={`
+                flex items-center gap-2 py-4 px-1 border-b-2 font-medium text-sm
+                ${
+                  activeTab !== "audit"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }
+              `}
+            >
+              Ficha Clínica
+            </button>
             <button
               onClick={() => setActiveTab("audit")}
               className={`
@@ -176,13 +180,31 @@ export default function ClinicalRecordsPage() {
               <Shield className="h-4 w-4" />
               Auditoría
             </button>
-          )}
-        </nav>
-      </div>
+          </nav>
+        </div>
+      )}
 
-      {/* Tab Content */}
+      {/* Content */}
       <div>
-        {activeTab === "history" && (
+        {activeTab === "audit" && isAdmin ? (
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield className="h-5 w-5 text-gray-400" />
+              <h2 className="text-lg font-semibold text-gray-900">
+                Logs de Auditoría
+              </h2>
+            </div>
+            <p className="text-gray-600">
+              Los logs de auditoría muestran todos los accesos y modificaciones
+              realizadas en las fichas clínicas. Esta funcionalidad está
+              disponible solo para administradores.
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Para ver los logs específicos de un registro, acceda desde la API
+              de auditoría o desde el panel de administración.
+            </p>
+          </div>
+        ) : (
           <>
             {/* Si hay appointmentId, mostrar datos del paciente y formulario de sesión */}
             {appointmentId ? (
@@ -199,7 +221,8 @@ export default function ClinicalRecordsPage() {
               ) : !appointment.scheduled_at || !appointment.duration_minutes ? (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-yellow-700">
-                    La cita no tiene fecha y hora programadas. No se puede crear una ficha de evolución.
+                    La cita no tiene fecha y hora programadas. No se puede crear
+                    una ficha de evolución.
                   </p>
                 </div>
               ) : (
@@ -231,28 +254,7 @@ export default function ClinicalRecordsPage() {
             )}
           </>
         )}
-
-        {activeTab === "audit" && isAdmin && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <Shield className="h-5 w-5 text-gray-400" />
-              <h2 className="text-lg font-semibold text-gray-900">
-                Logs de Auditoría
-              </h2>
-            </div>
-            <p className="text-gray-600">
-              Los logs de auditoría muestran todos los accesos y modificaciones
-              realizadas en las fichas clínicas. Esta funcionalidad está disponible
-              solo para administradores.
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Para ver los logs específicos de un registro, acceda desde la API de
-              auditoría o desde el panel de administración.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );
 }
-
