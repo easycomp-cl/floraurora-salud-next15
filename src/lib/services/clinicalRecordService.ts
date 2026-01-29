@@ -61,6 +61,9 @@ export interface ClinicalEvolutionRecord {
   session_development?: string | null;
   treatment_applied?: string | null;
   next_session_indications?: string | null;
+  medical_history?: string | null;
+  family_history?: string | null;
+  consultation_reason?: string | null;
   created_at: string;
   updated_at: string;
 }

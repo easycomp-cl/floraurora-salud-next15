@@ -331,6 +331,12 @@ export default function ClinicalHistoryView({
                 const hasData =
                   clinicalRecord &&
                   !!(
+                    (clinicalRecord.medical_history &&
+                      clinicalRecord.medical_history.trim()) ||
+                    (clinicalRecord.family_history &&
+                      clinicalRecord.family_history.trim()) ||
+                    (clinicalRecord.consultation_reason &&
+                      clinicalRecord.consultation_reason.trim()) ||
                     (clinicalRecord.session_development &&
                       clinicalRecord.session_development.trim()) ||
                     (clinicalRecord.treatment_applied &&
