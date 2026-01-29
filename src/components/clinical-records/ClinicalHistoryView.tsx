@@ -331,12 +331,6 @@ export default function ClinicalHistoryView({
                 const hasData =
                   clinicalRecord &&
                   !!(
-                    (clinicalRecord.medical_history &&
-                      clinicalRecord.medical_history.trim()) ||
-                    (clinicalRecord.family_history &&
-                      clinicalRecord.family_history.trim()) ||
-                    (clinicalRecord.consultation_reason &&
-                      clinicalRecord.consultation_reason.trim()) ||
                     (clinicalRecord.session_development &&
                       clinicalRecord.session_development.trim()) ||
                     (clinicalRecord.treatment_applied &&
@@ -347,10 +341,10 @@ export default function ClinicalHistoryView({
                     (clinicalRecord.observations &&
                       clinicalRecord.observations.trim()) ||
                     (clinicalRecord.diagnosis &&
-                      clinicalRecord.diagnosis.trim())
+                      clinicalRecord.diagnosis.trim()) ||
+                    (clinicalRecord.next_session_indications &&
+                      clinicalRecord.next_session_indications.trim())
                   );
-
-                const hasRecord = !!clinicalRecord;
 
                 return (
                   <div
@@ -371,10 +365,7 @@ export default function ClinicalHistoryView({
                             {getStatusBadge(appointment.status)}
                             {/* Mostrar ícono si hay datos llenados */}
                             {hasData && (
-                              <FileText
-                                className="h-5 w-5 text-gray-600"
-                                title="Ficha clínica con datos"
-                              />
+                              <FileText className="h-5 w-5 text-gray-600" />
                             )}
                           </div>
                           {appointmentDate && (
