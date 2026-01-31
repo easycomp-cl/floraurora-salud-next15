@@ -680,151 +680,158 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
     }
 
     // Encolar job de BHE para emisión de boleta electrónica
-    try {
-      // Obtener datos completos del profesional
-      let professionalRut: string | null = null;
-      let professionalAddress: string | null = null;
-      let professionalRegion: string | null = null;
-      let professionalComuna: string | null = null;
-      
-      if (appointment.professional_id) {
-        // Obtener datos del usuario profesional
-        const { data: professionalUserData } = await adminSupabase
-          .from("users")
-          .select("rut, address, region, municipality")
-          .eq("id", appointment.professional_id)
+    // Solo crear el job si la variable de entorno CREATE_JOBS_RPA_SII está en true
+    const shouldCreateBHEJob = process.env.CREATE_JOBS_RPA_SII === "true";
+    
+    if (shouldCreateBHEJob) {
+      try {
+        // Obtener datos completos del profesional
+        let professionalRut: string | null = null;
+        let professionalAddress: string | null = null;
+        let professionalRegion: string | null = null;
+        let professionalComuna: string | null = null;
+        
+        if (appointment.professional_id) {
+          // Obtener datos del usuario profesional
+          const { data: professionalUserData } = await adminSupabase
+            .from("users")
+            .select("rut, address, region, municipality")
+            .eq("id", appointment.professional_id)
+            .single();
+          
+          professionalRut = professionalUserData?.rut || null;
+          professionalAddress = professionalUserData?.address || null;
+          
+          // Obtener nombre de la región si existe
+          if (professionalUserData?.region) {
+            const { data: regionData } = await adminSupabase
+              .from("regions")
+              .select("name")
+              .eq("id", professionalUserData.region)
+              .single();
+            
+            professionalRegion = regionData?.name || null;
+          }
+          
+          // Obtener nombre de la comuna (municipality) si existe
+          if (professionalUserData?.municipality) {
+            const { data: municipalityData } = await adminSupabase
+              .from("municipalities")
+              .select("name")
+              .eq("id", professionalUserData.municipality)
+              .single();
+            
+            professionalComuna = municipalityData?.name || null;
+          }
+        }
+
+        // Obtener datos completos del paciente
+        let patientRut: string | null = null;
+        let patientNames: string | null = null;
+        let patientAddress: string | null = null;
+        let patientRegion: string | null = null;
+        let patientComuna: string | null = null;
+        let patientEmail: string | null = null;
+        
+        if (appointment.patient_id) {
+          // Obtener datos del usuario paciente
+          const { data: patientUserData } = await adminSupabase
+            .from("users")
+            .select("rut, name, last_name, email, address, region, municipality")
+            .eq("id", appointment.patient_id)
+            .single();
+          
+          patientRut = patientUserData?.rut || null;
+          patientNames = patientUserData?.name && patientUserData?.last_name
+            ? `${patientUserData.name} ${patientUserData.last_name}`
+            : patientUserData?.name || null;
+          patientAddress = patientUserData?.address || null;
+          patientEmail = patientUserData?.email || null;
+          
+          // Obtener nombre de la región si existe
+          if (patientUserData?.region) {
+            const { data: regionData } = await adminSupabase
+              .from("regions")
+              .select("name")
+              .eq("id", patientUserData.region)
+              .single();
+            
+            patientRegion = regionData?.name || null;
+          }
+          
+          // Obtener nombre de la comuna (municipality) si existe
+          if (patientUserData?.municipality) {
+            const { data: municipalityData } = await adminSupabase
+              .from("municipalities")
+              .select("name")
+              .eq("id", patientUserData.municipality)
+              .single();
+            
+            patientComuna = municipalityData?.name || null;
+          }
+        }
+
+        // Obtener información completa de la cita
+        const appointmentData = await adminSupabase
+          .from("appointments")
+          .select("service, area, note, scheduled_at")
+          .eq("id", appointmentId)
           .single();
+
+        const serviceName = appointmentData.data?.service || appointmentData.data?.area || "Consulta psicológica";
+        const glosa = `Servicio de ${serviceName}`;
         
-        professionalRut = professionalUserData?.rut || null;
-        professionalAddress = professionalUserData?.address || null;
+        // service_date: fecha de la cita (scheduled_at)
+        // Nota: Si hay reagendamientos, se debería usar la primera fecha con pago exitoso
+        // Por ahora usamos scheduled_at, pero esto podría requerir revisar historial de pagos
+        const serviceDate = appointmentData.data?.scheduled_at
+          ? new Date(appointmentData.data.scheduled_at).toISOString().split('T')[0]
+          : null;
         
-        // Obtener nombre de la región si existe
-        if (professionalUserData?.region) {
-          const { data: regionData } = await adminSupabase
-            .from("regions")
-            .select("name")
-            .eq("id", professionalUserData.region)
-            .single();
-          
-          professionalRegion = regionData?.name || null;
-        }
-        
-        // Obtener nombre de la comuna (municipality) si existe
-        if (professionalUserData?.municipality) {
-          const { data: municipalityData } = await adminSupabase
-            .from("municipalities")
-            .select("name")
-            .eq("id", professionalUserData.municipality)
-            .single();
-          
-          professionalComuna = municipalityData?.name || null;
-        }
+        // service_detail: es lo mismo que glosa (el servicio ofrecido)
+        const serviceDetail = glosa;
+
+        // Determinar payment_id único para idempotencia
+        // Preferir buy_order, luego tokenWs/authorization_code, finalmente timestamp
+        const uniquePaymentId = buy_order || tokenWs || authorization_code || `payment_${Date.now()}`;
+
+        // Encolar el job de BHE
+        await BHEService.enqueueJob({
+          payment_id: uniquePaymentId, // Usar buy_order como payment_id único para idempotencia
+          appointment_id: appointmentIdFormatted,
+          professional_id: appointment.professional_id!,
+          patient_id: appointment.patient_id || undefined,
+          patient_rut: patientRut || undefined,
+          amount: amount || 0,
+          glosa: glosa,
+          issue_date: new Date().toISOString().split('T')[0],
+          professional_rut: professionalRut || undefined,
+          professional_address: professionalAddress || undefined,
+          professional_region: professionalRegion || undefined,
+          professional_comuna: professionalComuna || undefined,
+          patient_names: patientNames || undefined,
+          patient_address: patientAddress || undefined,
+          patient_region: patientRegion || undefined,
+          patient_comuna: patientComuna || undefined,
+          patient_email: patientEmail || undefined,
+          service_date: serviceDate || undefined,
+          service_detail: serviceDetail || undefined,
+          metadata: {
+            buy_order,
+            authorization_code,
+            transaction_date,
+            source: "webpay_plus",
+          },
+        });
+
+        console.log("✅ [Webpay Confirm] Job de BHE encolado exitosamente");
+      } catch (bheError) {
+        // No bloquear el flujo si falla el encolado de BHE
+        // El job puede ser creado manualmente después si es necesario
+        console.error("⚠️ [Webpay Confirm] Error al encolar job de BHE (no crítico):", bheError);
       }
-
-      // Obtener datos completos del paciente
-      let patientRut: string | null = null;
-      let patientNames: string | null = null;
-      let patientAddress: string | null = null;
-      let patientRegion: string | null = null;
-      let patientComuna: string | null = null;
-      let patientEmail: string | null = null;
-      
-      if (appointment.patient_id) {
-        // Obtener datos del usuario paciente
-        const { data: patientUserData } = await adminSupabase
-          .from("users")
-          .select("rut, name, last_name, email, address, region, municipality")
-          .eq("id", appointment.patient_id)
-          .single();
-        
-        patientRut = patientUserData?.rut || null;
-        patientNames = patientUserData?.name && patientUserData?.last_name
-          ? `${patientUserData.name} ${patientUserData.last_name}`
-          : patientUserData?.name || null;
-        patientAddress = patientUserData?.address || null;
-        patientEmail = patientUserData?.email || null;
-        
-        // Obtener nombre de la región si existe
-        if (patientUserData?.region) {
-          const { data: regionData } = await adminSupabase
-            .from("regions")
-            .select("name")
-            .eq("id", patientUserData.region)
-            .single();
-          
-          patientRegion = regionData?.name || null;
-        }
-        
-        // Obtener nombre de la comuna (municipality) si existe
-        if (patientUserData?.municipality) {
-          const { data: municipalityData } = await adminSupabase
-            .from("municipalities")
-            .select("name")
-            .eq("id", patientUserData.municipality)
-            .single();
-          
-          patientComuna = municipalityData?.name || null;
-        }
-      }
-
-      // Obtener información completa de la cita
-      const appointmentData = await adminSupabase
-        .from("appointments")
-        .select("service, area, note, scheduled_at")
-        .eq("id", appointmentId)
-        .single();
-
-      const serviceName = appointmentData.data?.service || appointmentData.data?.area || "Consulta psicológica";
-      const glosa = `Servicio de ${serviceName}`;
-      
-      // service_date: fecha de la cita (scheduled_at)
-      // Nota: Si hay reagendamientos, se debería usar la primera fecha con pago exitoso
-      // Por ahora usamos scheduled_at, pero esto podría requerir revisar historial de pagos
-      const serviceDate = appointmentData.data?.scheduled_at
-        ? new Date(appointmentData.data.scheduled_at).toISOString().split('T')[0]
-        : null;
-      
-      // service_detail: es lo mismo que glosa (el servicio ofrecido)
-      const serviceDetail = glosa;
-
-      // Determinar payment_id único para idempotencia
-      // Preferir buy_order, luego tokenWs/authorization_code, finalmente timestamp
-      const uniquePaymentId = buy_order || tokenWs || authorization_code || `payment_${Date.now()}`;
-
-      // Encolar el job de BHE
-      await BHEService.enqueueJob({
-        payment_id: uniquePaymentId, // Usar buy_order como payment_id único para idempotencia
-        appointment_id: appointmentIdFormatted,
-        professional_id: appointment.professional_id!,
-        patient_id: appointment.patient_id || undefined,
-        patient_rut: patientRut || undefined,
-        amount: amount || 0,
-        glosa: glosa,
-        issue_date: new Date().toISOString().split('T')[0],
-        professional_rut: professionalRut || undefined,
-        professional_address: professionalAddress || undefined,
-        professional_region: professionalRegion || undefined,
-        professional_comuna: professionalComuna || undefined,
-        patient_names: patientNames || undefined,
-        patient_address: patientAddress || undefined,
-        patient_region: patientRegion || undefined,
-        patient_comuna: patientComuna || undefined,
-        patient_email: patientEmail || undefined,
-        service_date: serviceDate || undefined,
-        service_detail: serviceDetail || undefined,
-        metadata: {
-          buy_order,
-          authorization_code,
-          transaction_date,
-          source: "webpay_plus",
-        },
-      });
-
-      console.log("✅ [Webpay Confirm] Job de BHE encolado exitosamente");
-    } catch (bheError) {
-      // No bloquear el flujo si falla el encolado de BHE
-      // El job puede ser creado manualmente después si es necesario
-      console.error("⚠️ [Webpay Confirm] Error al encolar job de BHE (no crítico):", bheError);
+    } else {
+      console.log("⏭️ [Webpay Confirm] Creación de job BHE omitida (CREATE_JOBS_RPA_SII=false)");
     }
 
     // Enviar emails de confirmación
