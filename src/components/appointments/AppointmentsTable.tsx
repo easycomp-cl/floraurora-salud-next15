@@ -128,7 +128,7 @@ export default function AppointmentsTable({
   >(new Map());
   const [downloadingBheId, setDownloadingBheId] = useState<string | null>(null);
   const [surveysMap, setSurveysMap] = useState<Map<string, SatisfactionSurvey>>(
-    new Map(),
+    new Map()
   );
   const [surveyStatusMap, setSurveyStatusMap] = useState<
     Map<string, { canRate: boolean; hasRated: boolean }>
@@ -199,7 +199,7 @@ export default function AppointmentsTable({
               await supabase
                 .from("clinical_records")
                 .select(
-                  "medical_history, family_history, consultation_reason, session_development, treatment_applied",
+                  "medical_history, family_history, consultation_reason, session_development, treatment_applied"
                 )
                 .eq("appointment_id", normalizedAppointmentId)
                 .maybeSingle();
@@ -262,7 +262,7 @@ export default function AppointmentsTable({
             if (isPast) {
               const survey =
                 await satisfactionSurveyService.getSurveyByAppointmentId(
-                  appointment.id,
+                  appointment.id
                 );
               if (survey) {
                 surveys.set(String(appointment.id), survey);
@@ -272,7 +272,7 @@ export default function AppointmentsTable({
               const status =
                 await satisfactionSurveyService.getAppointmentSurveyStatus(
                   appointment.id,
-                  appointment.scheduled_at,
+                  appointment.scheduled_at
                 );
 
               statuses.set(String(appointment.id), {
@@ -283,7 +283,7 @@ export default function AppointmentsTable({
           } catch (error) {
             console.error(
               `Error cargando encuesta para cita ${appointment.id}:`,
-              error,
+              error
             );
           }
         });
@@ -322,7 +322,7 @@ export default function AppointmentsTable({
         `/api/appointments/${appointmentId}/confirm`,
         {
           method: "POST",
-        },
+        }
       );
 
       if (!response.ok) {
@@ -358,7 +358,7 @@ export default function AppointmentsTable({
       setDownloadingBheId(appointmentId);
 
       const response = await fetch(
-        `/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`,
+        `/api/admin/reports/bhe-download?path=${encodeURIComponent(pdfPath)}`
       );
 
       if (!response.ok) {
@@ -439,7 +439,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        }),
+        })
       );
     }
 
@@ -464,7 +464,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        }),
+        })
       );
     }
 
@@ -472,21 +472,21 @@ export default function AppointmentsTable({
       columnHelper.accessor("service", {
         header: "Servicio",
         cell: (info) => info.getValue() ?? "Sin servicio",
-      }),
+      })
     );
 
     baseColumns.push(
       columnHelper.accessor("amount", {
         header: "Monto",
         cell: ({ getValue }) => formatCurrency(getValue<number | null>()),
-      }),
+      })
     );
 
     baseColumns.push(
       columnHelper.accessor("area", {
         header: "Área",
         cell: (info) => info.getValue() ?? "Sin área",
-      }),
+      })
     );
 
     baseColumns.push(
@@ -496,7 +496,7 @@ export default function AppointmentsTable({
           const value = info.getValue();
           return value ? `${value} min` : "No definida";
         },
-      }),
+      })
     );
 
     baseColumns.push(
@@ -507,14 +507,14 @@ export default function AppointmentsTable({
           return (
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColorClasses(
-                status,
+                status
               )}`}
             >
               {statusLabel(status)}
             </span>
           );
         },
-      }),
+      })
     );
 
     baseColumns.push(
@@ -526,7 +526,7 @@ export default function AppointmentsTable({
             ? payment.charAt(0).toUpperCase() + payment.slice(1)
             : "Sin estado";
         },
-      }),
+      })
     );
 
     baseColumns.push(
@@ -540,7 +540,7 @@ export default function AppointmentsTable({
             <span className="text-sm text-gray-400">Sin notas</span>
           );
         },
-      }),
+      })
     );
 
     // Agregar columna de ficha clínica solo para profesionales
@@ -590,7 +590,7 @@ export default function AppointmentsTable({
               </button>
             );
           },
-        }),
+        })
       );
     }
 
@@ -620,7 +620,7 @@ export default function AppointmentsTable({
             />
           );
         },
-      }),
+      })
     );
 
     baseColumns.push(
@@ -664,7 +664,7 @@ export default function AppointmentsTable({
 
           return <span className="text-sm text-gray-400">Sin archivo</span>;
         },
-      }),
+      })
     );
 
     // Agregar columna de acciones para profesionales
@@ -703,9 +703,9 @@ export default function AppointmentsTable({
                     typeof appointment.id === "string"
                       ? appointment.id
                       : `APT-${String(appointment.id).padStart(8, "0")}`;
-                  
+
                   setCompletingAppointmentId(appointmentId);
-                  
+
                   try {
                     const response = await fetch(
                       `/api/appointments/${appointmentId}/complete`,
@@ -720,7 +720,9 @@ export default function AppointmentsTable({
                     const data = await response.json();
 
                     if (!response.ok) {
-                      throw new Error(data.error || "Error al completar la cita");
+                      throw new Error(
+                        data.error || "Error al completar la cita"
+                      );
                     }
 
                     // Recargar las citas
@@ -754,7 +756,7 @@ export default function AppointmentsTable({
               </button>
             );
           },
-        }),
+        })
       );
     }
 
@@ -813,7 +815,7 @@ export default function AppointmentsTable({
               </div>
             );
           },
-        }),
+        })
       );
 
       // Agregar columna de calificación para pacientes
@@ -846,7 +848,7 @@ export default function AppointmentsTable({
                   survey.platform_booking_rating +
                   survey.platform_payment_rating +
                   survey.platform_experience_rating) /
-                  6,
+                  6
               );
 
               return (
@@ -901,7 +903,7 @@ export default function AppointmentsTable({
 
             return <span className="text-sm text-gray-400">—</span>;
           },
-        }),
+        })
       );
     }
 
@@ -1005,7 +1007,7 @@ export default function AppointmentsTable({
                   >
                     {flexRender(
                       header.column.columnDef.header,
-                      header.getContext(),
+                      header.getContext()
                     )}
                     {{
                       asc: " 🔼",
@@ -1130,7 +1132,7 @@ export default function AppointmentsTable({
                     if (isPast) {
                       const survey =
                         await satisfactionSurveyService.getSurveyByAppointmentId(
-                          appointment.id,
+                          appointment.id
                         );
                       if (survey) {
                         surveys.set(String(appointment.id), survey);
@@ -1139,7 +1141,7 @@ export default function AppointmentsTable({
                       const status =
                         await satisfactionSurveyService.getAppointmentSurveyStatus(
                           appointment.id,
-                          appointment.scheduled_at,
+                          appointment.scheduled_at
                         );
 
                       statuses.set(String(appointment.id), {
@@ -1150,7 +1152,7 @@ export default function AppointmentsTable({
                   } catch (error) {
                     console.error(
                       `Error recargando encuesta para cita ${appointment.id}:`,
-                      error,
+                      error
                     );
                   }
                 });

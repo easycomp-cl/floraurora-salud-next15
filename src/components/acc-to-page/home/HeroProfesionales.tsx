@@ -4,9 +4,10 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import prof1 from "../../Fotos/Ps. Gianina Soto.jpg";
-import prof2 from "../../Fotos/Ps. Jaime Correa.png";
-import prof3 from "../../Fotos/Ps. Sandra Herrera.jpg";
+// Imports de imágenes de profesionales de ejemplo comentados - Solo se usan profesionales de la base de datos
+// import prof1 from "../../Fotos/Ps. Gianina Soto.jpg";
+// import prof2 from "../../Fotos/Ps. Jaime Correa.png";
+// import prof3 from "../../Fotos/Ps. Sandra Herrera.jpg";
 import {
   Users,
   ArrowRight,
@@ -14,6 +15,7 @@ import {
   ChevronRight,
   Calendar,
 } from "lucide-react";
+import ProfessionalDetailDialog from "@/components/professional/ProfessionalDetailDialog";
 import { supabaseTyped } from "@/utils/supabase/client";
 import type { Professional } from "@/lib/types/appointment";
 import { useAuthState } from "@/lib/hooks/useAuthState";
@@ -46,11 +48,22 @@ type ProfessionalFromDB = {
   profile_description: string | null;
   plan_type: string | null;
   monthly_plan_expires_at: string | null;
+  approach_id: number | null;
+  therapeutic_approaches?: {
+    id: number;
+    name: string;
+    description: string | null;
+  } | {
+    id: number;
+    name: string;
+    description: string | null;
+  }[] | null;
   professional_titles: ProfessionalTitleData | ProfessionalTitleData[];
   users: UserData | UserData[];
 } & Record<string, unknown>;
 
-// Profesionales de ejemplo (prueba)
+// Profesionales de ejemplo (prueba) - COMENTADOS: Solo se usan profesionales de la base de datos
+/*
 const exampleProfessionals = [
   {
     id: -1,
@@ -86,6 +99,7 @@ const exampleProfessionals = [
     university: "USACH",
   },
 ];
+*/
 
 export default function HeroProfesionales() {
   const router = useRouter();
@@ -94,8 +108,11 @@ export default function HeroProfesionales() {
   const [dbProfessionals, setDbProfessionals] = useState<Professional[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Mapeo de profesionales de ejemplo
+  // Mapeo de profesionales de ejemplo - COMENTADO: Solo se usan profesionales de la base de datos
+  /*
   const professionalMapping: {
     [key: number]: { professionalId: number; areaName: string };
   } = {
@@ -103,40 +120,12 @@ export default function HeroProfesionales() {
     [-2]: { professionalId: 2, areaName: "Psicología" }, // Jaime Correa
     [-3]: { professionalId: 3, areaName: "Psicología" }, // Sandra Herrera
   };
+  */
 
-  const handleBookAppointment = (
-    professional: (typeof exampleProfessionals)[0] | Professional
-  ) => {
+  const handleBookAppointment = (professional: Professional) => {
     if (authLoading) return;
 
-    // Para profesionales de ejemplo
-    if (professional.id < 0) {
-      const mapping = professionalMapping[professional.id];
-      if (!mapping) return;
-
-      if (isAuthenticated && user) {
-        if (isPatient === true) {
-          const params = new URLSearchParams({
-            area: mapping.areaName,
-            professionalId: mapping.professionalId.toString(),
-          });
-          router.push(`/dashboard/appointments?${params.toString()}`);
-        } else {
-          router.push("/dashboard");
-        }
-        return;
-      }
-
-      const params = new URLSearchParams({
-        area: mapping.areaName,
-        professionalId: mapping.professionalId.toString(),
-      });
-      const redirectUrl = `/dashboard/appointments?${params.toString()}`;
-      router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
-      return;
-    }
-
-    // Para profesionales de BD
+    // Solo profesionales de BD
     const areaName = professional.title_name || "Psicología";
     const professionalId = professional.id;
 
@@ -176,6 +165,12 @@ export default function HeroProfesionales() {
             profile_description,
             plan_type,
             monthly_plan_expires_at,
+            approach_id,
+            therapeutic_approaches(
+              id,
+              name,
+              description
+            ),
             professional_titles!inner(
               id,
               title_name
@@ -221,9 +216,11 @@ export default function HeroProfesionales() {
           return false;
         });
 
-        // Obtener especialidades para cada profesional
+        // Obtener especialidades y datos académicos para cada profesional
         const professionalsWithSpecialties = await Promise.all(
           activeProfessionals.map(async (prof: ProfessionalFromDB) => {
+            const professionalId = Number(prof.id);
+            
             const { data: specialtiesData } = await supabaseTyped
               .from("professional_specialties")
               .select(
@@ -233,7 +230,7 @@ export default function HeroProfesionales() {
                 )
               `
               )
-              .eq("professional_id", Number(prof.id));
+              .eq("professional_id", professionalId);
 
             const specialties =
               (specialtiesData as ProfessionalSpecialtyData[] | null)
@@ -264,9 +261,75 @@ export default function HeroProfesionales() {
               id?: number;
             };
 
+            // Obtener enfoque terapéutico
+            const therapeuticApproaches = prof.therapeutic_approaches;
+            let approach: {
+              id: number;
+              name: string;
+              description: string | null;
+            } | undefined = undefined;
+
+            if (therapeuticApproaches) {
+              const approachData = Array.isArray(therapeuticApproaches)
+                ? therapeuticApproaches[0]
+                : therapeuticApproaches;
+
+              if (approachData && typeof approachData === "object") {
+                const approachObj = approachData as {
+                  id?: unknown;
+                  name?: unknown;
+                  description?: unknown | null;
+                };
+                if (approachObj.id && approachObj.name) {
+                  approach = {
+                    id: Number(approachObj.id),
+                    name: String(approachObj.name),
+                    description: approachObj.description
+                      ? String(approachObj.description)
+                      : null,
+                  };
+                }
+              }
+            }
+
+            const approachId = prof.approach_id ? Number(prof.approach_id) : null;
+
+            // Obtener datos académicos desde el endpoint API
+            let academicData: {
+              university?: string;
+              profession?: string;
+              study_year_start?: string;
+              study_year_end?: string;
+              extra_studies?: string;
+              degree_copy_url?: string | null;
+              professional_certificate_url?: string | null;
+              additional_certificates_urls?: string[] | null;
+            } = {};
+
+            try {
+              const response = await fetch(
+                `/api/public/professional-academic-data/${professionalId}`,
+                {
+                  method: "GET",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
+
+              if (response.ok) {
+                const result = await response.json();
+                if (result.data) {
+                  academicData = result.data;
+                }
+              }
+            } catch (error) {
+              // Silently fail - academic data is optional
+            }
+
             return {
-              id: Number(prof.id),
-              user_id: String(prof.id),
+              id: professionalId,
+              user_id: String(professionalId),
               name: String(users?.name || ""),
               last_name: String(users?.last_name || ""),
               email: String(users?.email || ""),
@@ -281,6 +344,9 @@ export default function HeroProfesionales() {
               specialties: specialties,
               is_active: true,
               created_at: new Date().toISOString(),
+              approach_id: approachId,
+              approach: approach,
+              ...academicData,
             };
           })
         );
@@ -297,8 +363,8 @@ export default function HeroProfesionales() {
     loadMonthlyProfessionals();
   }, []);
 
-  // Combinar profesionales de ejemplo con los de BD
-  const allProfessionals = [...exampleProfessionals, ...dbProfessionals];
+  // Solo usar profesionales de la base de datos (profesionales de ejemplo comentados)
+  const allProfessionals = dbProfessionals;
 
   // Hook para detectar tamaño de pantalla
   const [isMobile, setIsMobile] = useState(false);
@@ -375,16 +441,11 @@ export default function HeroProfesionales() {
                   <div className="relative w-full h-full min-h-[500px] px-4">
                     {allProfessionals.map((professional, index) => {
                       const fullName =
-                        professional.id < 0
-                          ? `Ps. ${professional.name} ${professional.last_name}`
-                          : `${professional.name} ${professional.last_name}`.trim() ||
-                            (professional as Professional).email ||
-                            "Profesional";
+                        `${professional.name} ${professional.last_name}`.trim() ||
+                        professional.email ||
+                        "Profesional";
 
-                      const isExample = professional.id < 0;
-                      const avatarSrc = isExample
-                        ? professional.avatar_url
-                        : professional.avatar_url || undefined;
+                      const avatarSrc = professional.avatar_url || undefined;
 
                       const isActive = index === currentIndex;
                       const isNext = index === currentIndex + 1;
@@ -411,7 +472,6 @@ export default function HeroProfesionales() {
                                 width={128}
                                 height={128}
                                 className="object-cover w-full h-full"
-                                unoptimized={isExample}
                               />
                             ) : (
                               <Users className="w-16 h-16 text-teal-400" />
@@ -423,10 +483,18 @@ export default function HeroProfesionales() {
                           <p className="text-sm font-semibold text-teal-700 mb-3 uppercase tracking-wide text-center">
                             {professional.title_name || "Profesional"}
                           </p>
-                          <p className="text-sm text-gray-600 mb-4 text-center leading-relaxed line-clamp-3 flex-grow">
-                            {professional.profile_description ||
-                              "Profesional certificado con experiencia en terapia online."}
-                          </p>
+                          <div className="mb-4 flex-grow min-h-0">
+                            <p className="text-sm text-gray-600 leading-relaxed overflow-hidden text-center w-full" style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical' as const,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}>
+                              {professional.profile_description ||
+                                "Profesional certificado con experiencia en terapia online."}
+                            </p>
+                          </div>
                           <div className="mb-4 flex-shrink-0">
                             {"university" in professional &&
                             professional.university ? (
@@ -449,13 +517,24 @@ export default function HeroProfesionales() {
                               </div>
                             ) : null}
                           </div>
-                          <button
-                            onClick={() => handleBookAppointment(professional)}
-                            className="mt-auto bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-6 rounded-lg flex items-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer flex-shrink-0"
-                          >
-                            <Calendar className="size-4" />
-                            Agendar
-                          </button>
+                          <div className="flex gap-2 w-full mt-auto">
+                            <button
+                              onClick={() => {
+                                setSelectedProfessional(professional as Professional);
+                                setIsDialogOpen(true);
+                              }}
+                              className="flex-1 border-2 border-teal-600 text-teal-600 hover:bg-teal-50 py-2.5 px-4 rounded-lg font-semibold transition-all cursor-pointer flex-shrink-0 text-sm"
+                            >
+                              Ver más
+                            </button>
+                            <button
+                              onClick={() => handleBookAppointment(professional)}
+                              className="flex-1 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer flex-shrink-0 text-sm"
+                            >
+                              <Calendar className="size-4" />
+                              Agendar
+                            </button>
+                          </div>
                         </div>
                       );
                     })}
@@ -494,16 +573,11 @@ export default function HeroProfesionales() {
                       >
                         {allProfessionals.map((professional, index) => {
                           const fullName =
-                            professional.id < 0
-                              ? `Ps. ${professional.name} ${professional.last_name}`
-                              : `${professional.name} ${professional.last_name}`.trim() ||
-                                (professional as Professional).email ||
-                                "Profesional";
+                            `${professional.name} ${professional.last_name}`.trim() ||
+                            professional.email ||
+                            "Profesional";
 
-                          const isExample = professional.id < 0;
-                          const avatarSrc = isExample
-                            ? professional.avatar_url
-                            : professional.avatar_url || undefined;
+                          const avatarSrc = professional.avatar_url || undefined;
 
                           const isVisible = isTablet
                             ? index >= currentIndex && index < currentIndex + 2
@@ -546,7 +620,6 @@ export default function HeroProfesionales() {
                                       width={128}
                                       height={128}
                                       className="object-cover w-full h-full"
-                                      unoptimized={isExample}
                                     />
                                   ) : (
                                     <Users className="w-16 h-16 text-teal-400" />
@@ -558,10 +631,18 @@ export default function HeroProfesionales() {
                                 <p className="text-sm font-semibold text-teal-700 mb-3 uppercase tracking-wide text-center w-full break-words">
                                   {professional.title_name || "Profesional"}
                                 </p>
-                                <p className="text-sm text-gray-600 mb-4 text-center leading-relaxed line-clamp-3 flex-grow w-full break-words">
-                                  {professional.profile_description ||
-                                    "Profesional certificado con experiencia en terapia online."}
-                                </p>
+                                <div className="mb-4 flex-grow min-h-0">
+                                  <p className="text-sm text-gray-600 leading-relaxed w-full break-words overflow-hidden text-center" style={{
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 3,
+                                    WebkitBoxOrient: 'vertical' as const,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}>
+                                    {professional.profile_description ||
+                                      "Profesional certificado con experiencia en terapia online."}
+                                  </p>
+                                </div>
                                 <div className="mb-4 flex-shrink-0 w-full flex justify-center">
                                   {"university" in professional &&
                                   professional.university ? (
@@ -584,15 +665,26 @@ export default function HeroProfesionales() {
                                     </div>
                                   ) : null}
                                 </div>
-                                <button
-                                  onClick={() =>
-                                    handleBookAppointment(professional)
-                                  }
-                                  className="mt-auto bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2 px-4 text-sm rounded-lg flex items-center gap-1.5 shadow-md transform transition-all hover:scale-105 cursor-pointer flex-shrink-0"
-                                >
-                                  <Calendar className="size-3.5" />
-                                  Agendar
-                                </button>
+                                <div className="flex gap-2 w-full mt-auto">
+                                  <button
+                                    onClick={() => {
+                                      setSelectedProfessional(professional as Professional);
+                                      setIsDialogOpen(true);
+                                    }}
+                                    className="flex-1 border-2 border-teal-600 text-teal-600 hover:bg-teal-50 py-2 px-3 rounded-lg font-semibold transition-all cursor-pointer flex-shrink-0 text-xs"
+                                  >
+                                    Ver más
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      handleBookAppointment(professional)
+                                    }
+                                    className="flex-1 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-2 px-3 text-sm rounded-lg flex items-center justify-center gap-1.5 shadow-md transform transition-all hover:scale-105 cursor-pointer flex-shrink-0"
+                                  >
+                                    <Calendar className="size-3.5" />
+                                    Agendar
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           );
@@ -646,6 +738,14 @@ export default function HeroProfesionales() {
           </Link>
         </div>
       </div>
+
+      {/* Dialog de información detallada del profesional */}
+      <ProfessionalDetailDialog
+        professional={selectedProfessional}
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onBookAppointment={handleBookAppointment}
+      />
     </section>
   );
 }

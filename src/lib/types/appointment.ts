@@ -19,6 +19,22 @@ export interface Professional {
   rating?: number;
   specialty?: string;
   title?: string;
+  // Enfoque terapéutico
+  approach_id?: number | null;
+  approach?: {
+    id: number;
+    name: string;
+    description: string | null;
+  };
+  // Datos académicos
+  university?: string;
+  profession?: string;
+  study_year_start?: string;
+  study_year_end?: string;
+  extra_studies?: string;
+  degree_copy_url?: string | null;
+  professional_certificate_url?: string | null;
+  additional_certificates_urls?: string[] | null;
 }
 
 export interface Specialty {

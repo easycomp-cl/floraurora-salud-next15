@@ -685,6 +685,94 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
     
     if (shouldCreateBHEJob) {
       try {
+        /**
+         * Función helper para convertir región/comuna a ID numérico
+         * Maneja el caso donde en la tabla users se guardaron nombres en lugar de IDs
+         */
+        const normalizeRegionOrComunaId = async (
+          value: unknown,
+          type: "region" | "municipality",
+          userId: number,
+          userType: "professional" | "patient"
+        ): Promise<number | null> => {
+          // Si es null o undefined, retornar null
+          if (value === null || value === undefined) {
+            return null;
+          }
+
+          // Si ya es un número válido, retornarlo directamente
+          if (typeof value === "number" && !isNaN(value) && value > 0) {
+            return value;
+          }
+
+          // Si es string, puede ser un nombre o un número como string
+          if (typeof value === "string") {
+            // Intentar convertir a número primero
+            const numValue = parseInt(value, 10);
+            if (!isNaN(numValue) && numValue > 0) {
+              return numValue;
+            }
+
+            // Si no es un número, buscar el ID por nombre
+            console.warn(
+              `⚠️ [Webpay Confirm] ${userType} (user_id: ${userId}) tiene ${type} como nombre ("${value}") en lugar de ID. Buscando ID correspondiente...`
+            );
+
+            try {
+              if (type === "region") {
+                const { data: regionData } = await adminSupabase
+                  .from("regions")
+                  .select("id")
+                  .ilike("name", value.trim())
+                  .single();
+
+                if (regionData?.id) {
+                  console.log(
+                    `✅ [Webpay Confirm] Región "${value}" convertida a ID: ${regionData.id}`
+                  );
+                  return regionData.id;
+                } else {
+                  console.error(
+                    `❌ [Webpay Confirm] No se encontró región con nombre "${value}"`
+                  );
+                  return null;
+                }
+              } else {
+                // municipality
+                const { data: municipalityData } = await adminSupabase
+                  .from("municipalities")
+                  .select("id")
+                  .ilike("name", value.trim())
+                  .single();
+
+                if (municipalityData?.id) {
+                  console.log(
+                    `✅ [Webpay Confirm] Comuna "${value}" convertida a ID: ${municipalityData.id}`
+                  );
+                  return municipalityData.id;
+                } else {
+                  console.error(
+                    `❌ [Webpay Confirm] No se encontró comuna con nombre "${value}"`
+                  );
+                  return null;
+                }
+              }
+            } catch (searchError) {
+              console.error(
+                `❌ [Webpay Confirm] Error buscando ${type} "${value}":`,
+                searchError
+              );
+              return null;
+            }
+          }
+
+          // Si no es ni número ni string válido, retornar null
+          console.warn(
+            `⚠️ [Webpay Confirm] ${userType} (user_id: ${userId}) tiene ${type} con tipo inválido: ${typeof value}, valor: ${value}`
+          );
+          return null;
+        };
+
         // Obtener datos completos del profesional
         let professionalRut: string | null = null;
         let professionalAddress: string | null = null;
@@ -702,12 +790,20 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           professionalRut = professionalUserData?.rut || null;
           professionalAddress = professionalUserData?.address || null;
           
-          // Usar directamente el ID de la región (no el nombre)
-          professionalRegion = professionalUserData?.region || null;
+          // Normalizar región y comuna a IDs numéricos (maneja el caso donde se guardaron nombres)
+          professionalRegion = await normalizeRegionOrComunaId(
+            professionalUserData?.region,
+            "region",
+            appointment.professional_id,
+            "professional"
+          );
           
-          // Usar directamente el ID de la comuna (no el nombre)
-          // La comuna ya está relacionada con la región mediante region_id en la tabla municipalities
-          professionalComuna = professionalUserData?.municipality || null;
+          professionalComuna = await normalizeRegionOrComunaId(
+            professionalUserData?.municipality,
+            "municipality",
+            appointment.professional_id,
+            "professional"
+          );
         }
 
         // Obtener datos completos del paciente
@@ -733,12 +829,20 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           patientAddress = patientUserData?.address || null;
           patientEmail = patientUserData?.email || null;
           
-          // Usar directamente el ID de la región (no el nombre)
-          patientRegion = patientUserData?.region || null;
+          // Normalizar región y comuna a IDs numéricos (maneja el caso donde se guardaron nombres)
+          patientRegion = await normalizeRegionOrComunaId(
+            patientUserData?.region,
+            "region",
+            appointment.patient_id,
+            "patient"
+          );
           
-          // Usar directamente el ID de la comuna (no el nombre)
-          // La comuna ya está relacionada con la región mediante region_id en la tabla municipalities
-          patientComuna = patientUserData?.municipality || null;
+          patientComuna = await normalizeRegionOrComunaId(
+            patientUserData?.municipality,
+            "municipality",
+            appointment.patient_id,
+            "patient"
+          );
         }
 
         // Obtener información completa de la cita
@@ -765,6 +869,54 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
         // Preferir buy_order, luego tokenWs/authorization_code, finalmente timestamp
         const uniquePaymentId = buy_order || tokenWs || authorization_code || `payment_${Date.now()}`;
 
+        // Validación final: asegurar que region y comuna sean números válidos o undefined/null
+        // Esto previene que se guarden strings o valores inválidos en la base de datos
+        const validateRegionComuna = (
+          value: number | null | undefined,
+          fieldName: string,
+          userType: string
+        ): number | undefined => {
+          if (value === null || value === undefined) {
+            return undefined;
+          }
+          if (typeof value === "number" && !isNaN(value) && value > 0) {
+            return value;
+          }
+          console.error(
+            `❌ [Webpay Confirm] ${fieldName} de ${userType} tiene valor inválido: ${value} (tipo: ${typeof value}). Se omitirá.`
+          );
+          return undefined;
+        };
+
+        const validatedProfessionalRegion = validateRegionComuna(
+          professionalRegion,
+          "professional_region",
+          "profesional"
+        );
+        const validatedProfessionalComuna = validateRegionComuna(
+          professionalComuna,
+          "professional_comuna",
+          "profesional"
+        );
+        const validatedPatientRegion = validateRegionComuna(
+          patientRegion,
+          "patient_region",
+          "paciente"
+        );
+        const validatedPatientComuna = validateRegionComuna(
+          patientComuna,
+          "patient_comuna",
+          "paciente"
+        );
+
+        // Log de los valores que se van a guardar para debugging
+        console.log("📋 [Webpay Confirm] Datos de región/comuna para BHE job:", {
+          professional_region: validatedProfessionalRegion,
+          professional_comuna: validatedProfessionalComuna,
+          patient_region: validatedPatientRegion,
+          patient_comuna: validatedPatientComuna,
+        });
+
         // Encolar el job de BHE
         await BHEService.enqueueJob({
           payment_id: uniquePaymentId, // Usar buy_order como payment_id único para idempotencia
@@ -777,12 +929,12 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           issue_date: new Date().toISOString().split('T')[0],
           professional_rut: professionalRut || undefined,
           professional_address: professionalAddress || undefined,
-          professional_region: professionalRegion ?? undefined,
-          professional_comuna: professionalComuna ?? undefined,
+          professional_region: validatedProfessionalRegion,
+          professional_comuna: validatedProfessionalComuna,
           patient_names: patientNames || undefined,
           patient_address: patientAddress || undefined,
-          patient_region: patientRegion ?? undefined,
-          patient_comuna: patientComuna ?? undefined,
+          patient_region: validatedPatientRegion,
+          patient_comuna: validatedPatientComuna,
           patient_email: patientEmail || undefined,
           service_date: serviceDate || undefined,
           service_detail: serviceDetail || undefined,

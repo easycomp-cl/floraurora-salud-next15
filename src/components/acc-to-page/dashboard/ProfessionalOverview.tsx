@@ -264,7 +264,9 @@ export function ProfessionalOverview() {
       }
 
       if (appointmentIds.length > 0) {
-        console.log(`✅ ${appointmentIds.length} cita(s) marcada(s) como completada(s) automáticamente`);
+        console.log(
+          `✅ ${appointmentIds.length} cita(s) marcada(s) como completada(s) automáticamente`
+        );
         // Recargar métricas después de marcar citas como completadas
         // Pequeño delay para asegurar que la actualización se haya completado
         setTimeout(() => {
@@ -659,7 +661,9 @@ export function ProfessionalOverview() {
               <div className="text-2xl font-bold text-green-600">
                 {metrics.completedAppointments}
               </div>
-              <p className="text-xs text-muted-foreground">Citas finalizadas del mes</p>
+              <p className="text-xs text-muted-foreground">
+                Citas finalizadas del mes
+              </p>
             </CardContent>
           </Card>
 

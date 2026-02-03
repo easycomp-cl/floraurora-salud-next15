@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import Image from "next/image";
+import AvatarEditor from "@/components/profile/AvatarEditor";
 import {
   UserProfile,
   PatientProfile,
@@ -97,6 +98,9 @@ export default function UserProfilePage() {
   const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
   const [isLoadingMunicipalities, setIsLoadingMunicipalities] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [isAvatarEditorOpen, setIsAvatarEditorOpen] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [avatarPosition, setAvatarPosition] = useState<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Mover fetchUserProfile fuera del useEffect para que sea accesible globalmente en el componente
@@ -287,6 +291,38 @@ export default function UserProfilePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // El array vacío asegura que se ejecute solo una vez al montar el componente
 
+  // Función para obtener la posición del avatar desde localStorage
+  const getAvatarPosition = (avatarUrl: string | null | undefined): { x: number; y: number } | null => {
+    if (!avatarUrl) return null;
+    try {
+      const stored = localStorage.getItem(`avatar_position_${avatarUrl}`);
+      if (stored) {
+        const position = JSON.parse(stored);
+        return { x: position.x, y: position.y };
+      }
+    } catch (error) {
+      console.error("Error al leer posición del avatar:", error);
+    }
+    return null;
+  };
+
+  // Función para guardar la posición del avatar en localStorage
+  const saveAvatarPosition = (avatarUrl: string, position: { x: number; y: number }) => {
+    try {
+      localStorage.setItem(`avatar_position_${avatarUrl}`, JSON.stringify(position));
+    } catch (error) {
+      console.error("Error al guardar posición del avatar:", error);
+    }
+  };
+
+  // Cargar posición del avatar cuando se carga el perfil
+  useEffect(() => {
+    if (profileData.user?.avatar_url) {
+      const position = getAvatarPosition(profileData.user.avatar_url);
+      setAvatarPosition(position);
+    }
+  }, [profileData.user?.avatar_url]);
+
   if (profileData.loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -416,7 +452,7 @@ export default function UserProfilePage() {
     fileInputRef.current?.click();
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !profileData.user) return;
 
@@ -433,6 +469,19 @@ export default function UserProfilePage() {
       alert("El archivo excede el tamaño máximo de 2MB");
       return;
     }
+
+    // Abrir el editor de avatar en lugar de subir directamente
+    setSelectedAvatarFile(file);
+    setIsAvatarEditorOpen(true);
+    
+    // Limpiar el input para permitir subir el mismo archivo nuevamente
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleAvatarSave = async (file: File, position: { x: number; y: number }) => {
+    if (!profileData.user) return;
 
     setIsUploadingAvatar(true);
     try {
@@ -452,6 +501,10 @@ export default function UserProfilePage() {
 
       const data = await response.json();
       
+      // Guardar la posición del avatar
+      saveAvatarPosition(data.url, position);
+      setAvatarPosition(position);
+      
       // Actualizar el avatar_url en la base de datos
       await profileService.updateUserProfile(profileData.user.user_id, {
         avatar_url: data.url,
@@ -464,11 +517,12 @@ export default function UserProfilePage() {
       alert(error instanceof Error ? error.message : "Error al subir la imagen");
     } finally {
       setIsUploadingAvatar(false);
-      // Limpiar el input para permitir subir el mismo archivo nuevamente
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      setSelectedAvatarFile(null);
     }
+  };
+
+  const handleAvatarCancel = () => {
+    setSelectedAvatarFile(null);
   };
 
   const handleSave = async () => {
@@ -817,6 +871,11 @@ export default function UserProfilePage() {
                   width={96}
                   height={96}
                   className="w-full h-full object-cover"
+                  style={{
+                    objectPosition: avatarPosition 
+                      ? `${avatarPosition.x}% ${avatarPosition.y}%`
+                      : "center center",
+                  }}
                   unoptimized
                 />
               ) : (
@@ -1571,6 +1630,14 @@ export default function UserProfilePage() {
           )}
         </div>
       </div>
+
+      <AvatarEditor
+        open={isAvatarEditorOpen}
+        onOpenChange={setIsAvatarEditorOpen}
+        imageFile={selectedAvatarFile}
+        onSave={handleAvatarSave}
+        onCancel={handleAvatarCancel}
+      />
     </div>
   );
 }

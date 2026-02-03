@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Check, User, X, FileText, Star } from "lucide-react";
+import { User, Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { profileService } from "@/lib/services/profileService";
@@ -10,13 +10,7 @@ import { useState, useEffect } from "react";
 import type { Professional } from "@/lib/types/appointment";
 import logoImge from "../../../components/Fotos/logo.png";
 import equipoImg from "../../../components/Fotos/psicologos.png";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import ProfessionalDetailDialog from "@/components/professional/ProfessionalDetailDialog";
 
 export default function ProfessionalsPage() {
   const router = useRouter();
@@ -477,110 +471,14 @@ export default function ProfessionalsPage() {
       </section>
 
       {/* Dialog de información detallada del profesional */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          {selectedProfessional && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="text-2xl md:text-3xl font-bold text-gray-900">
-                  {selectedProfessional.name && selectedProfessional.last_name
-                    ? `${selectedProfessional.name} ${selectedProfessional.last_name}`
-                    : selectedProfessional.name || selectedProfessional.email || "Profesional"}
-                </DialogTitle>
-                <DialogDescription className="text-lg">
-                  {selectedProfessional.title_name || "Profesional"}
-                </DialogDescription>
-              </DialogHeader>
-              
-              <div className="space-y-6">
-                {/* Imagen y información básica */}
-                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                  <div className="relative w-full md:w-64 h-64 rounded-2xl overflow-hidden flex-shrink-0">
-                    {selectedProfessional.avatar_url ? (
-                      <Image
-                        src={selectedProfessional.avatar_url}
-                        alt={selectedProfessional.name || "Profesional"}
-                        fill
-                        className="object-cover"
-                        sizes="(max-width: 768px) 100vw, 256px"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-                        <User className="w-32 h-32 text-white" strokeWidth={1.5} />
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="flex-1 space-y-4">
-                    {/* Calificación */}
-                    {selectedProfessional.rating && (
-                      <div className="flex items-center gap-3 text-gray-700">
-                        <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
-                        <span className="font-semibold text-lg">{selectedProfessional.rating.toFixed(1)}</span>
-                        <span className="text-gray-500">Calificación</span>
-                      </div>
-                    )}
-
-                    {/* Descripción del perfil */}
-                    {(selectedProfessional.profile_description || selectedProfessional.bio) && (
-                      <div className="space-y-2">
-                        <h3 className="text-xl font-bold text-gray-900">Sobre el profesional</h3>
-                        <p className="text-gray-700 leading-relaxed">
-                          {selectedProfessional.profile_description || selectedProfessional.bio}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Especialidades */}
-                {selectedProfessional.specialties && selectedProfessional.specialties.length > 0 && (
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-bold text-gray-900">Especialidades</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {selectedProfessional.specialties.map((specialty, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-gray-700 bg-teal-50 p-3 rounded-lg">
-                          <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
-                          <span>{specialty}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Botón de agendar */}
-                <div className="flex justify-center">
-                  <button
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      handleBookWithProfessional("", selectedProfessional.id, selectedProfessional.title_name);
-                    }}
-                    className="bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 px-8 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
-                  >
-                    Agendar cita con {selectedProfessional.name || "este profesional"}
-                  </button>
-                </div>
-
-                {/* Currículum */}
-                {selectedProfessional.resume_url && (
-                  <div className="space-y-3">
-                    <h3 className="text-xl font-bold text-gray-900">Documentos</h3>
-                    <a
-                      href={selectedProfessional.resume_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 text-teal-600 hover:text-teal-700 font-semibold transition-colors"
-                    >
-                      <FileText className="w-5 h-5" />
-                      Ver currículum
-                    </a>
-                  </div>
-                )}
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ProfessionalDetailDialog
+        professional={selectedProfessional}
+        isOpen={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onBookAppointment={(professional) => {
+          handleBookWithProfessional("", professional.id, professional.title_name);
+        }}
+      />
 
       {/* CTA Section */}
       <section className="bg-gradient-to-br from-teal-100/50 via-teal-50 to-teal-200/30 py-16 md:py-20">

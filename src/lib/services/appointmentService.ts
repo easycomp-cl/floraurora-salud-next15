@@ -465,9 +465,15 @@ export const appointmentService = {
         .select(`
           id,
           profile_description,
+          approach_id,
           professional_titles!inner(
             id,
             title_name
+          ),
+          therapeutic_approaches(
+            id,
+            name,
+            description
           ),
           users!inner(
             name,
@@ -475,7 +481,8 @@ export const appointmentService = {
             email,
             phone_number,
             avatar_url,
-            gender
+            gender,
+            user_id
           )
         `)
         .eq('title_id', areaFilter || 0)
@@ -485,9 +492,28 @@ export const appointmentService = {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Obtener las especialidades para cada profesional
+      // Obtener las especialidades y datos académicos para cada profesional
       const professionalsWithSpecialties = await Promise.all(
-        (data || []).map(async (prof: { id: unknown; profile_description: unknown; professional_titles: unknown; users: unknown }) => {
+        (data || []).map(async (prof: { 
+          id: unknown; 
+          profile_description: unknown; 
+          approach_id: unknown;
+          professional_titles: unknown; 
+          therapeutic_approaches: unknown;
+          users: unknown 
+        }) => {
+          const professionalId = Number(prof.id);
+          const users = prof.users as { 
+            name?: unknown; 
+            last_name?: unknown; 
+            email?: unknown; 
+            phone_number?: unknown; 
+            avatar_url?: unknown; 
+            gender?: unknown;
+            user_id?: unknown;
+          };
+          const userUuid = users?.user_id ? String(users.user_id) : null;
+
           // Consultar especialidades del profesional
           const { data: specialtiesData, error: specialtiesError } = await supabase
             .from('professional_specialties')
@@ -496,10 +522,10 @@ export const appointmentService = {
                 name
               )
             `)
-            .eq('professional_id', Number(prof.id));
+            .eq('professional_id', professionalId);
 
           if (specialtiesError) {
-            console.warn(`Error fetching specialties for professional ${Number(prof.id)}:`, specialtiesError);
+            console.warn(`Error fetching specialties for professional ${professionalId}:`, specialtiesError);
           }
 
           const specialties = specialtiesData?.map((ps: { specialties: unknown }) => {
@@ -507,13 +533,77 @@ export const appointmentService = {
             return specialty?.name ? String(specialty.name) : null;
           }).filter((name): name is string => Boolean(name)) || [];
 
-          const users = prof.users as { name?: unknown; last_name?: unknown; email?: unknown; phone_number?: unknown; avatar_url?: unknown; gender?: unknown };
+          // Obtener enfoque terapéutico
+          const therapeuticApproaches = prof.therapeutic_approaches;
+          let approach: { 
+            id: number; 
+            name: string; 
+            description: string | null 
+          } | undefined = undefined;
+          
+          if (therapeuticApproaches) {
+            // Puede ser un objeto único o un array dependiendo de la relación
+            const approachData = Array.isArray(therapeuticApproaches) 
+              ? therapeuticApproaches[0] 
+              : therapeuticApproaches;
+            
+            if (approachData && typeof approachData === 'object') {
+              const approachObj = approachData as { 
+                id?: unknown; 
+                name?: unknown; 
+                description?: unknown | null 
+              };
+              if (approachObj.id && approachObj.name) {
+                approach = {
+                  id: Number(approachObj.id),
+                  name: String(approachObj.name),
+                  description: approachObj.description ? String(approachObj.description) : null,
+                };
+              }
+            }
+          }
+          
+          // Obtener datos académicos desde professional_requests usando el ID del profesional
+          // Usamos un endpoint API público porque professional_requests tiene RLS que bloquea acceso directo
+          let academicData: {
+            university?: string;
+            profession?: string;
+            study_year_start?: string;
+            study_year_end?: string;
+            extra_studies?: string;
+            degree_copy_url?: string | null;
+            professional_certificate_url?: string | null;
+            additional_certificates_urls?: string[] | null;
+          } = {};
+
+          try {
+            // Llamar al endpoint API público que usa admin client para bypass RLS
+            const response = await fetch(
+              `/api/public/professional-academic-data/${professionalId}`,
+              {
+                method: "GET",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+              }
+            );
+
+            if (response.ok) {
+              const result = await response.json();
+              if (result.data) {
+                academicData = result.data;
+              }
+            }
+          } catch (academicError) {
+            // Silently fail - academic data is optional
+          }
+
           const professionalTitles = prof.professional_titles as { title_name?: unknown; id?: unknown };
           const profData = prof as { resume_url?: unknown; is_active?: unknown; created_at?: unknown };
 
           return {
-            id: Number(prof.id),
-            user_id: String(prof.id), // Usar el id del profesional como user_id temporalmente
+            id: professionalId,
+            user_id: String(professionalId), // Usar el id del profesional como user_id temporalmente
             name: String(users?.name || ''),
             last_name: String(users?.last_name || ''),
             email: String(users?.email || ''),
@@ -526,7 +616,14 @@ export const appointmentService = {
             gender: users?.gender ? String(users.gender) : undefined,
             specialties: specialties,
             is_active: Boolean(profData?.is_active),
-            created_at: String(profData?.created_at || new Date().toISOString())
+            created_at: String(profData?.created_at || new Date().toISOString()),
+            approach_id: prof.approach_id ? Number(prof.approach_id) : null,
+            approach: approach ? {
+              id: Number(approach.id || 0),
+              name: String(approach.name || ''),
+              description: approach.description ? String(approach.description) : null,
+            } : undefined,
+            ...academicData,
           };
         })
       );
