@@ -29,12 +29,12 @@ export type BHEJob = {
   email_status: "pending" | "sent" | "failed" | null;
   professional_rut: string | null;
   professional_address: string | null;
-  professional_region: string | null;
-  professional_comuna: string | null;
+  professional_region: number | null;
+  professional_comuna: number | null;
   patient_names: string | null;
   patient_address: string | null;
-  patient_region: string | null;
-  patient_comuna: string | null;
+  patient_region: number | null;
+  patient_comuna: number | null;
   patient_email: string | null;
   service_date: string | null;
   service_detail: string | null;

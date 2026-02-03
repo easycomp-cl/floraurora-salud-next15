@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Check, User } from "lucide-react";
+import { Check, User, X, FileText, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { profileService } from "@/lib/services/profileService";
@@ -10,6 +10,13 @@ import { useState, useEffect } from "react";
 import type { Professional } from "@/lib/types/appointment";
 import logoImge from "../../../components/Fotos/logo.png";
 import equipoImg from "../../../components/Fotos/psicologos.png";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function ProfessionalsPage() {
   const router = useRouter();
@@ -18,6 +25,8 @@ export default function ProfessionalsPage() {
   const [isCheckingRole, setIsCheckingRole] = useState(false);
   const [dbProfessionals, setDbProfessionals] = useState<Professional[]>([]);
   const [isLoadingProfessionals, setIsLoadingProfessionals] = useState(true);
+  const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Verificar si el usuario es paciente
   useEffect(() => {
@@ -89,6 +98,8 @@ export default function ProfessionalsPage() {
   // Mapeo de profesionales hardcodeados a IDs
   // IMPORTANTE: Dr. Carlos Rodríguez debe usar los datos del profesional "rafa"
   // Reemplazar el professionalId con el ID real del profesional "rafa" de la base de datos
+  // COMENTADO: Profesionales de ejemplo removidos - solo se muestran profesionales de la base de datos
+  /*
   const professionalMapping: { [key: string]: { professionalId: number; areaName: string } } = {
     "carlos": {
       professionalId: 1, // TODO: Reemplazar con el ID real del profesional "rafa" de la tabla professionals
@@ -103,6 +114,7 @@ export default function ProfessionalsPage() {
       areaName: "Psicología"
     }
   };
+  */
 
   const handleBookWithProfessional = (professionalKey: string, professionalId?: number, areaName?: string) => {
     if (isLoading || isCheckingRole) {
@@ -133,6 +145,8 @@ export default function ProfessionalsPage() {
     }
 
     // Para profesionales de ejemplo
+    // COMENTADO: Profesionales de ejemplo removidos - solo se muestran profesionales de la base de datos
+    /*
     const professional = professionalMapping[professionalKey];
     if (!professional) {
       return;
@@ -161,6 +175,7 @@ export default function ProfessionalsPage() {
     });
     const redirectUrl = `/dashboard/appointments?${params.toString()}`;
     router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`);
+    */
   };
 
   return (
@@ -216,7 +231,9 @@ export default function ProfessionalsPage() {
             </div>
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* COMENTADO: Profesionales de ejemplo removidos - solo se muestran profesionales de la base de datos */}
             {/* Dr. María González */}
+            {/* 
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1">
               <div className="h-64 bg-gradient-to-br from-blue-400 to-indigo-600 flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-600/80 to-indigo-700/80"></div>
@@ -256,8 +273,10 @@ export default function ProfessionalsPage() {
                 </button>
               </div>
             </div>
+            */}
 
             {/* Dr. Carlos Rodríguez */}
+            {/* 
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1">
               <div className="h-64 bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-teal-600/80 to-teal-700/80"></div>
@@ -296,8 +315,10 @@ export default function ProfessionalsPage() {
                 </button>
               </div>
             </div>
+            */}
 
             {/* Dra. Ana Silva */}
+            {/* 
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1">
               <div className="h-64 bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-600/80 to-purple-700/80"></div>
@@ -336,6 +357,7 @@ export default function ProfessionalsPage() {
                 </button>
               </div>
             </div>
+            */}
 
             {/* Profesionales de la base de datos */}
             {dbProfessionals.map((professional) => {
@@ -377,6 +399,15 @@ export default function ProfessionalsPage() {
                 "text-orange-600",
               ];
               const titleColorClass = titleColor[gradientIndex];
+              const borderColor = [
+                "border-blue-600 text-blue-600 hover:bg-blue-50",
+                "border-teal-600 text-teal-600 hover:bg-teal-50",
+                "border-purple-600 text-purple-600 hover:bg-purple-50",
+                "border-pink-600 text-pink-600 hover:bg-pink-50",
+                "border-green-600 text-green-600 hover:bg-green-50",
+                "border-orange-600 text-orange-600 hover:bg-orange-50",
+              ];
+              const borderColorClass = borderColor[gradientIndex];
 
               return (
                 <div
@@ -419,12 +450,23 @@ export default function ProfessionalsPage() {
                         ))}
                       </div>
                     )}
-                    <button
-                      onClick={() => handleBookWithProfessional("", professional.id, professional.title_name)}
-                      className={`w-full bg-gradient-to-r ${buttonGradient} text-white py-3 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer`}
-                    >
-                      Agendar con {professional.name || "este profesional"}
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setSelectedProfessional(professional);
+                          setIsDialogOpen(true);
+                        }}
+                        className={`flex-1 border-2 ${borderColorClass} py-2.5 rounded-lg font-semibold transition-all cursor-pointer`}
+                      >
+                        Ver más
+                      </button>
+                      <button
+                        onClick={() => handleBookWithProfessional("", professional.id, professional.title_name)}
+                        className={`flex-1 bg-gradient-to-r ${buttonGradient} text-white py-2.5 rounded-lg font-semibold transition-all shadow-md hover:shadow-lg cursor-pointer`}
+                      >
+                        Agendar
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -433,6 +475,112 @@ export default function ProfessionalsPage() {
           )}
         </div>
       </section>
+
+      {/* Dialog de información detallada del profesional */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedProfessional && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl md:text-3xl font-bold text-gray-900">
+                  {selectedProfessional.name && selectedProfessional.last_name
+                    ? `${selectedProfessional.name} ${selectedProfessional.last_name}`
+                    : selectedProfessional.name || selectedProfessional.email || "Profesional"}
+                </DialogTitle>
+                <DialogDescription className="text-lg">
+                  {selectedProfessional.title_name || "Profesional"}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6">
+                {/* Imagen y información básica */}
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                  <div className="relative w-full md:w-64 h-64 rounded-2xl overflow-hidden flex-shrink-0">
+                    {selectedProfessional.avatar_url ? (
+                      <Image
+                        src={selectedProfessional.avatar_url}
+                        alt={selectedProfessional.name || "Profesional"}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 256px"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
+                        <User className="w-32 h-32 text-white" strokeWidth={1.5} />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex-1 space-y-4">
+                    {/* Calificación */}
+                    {selectedProfessional.rating && (
+                      <div className="flex items-center gap-3 text-gray-700">
+                        <Star className="w-5 h-5 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                        <span className="font-semibold text-lg">{selectedProfessional.rating.toFixed(1)}</span>
+                        <span className="text-gray-500">Calificación</span>
+                      </div>
+                    )}
+
+                    {/* Descripción del perfil */}
+                    {(selectedProfessional.profile_description || selectedProfessional.bio) && (
+                      <div className="space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">Sobre el profesional</h3>
+                        <p className="text-gray-700 leading-relaxed">
+                          {selectedProfessional.profile_description || selectedProfessional.bio}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Especialidades */}
+                {selectedProfessional.specialties && selectedProfessional.specialties.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold text-gray-900">Especialidades</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {selectedProfessional.specialties.map((specialty, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-gray-700 bg-teal-50 p-3 rounded-lg">
+                          <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
+                          <span>{specialty}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botón de agendar */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => {
+                      setIsDialogOpen(false);
+                      handleBookWithProfessional("", selectedProfessional.id, selectedProfessional.title_name);
+                    }}
+                    className="bg-gradient-to-r from-teal-600 to-teal-700 text-white py-3 px-8 rounded-lg font-semibold hover:from-teal-700 hover:to-teal-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+                  >
+                    Agendar cita con {selectedProfessional.name || "este profesional"}
+                  </button>
+                </div>
+
+                {/* Currículum */}
+                {selectedProfessional.resume_url && (
+                  <div className="space-y-3">
+                    <h3 className="text-xl font-bold text-gray-900">Documentos</h3>
+                    <a
+                      href={selectedProfessional.resume_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 text-teal-600 hover:text-teal-700 font-semibold transition-colors"
+                    >
+                      <FileText className="w-5 h-5" />
+                      Ver currículum
+                    </a>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* CTA Section */}
       <section className="bg-gradient-to-br from-teal-100/50 via-teal-50 to-teal-200/30 py-16 md:py-20">

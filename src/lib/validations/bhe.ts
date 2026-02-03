@@ -61,12 +61,16 @@ export const bheEnqueueSchema = z.object({
     .nullable(),
   
   professional_region: z
-    .string()
+    .number()
+    .int("El ID de la región debe ser un número entero")
+    .positive("El ID de la región debe ser positivo")
     .optional()
     .nullable(),
   
   professional_comuna: z
-    .string()
+    .number()
+    .int("El ID de la comuna debe ser un número entero")
+    .positive("El ID de la comuna debe ser positivo")
     .optional()
     .nullable(),
   
@@ -82,12 +86,16 @@ export const bheEnqueueSchema = z.object({
     .nullable(),
   
   patient_region: z
-    .string()
+    .number()
+    .int("El ID de la región debe ser un número entero")
+    .positive("El ID de la región debe ser positivo")
     .optional()
     .nullable(),
   
   patient_comuna: z
-    .string()
+    .number()
+    .int("El ID de la comuna debe ser un número entero")
+    .positive("El ID de la comuna debe ser positivo")
     .optional()
     .nullable(),
   

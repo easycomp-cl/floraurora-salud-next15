@@ -688,8 +688,8 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
         // Obtener datos completos del profesional
         let professionalRut: string | null = null;
         let professionalAddress: string | null = null;
-        let professionalRegion: string | null = null;
-        let professionalComuna: string | null = null;
+        let professionalRegion: number | null = null;
+        let professionalComuna: number | null = null;
         
         if (appointment.professional_id) {
           // Obtener datos del usuario profesional
@@ -702,35 +702,20 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           professionalRut = professionalUserData?.rut || null;
           professionalAddress = professionalUserData?.address || null;
           
-          // Obtener nombre de la región si existe
-          if (professionalUserData?.region) {
-            const { data: regionData } = await adminSupabase
-              .from("regions")
-              .select("name")
-              .eq("id", professionalUserData.region)
-              .single();
-            
-            professionalRegion = regionData?.name || null;
-          }
+          // Usar directamente el ID de la región (no el nombre)
+          professionalRegion = professionalUserData?.region || null;
           
-          // Obtener nombre de la comuna (municipality) si existe
-          if (professionalUserData?.municipality) {
-            const { data: municipalityData } = await adminSupabase
-              .from("municipalities")
-              .select("name")
-              .eq("id", professionalUserData.municipality)
-              .single();
-            
-            professionalComuna = municipalityData?.name || null;
-          }
+          // Usar directamente el ID de la comuna (no el nombre)
+          // La comuna ya está relacionada con la región mediante region_id en la tabla municipalities
+          professionalComuna = professionalUserData?.municipality || null;
         }
 
         // Obtener datos completos del paciente
         let patientRut: string | null = null;
         let patientNames: string | null = null;
         let patientAddress: string | null = null;
-        let patientRegion: string | null = null;
-        let patientComuna: string | null = null;
+        let patientRegion: number | null = null;
+        let patientComuna: number | null = null;
         let patientEmail: string | null = null;
         
         if (appointment.patient_id) {
@@ -748,27 +733,12 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           patientAddress = patientUserData?.address || null;
           patientEmail = patientUserData?.email || null;
           
-          // Obtener nombre de la región si existe
-          if (patientUserData?.region) {
-            const { data: regionData } = await adminSupabase
-              .from("regions")
-              .select("name")
-              .eq("id", patientUserData.region)
-              .single();
-            
-            patientRegion = regionData?.name || null;
-          }
+          // Usar directamente el ID de la región (no el nombre)
+          patientRegion = patientUserData?.region || null;
           
-          // Obtener nombre de la comuna (municipality) si existe
-          if (patientUserData?.municipality) {
-            const { data: municipalityData } = await adminSupabase
-              .from("municipalities")
-              .select("name")
-              .eq("id", patientUserData.municipality)
-              .single();
-            
-            patientComuna = municipalityData?.name || null;
-          }
+          // Usar directamente el ID de la comuna (no el nombre)
+          // La comuna ya está relacionada con la región mediante region_id en la tabla municipalities
+          patientComuna = patientUserData?.municipality || null;
         }
 
         // Obtener información completa de la cita
@@ -807,12 +777,12 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           issue_date: new Date().toISOString().split('T')[0],
           professional_rut: professionalRut || undefined,
           professional_address: professionalAddress || undefined,
-          professional_region: professionalRegion || undefined,
-          professional_comuna: professionalComuna || undefined,
+          professional_region: professionalRegion ?? undefined,
+          professional_comuna: professionalComuna ?? undefined,
           patient_names: patientNames || undefined,
           patient_address: patientAddress || undefined,
-          patient_region: patientRegion || undefined,
-          patient_comuna: patientComuna || undefined,
+          patient_region: patientRegion ?? undefined,
+          patient_comuna: patientComuna ?? undefined,
           patient_email: patientEmail || undefined,
           service_date: serviceDate || undefined,
           service_detail: serviceDetail || undefined,

@@ -90,14 +90,16 @@ async function calculateProfessionalMetrics(
       .gte("scheduled_at", now.toISO())
       .in("status", ["confirmed", "pending_confirmation"]),
 
-    // Citas completadas (semana actual)
+    // Citas completadas (mes actual)
+    // Contar todas las citas completadas que fueron programadas en el mes actual
+    // Esto asegura que se cuenten las citas que se completaron recientemente
     supabase
       .from("appointments")
       .select("id", { count: "exact", head: true })
       .eq("professional_id", professionalId)
       .eq("status", "completed")
-      .gte("scheduled_at", startOfWeek)
-      .lte("scheduled_at", endOfWeek),
+      .gte("scheduled_at", startOfMonth)
+      .lte("scheduled_at", endOfMonth),
   ]);
 
   // Calcular ingresos de la semana actual
@@ -198,6 +200,85 @@ export function ProfessionalOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Función para cargar métricas
+  const loadMetrics = async (professionalId: number) => {
+    try {
+      const metricsData = await calculateProfessionalMetrics(professionalId);
+      setMetrics(metricsData);
+    } catch (metricsError) {
+      // Error silencioso - las métricas no son críticas para el funcionamiento
+      // Solo loguear en desarrollo si es necesario
+      if (process.env.NODE_ENV === "development") {
+        console.debug(
+          "No se pudieron cargar métricas (no crítico):",
+          metricsError
+        );
+      }
+    }
+  };
+
+  // Función para validar y marcar citas completadas automáticamente
+  // Usa el cliente de Supabase directamente para aprovechar RLS y evitar problemas con cookies
+  const autoCompleteAppointments = async (professionalId: number) => {
+    try {
+      // Obtener la fecha y hora actual en la zona horaria de Chile
+      const now = DateTime.now().setZone("America/Santiago");
+      const nowISO = now.toISO();
+
+      if (!nowISO) {
+        console.error("Error al obtener la fecha actual");
+        return;
+      }
+
+      // Buscar citas del profesional que:
+      // 1. Estén en estado "pending_confirmation" o "confirmed"
+      // 2. Ya haya pasado su fecha programada (scheduled_at <= ahora)
+      // RLS de Supabase asegura que solo veamos las citas del profesional autenticado
+      const { data: appointmentsToComplete, error: fetchError } = await supabase
+        .from("appointments")
+        .select("id, scheduled_at, status")
+        .eq("professional_id", professionalId)
+        .in("status", ["pending_confirmation", "confirmed"])
+        .lte("scheduled_at", nowISO);
+
+      if (fetchError) {
+        console.error("Error obteniendo citas para completar:", fetchError);
+        return;
+      }
+
+      if (!appointmentsToComplete || appointmentsToComplete.length === 0) {
+        return; // No hay citas para completar
+      }
+
+      // Marcar todas las citas encontradas como completadas
+      // RLS asegura que solo podemos actualizar nuestras propias citas
+      const appointmentIds = appointmentsToComplete.map((apt) => apt.id);
+      const { error: updateError } = await supabase
+        .from("appointments")
+        .update({ status: "completed" })
+        .in("id", appointmentIds);
+
+      if (updateError) {
+        console.error("Error marcando citas como completadas:", updateError);
+        return;
+      }
+
+      if (appointmentIds.length > 0) {
+        console.log(`✅ ${appointmentIds.length} cita(s) marcada(s) como completada(s) automáticamente`);
+        // Recargar métricas después de marcar citas como completadas
+        // Pequeño delay para asegurar que la actualización se haya completado
+        setTimeout(() => {
+          loadMetrics(professionalId);
+        }, 1000);
+      }
+    } catch (error) {
+      // Error silencioso - no es crítico si falla
+      if (process.env.NODE_ENV === "development") {
+        console.debug("Error al validar citas automáticamente:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     const loadProfessionalData = async () => {
       if (!user) return;
@@ -247,23 +328,13 @@ export function ProfessionalOverview() {
             return;
           }
 
+          // Validar y marcar citas completadas automáticamente al cargar el dashboard
+          // Pasar el ID del profesional para usar RLS de Supabase
+          await autoCompleteAppointments(professional.id);
+
           // Cargar métricas del profesional directamente usando el cliente de Supabase
           // Esto evita problemas con cookies en fetch
-          try {
-            const metricsData = await calculateProfessionalMetrics(
-              professional.id
-            );
-            setMetrics(metricsData);
-          } catch (metricsError) {
-            // Error silencioso - las métricas no son críticas para el funcionamiento
-            // Solo loguear en desarrollo si es necesario
-            if (process.env.NODE_ENV === "development") {
-              console.debug(
-                "No se pudieron cargar métricas (no crítico):",
-                metricsError
-              );
-            }
-          }
+          await loadMetrics(professional.id);
         } else {
           setProfessionalData(null);
         }
@@ -277,6 +348,46 @@ export function ProfessionalOverview() {
 
     loadProfessionalData();
   }, [user, router]);
+
+  // Suscripción en tiempo real a cambios en las citas del profesional
+  useEffect(() => {
+    if (!professionalData) return;
+
+    // Configurar suscripción a cambios en la tabla de appointments
+    const channel = supabase
+      .channel(`professional-appointments-${professionalData.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*", // Escuchar todos los eventos (INSERT, UPDATE, DELETE)
+          schema: "public",
+          table: "appointments",
+          filter: `professional_id=eq.${professionalData.id}`,
+        },
+        (payload) => {
+          // Recargar métricas cuando haya cambios en las citas
+          console.log("Cambio detectado en citas:", payload.eventType);
+          // Pequeño delay para asegurar que la actualización se haya completado
+          setTimeout(() => {
+            loadMetrics(professionalData.id);
+          }, 500);
+        }
+      )
+      .subscribe();
+
+    // También refrescar métricas periódicamente cada 30 segundos como respaldo
+    const intervalId = setInterval(() => {
+      if (professionalData) {
+        loadMetrics(professionalData.id);
+      }
+    }, 30000); // 30 segundos
+
+    // Limpiar suscripción e intervalo al desmontar
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(intervalId);
+    };
+  }, [professionalData]);
 
   // Verificar si el plan mensual está activo (basado en monthly_plan_expires_at)
   const isMonthlyPlanActive = () => {
@@ -548,7 +659,7 @@ export function ProfessionalOverview() {
               <div className="text-2xl font-bold text-green-600">
                 {metrics.completedAppointments}
               </div>
-              <p className="text-xs text-muted-foreground">Citas finalizadas</p>
+              <p className="text-xs text-muted-foreground">Citas finalizadas del mes</p>
             </CardContent>
           </Card>
 

@@ -136,6 +136,9 @@ export default function AppointmentsTable({
   const [surveyDialogOpen, setSurveyDialogOpen] = useState(false);
   const [selectedAppointmentForSurvey, setSelectedAppointmentForSurvey] =
     useState<AppointmentWithUsers | null>(null);
+  const [completingAppointmentId, setCompletingAppointmentId] = useState<
+    string | number | null
+  >(null);
 
   // Cargar configuración de horas antes de confirmar usando el cliente de Supabase directamente
   useEffect(() => {
@@ -664,6 +667,97 @@ export default function AppointmentsTable({
       }),
     );
 
+    // Agregar columna de acciones para profesionales
+    if (mode === "professional") {
+      baseColumns.push(
+        columnHelper.display({
+          id: "professional_actions",
+          header: "Acciones",
+          cell: ({ row }) => {
+            const appointment = row.original;
+            const appointmentIdStr =
+              typeof appointment.id === "string"
+                ? appointment.id
+                : `APT-${String(appointment.id).padStart(8, "0")}`;
+            const isCompleting =
+              completingAppointmentId === appointmentIdStr ||
+              completingAppointmentId === appointment.id;
+
+            // Solo mostrar botón para citas confirmadas o pendientes de confirmación
+            if (
+              appointment.status !== "confirmed" &&
+              appointment.status !== "pending_confirmation"
+            ) {
+              return <span className="text-sm text-gray-400">—</span>;
+            }
+
+            // Verificar si la cita ya pasó o está próxima a pasar
+            const appointmentDate = new Date(appointment.scheduled_at);
+            const now = new Date();
+            const canComplete = appointmentDate <= now;
+
+            return (
+              <button
+                onClick={async () => {
+                  const appointmentId =
+                    typeof appointment.id === "string"
+                      ? appointment.id
+                      : `APT-${String(appointment.id).padStart(8, "0")}`;
+                  
+                  setCompletingAppointmentId(appointmentId);
+                  
+                  try {
+                    const response = await fetch(
+                      `/api/appointments/${appointmentId}/complete`,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                        },
+                      }
+                    );
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                      throw new Error(data.error || "Error al completar la cita");
+                    }
+
+                    // Recargar las citas
+                    if (onAppointmentUpdate) {
+                      onAppointmentUpdate();
+                    }
+                  } catch (error) {
+                    console.error("Error completando cita:", error);
+                    alert(
+                      error instanceof Error
+                        ? error.message
+                        : "Error al marcar la cita como completada"
+                    );
+                  } finally {
+                    setCompletingAppointmentId(null);
+                  }
+                }}
+                disabled={!canComplete || isCompleting}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  canComplete && !isCompleting
+                    ? "bg-green-600 text-white hover:bg-green-700"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+                title={
+                  canComplete
+                    ? "Marcar como completada"
+                    : "Solo puedes marcar como completada después de la fecha programada"
+                }
+              >
+                {isCompleting ? "Completando..." : "Marcar Completada"}
+              </button>
+            );
+          },
+        }),
+      );
+    }
+
     // Agregar columna de acciones para pacientes con citas pending_confirmation
     if (mode === "patient") {
       baseColumns.push(
@@ -817,8 +911,10 @@ export default function AppointmentsTable({
     mode,
     confirmationHours,
     confirmingAppointmentId,
+    completingAppointmentId,
     surveysMap,
     surveyStatusMap,
+    clinicalRecordsMap,
   ]);
 
   const table = useReactTable({
