@@ -23,6 +23,8 @@ export function WeeklyScheduleForm({
   const [weeklyRules, setWeeklyRules] = useState<AvailabilityRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [timeSlots, setTimeSlots] = useState<string[]>(COMMON_TIME_SLOTS);
+  const [scheduleConfig, setScheduleConfig] = useState<{ startHour: string; endHour: string } | null>(null);
 
   const loadWeeklyRules = useCallback(async () => {
     try {
@@ -40,14 +42,40 @@ export function WeeklyScheduleForm({
 
   useEffect(() => {
     loadWeeklyRules();
+    
+    // Cargar configuración de horas permitidas
+    const loadScheduleHours = async () => {
+      try {
+        const response = await fetch("/api/schedule/hours", {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setTimeSlots(data.timeSlots);
+            setScheduleConfig(data.config);
+          }
+        }
+      } catch (error) {
+        console.error("Error cargando horas de horarios:", error);
+        // Usar valores por defecto si falla
+        setTimeSlots(COMMON_TIME_SLOTS);
+        setScheduleConfig({ startHour: "08:00", endHour: "23:00" });
+      }
+    };
+    
+    loadScheduleHours();
   }, [professionalId, loadWeeklyRules]);
 
   const addTimeSlot = (weekday: number) => {
+    const defaultStart = scheduleConfig?.startHour || "08:00";
+    const defaultEnd = scheduleConfig?.endHour || "17:00";
+    
     const newRule: AvailabilityRule = {
       professional_id: professionalId,
       weekday,
-      start_time: "08:00",
-      end_time: "17:00",
+      start_time: defaultStart,
+      end_time: defaultEnd,
     };
 
     setWeeklyRules((prev) => [...prev, newRule]);
@@ -130,7 +158,9 @@ export function WeeklyScheduleForm({
   };
 
   const validateTimeSlot = (startTime: string, endTime: string) => {
-    return AvailabilityService.validateTimeSlot(startTime, endTime);
+    const startHour = scheduleConfig?.startHour || "08:00";
+    const endHour = scheduleConfig?.endHour || "23:00";
+    return AvailabilityService.validateTimeSlot(startTime, endTime, startHour, endHour);
   };
 
   const validateHourFormat = (time: string) => {
@@ -141,7 +171,7 @@ export function WeeklyScheduleForm({
     const dayRules = getRulesForWeekday(weekday).filter(
       (rule) => rule.id !== excludeRuleId
     );
-    const allSlots = COMMON_TIME_SLOTS;
+    const allSlots = timeSlots;
     const availableSlots: string[] = [];
 
     for (let i = 0; i < allSlots.length - 1; i++) {
@@ -298,7 +328,7 @@ export function WeeklyScheduleForm({
                             }
                             className="border rounded px-2 py-1 text-sm"
                           >
-                            {COMMON_TIME_SLOTS.map((time) => (
+                            {timeSlots.map((time) => (
                               <option key={time} value={time}>
                                 {time}
                               </option>
@@ -310,7 +340,7 @@ export function WeeklyScheduleForm({
                           <span className="text-red-500 text-xs">
                             {!isStartValid || !isEndValid
                               ? "Solo se permiten horas completas (ej: 09:00, 10:00)"
-                              : "Hora de fin debe ser mayor a hora de inicio y dentro del rango 08:00-00:00"}
+                              : `Hora de fin debe ser mayor a hora de inicio y dentro del rango ${scheduleConfig?.startHour || "08:00"}-${scheduleConfig?.endHour === "23:00" ? "00:00" : scheduleConfig?.endHour || "23:00"}`}
                           </span>
                         )}
 

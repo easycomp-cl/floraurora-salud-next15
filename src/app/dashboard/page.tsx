@@ -67,7 +67,7 @@ export default function DashboardPage() {
     if (isProfessional) {
       return [
         { href: "/dashboard/appointments", label: "Mis citas" },
-        { href: "/dashboard/sessions", label: "Mis sesiones" },
+        { href: "/dashboard/sessions", label: "Mis Citas" },
         { href: "/dashboard/profile", label: "Actualizar perfil" },
       ];
     }

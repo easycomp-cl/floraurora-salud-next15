@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { type SatisfactionSurvey } from "@/lib/services/satisfactionSurveyService";
 import supabase from "@/utils/supabase/client";
+import { clientGetUser } from "@/lib/client-auth";
 
 interface ProfessionalRating {
   professionalId: number;
@@ -35,9 +36,19 @@ export default function ProfessionalRatingsOverview() {
         setLoading(true);
         setError(null);
 
+        // Obtener el usuario actual para incluir el header X-User-ID
+        const { user } = await clientGetUser();
+        if (!user) {
+          throw new Error("No autenticado");
+        }
+
         // Obtener todas las encuestas usando la API del admin
         const response = await fetch("/api/admin/ratings", {
           cache: "no-store",
+          credentials: "include", // Incluir cookies para autenticación
+          headers: {
+            "X-User-ID": user.id, // Enviar user_id en header como respaldo
+          },
         });
 
         if (!response.ok) {

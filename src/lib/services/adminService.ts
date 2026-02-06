@@ -156,6 +156,7 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
     resume_url: (row.resume_url as string) ?? null,
     specialties,
     services,
+    use_promotional_price: Boolean(row.use_promotional_price ?? false),
   };
 }
 
@@ -766,6 +767,7 @@ export const adminService = {
         profile_description,
         resume_url,
         is_active,
+        use_promotional_price,
         professional_titles(
           id,
           title_name
@@ -804,6 +806,7 @@ export const adminService = {
           profile_description,
           resume_url,
           is_active,
+          use_promotional_price,
           professional_titles(
             id,
             title_name
@@ -835,6 +838,7 @@ export const adminService = {
             profile_description,
             resume_url,
             is_active,
+            use_promotional_price,
             professional_titles(
               id,
               title_name
@@ -977,6 +981,18 @@ export const adminService = {
 
     if (error) {
       throw new Error(`No se pudo actualizar el estado del profesional: ${error.message}`);
+    }
+  },
+
+  async setProfessionalPromotionalPrice(professionalId: number, usePromotionalPrice: boolean): Promise<void> {
+    const supabase = createAdminServer();
+    const { error } = await supabase
+      .from("professionals")
+      .update({ use_promotional_price: usePromotionalPrice })
+      .eq("id", professionalId);
+
+    if (error) {
+      throw new Error(`No se pudo actualizar el precio promocional del profesional: ${error.message}`);
     }
   },
 

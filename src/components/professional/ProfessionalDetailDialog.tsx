@@ -109,18 +109,10 @@ export default function ProfessionalDetailDialog({
           {/* Enfoque Terapéutico */}
           {professional.approach && (
             <div className="space-y-3">
-              <h3 className="text-xl font-bold text-gray-900">
-                Enfoque Terapéutico
-              </h3>
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-gray-900 mb-2">
-                  {professional.approach.name}
-                </h4>
-                {professional.approach.description && (
-                  <p className="text-gray-700 leading-relaxed">
-                    {professional.approach.description}
-                  </p>
-                )}
+                <span className="text-gray-900 font-semibold">
+                  Enfoque Terapéutico: {professional.approach.name}
+                </span>
               </div>
             </div>
           )}

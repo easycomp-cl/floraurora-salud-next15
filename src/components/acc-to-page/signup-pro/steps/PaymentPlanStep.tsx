@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -19,45 +20,17 @@ interface PaymentPlanStepProps {
   onPrevious: () => void;
 }
 
-const paymentPlans = [
-  {
-    id: "light" as const,
-    name: "Plan Light",
-    price: "15%",
-    period: "por sesión",
-    features: [
-      "Agendamiento online",
-      "Aviso automático con link de Google Meet",
-      "Ficha virtual del paciente",
-      "Emisión automática de boleta SII",
-      "Videollamada Google Meet",
-      "Recepción de pagos de pacientes",
-      "Transferencia semanal (segundo día hábil)",
-    ],
-    description:
-      "Renovación automática mensual. Solo correo con link de Meet (sin confirmación automática al paciente)",
-  },
-  {
-    id: "monthly" as const,
-    name: "Plan Mensual",
-    price: "$24.990",
-    period: "mensual",
-    features: [
-      "Agendamiento online",
-      "Aviso automático de confirmación vía mail",
-      "Aviso automático de recordatorio vía mail",
-      "Ficha virtual del paciente",
-      "Emisión automática de boleta SII",
-      "Visualización y Publicidad en página principal",
-      "Videollamada Google Meet",
-      "Recepción de pagos de pacientes",
-      "Transferencia semanal (segundo día hábil)",
-    ],
-    description:
-      "Precio preferencial por marcha blanca. Incluye todos los servicios de la aplicación",
-    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un 1,3% de comisión por cada sesión extra realizada.",
-  },
-];
+interface PlanInfo {
+  id: "light" | "monthly";
+  name: string;
+  price: string;
+  period: string;
+  features: string[];
+  description: string;
+  note?: string;
+  isPromotional?: boolean;
+  normalPrice?: number;
+}
 
 export default function PaymentPlanStep({
   data,
@@ -66,6 +39,118 @@ export default function PaymentPlanStep({
   onNext,
   onPrevious,
 }: PaymentPlanStepProps) {
+  const [paymentPlans, setPaymentPlans] = useState<PlanInfo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      try {
+        // Cargar precios desde la API
+        const response = await fetch("/api/plans/pricing", {
+          cache: "no-store",
+          credentials: "include", // Incluir cookies si están disponibles
+        });
+
+        let config = {
+          premiumNormalPrice: 39990,
+          premiumPromotionPrice: 39990,
+          premiumPromotionMonths: 0,
+          lightCommissionPercentage: 15,
+          premiumExtraSessionCommissionPercentage: 1.6,
+        };
+        let premiumPrice = 39990;
+        let isPromotional = false;
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.pricing) {
+            const pricing = result.pricing;
+            config = {
+              premiumNormalPrice: pricing.premiumNormalPrice,
+              premiumPromotionPrice: pricing.premiumPromotionPrice,
+              premiumPromotionMonths: pricing.premiumPromotionMonths || 0,
+              lightCommissionPercentage: pricing.lightCommissionPercentage,
+              premiumExtraSessionCommissionPercentage: pricing.premiumExtraSessionCommissionPercentage || 1.6,
+            };
+            premiumPrice = pricing.premiumCurrentPrice;
+            isPromotional = pricing.isPromotional || false;
+          }
+        }
+
+        const plans: PlanInfo[] = [
+          {
+            id: "light",
+            name: "Plan Light",
+            price: `${config.lightCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%`,
+            period: "por sesión",
+            features: [
+              "Agendamiento online",
+              "Aviso automático con link de Google Meet",
+              "Ficha virtual del paciente",
+              "Emisión automática de boleta SII",
+              "Videollamada Google Meet",
+              "Recepción de pagos de pacientes",
+              "Transferencia semanal (segundo día hábil)",
+            ],
+            description:
+              "Renovación automática mensual. Solo correo con link de Meet (sin confirmación automática al paciente)",
+          },
+          {
+            id: "monthly",
+            name: "Plan Premium",
+            price: `$${premiumPrice.toLocaleString("es-CL")}`,
+            period: "mensual",
+            features: [
+              "Agendamiento online",
+              "Aviso automático de confirmación vía mail",
+              "Aviso automático de recordatorio vía mail",
+              "Ficha virtual del paciente",
+              "Emisión automática de boleta SII",
+              "Visualización y Publicidad en página principal",
+              "Videollamada Google Meet",
+              "Recepción de pagos de pacientes",
+              "Transferencia semanal (segundo día hábil)",
+            ],
+            description:
+              isPromotional && config.premiumPromotionMonths > 0 && premiumPrice < config.premiumNormalPrice
+                ? `Precio promocional por ${config.premiumPromotionMonths} meses. Incluye todos los servicios de la aplicación`
+                : "Incluye todos los servicios de la aplicación",
+            note: `Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
+            isPromotional: isPromotional && config.premiumPromotionMonths > 0 && premiumPrice < config.premiumNormalPrice,
+            normalPrice: config.premiumNormalPrice,
+          },
+        ];
+
+        setPaymentPlans(plans);
+      } catch (error) {
+        console.error("Error cargando precios:", error);
+        // Valores por defecto en caso de error
+        setPaymentPlans([
+          {
+            id: "light",
+            name: "Plan Light",
+            price: "15%",
+            period: "por sesión",
+            features: [],
+            description: "",
+          },
+          {
+            id: "monthly",
+            name: "Plan Premium",
+            price: "$24.990",
+            period: "mensual",
+            features: [],
+            description: "",
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPricing();
+  }, []);
+
   const handlePlanChange = (planType: "light" | "monthly") => {
     onChange({
       ...data,
@@ -97,8 +182,14 @@ export default function PaymentPlanStep({
         </div>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-8 lg:gap-12">
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Cargando planes...</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <div className="grid gap-8 lg:gap-12">
             {/* Servicios Incluidos */}
             <div className="grid gap-4">
               <h3 className="text-lg font-semibold">
@@ -194,12 +285,30 @@ export default function PaymentPlanStep({
                             </CardDescription>
                           </div>
                           <div className="text-center sm:text-right flex-shrink-0">
-                            <div className="text-2xl font-bold text-primary">
-                              {plan.price}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              /{plan.period}
-                            </div>
+                            {plan.isPromotional && plan.normalPrice ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-lg font-bold text-muted-foreground line-through">
+                                    ${plan.normalPrice.toLocaleString("es-CL")}
+                                  </span>
+                                  <span className="text-2xl font-bold text-primary">
+                                    {plan.price}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  /{plan.period}
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="text-2xl font-bold text-primary">
+                                  {plan.price}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  /{plan.period}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -246,15 +355,35 @@ export default function PaymentPlanStep({
                       </span>
                     </div>
                     <div className="text-center sm:text-right">
-                      <span className="font-bold text-primary text-lg">
-                        {
-                          paymentPlans.find((p) => p.id === data.plan_type)
-                            ?.price
+                      {(() => {
+                        const selectedPlan = paymentPlans.find((p) => p.id === data.plan_type);
+                        if (!selectedPlan) return null;
+                        
+                        if (selectedPlan.isPromotional && selectedPlan.normalPrice) {
+                          return (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm font-bold text-muted-foreground line-through">
+                                ${selectedPlan.normalPrice.toLocaleString("es-CL")}
+                              </span>
+                              <span className="font-bold text-primary text-lg">
+                                {selectedPlan.price}
+                                <span className="text-sm font-normal text-muted-foreground">
+                                  {data.plan_type === "light" ? " por sesión" : "/mes"}
+                                </span>
+                              </span>
+                            </div>
+                          );
                         }
-                        <span className="text-sm font-normal text-muted-foreground">
-                          {data.plan_type === "light" ? " por sesión" : "/mes"}
-                        </span>
-                      </span>
+                        
+                        return (
+                          <span className="font-bold text-primary text-lg">
+                            {selectedPlan.price}
+                            <span className="text-sm font-normal text-muted-foreground">
+                              {data.plan_type === "light" ? " por sesión" : "/mes"}
+                            </span>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
@@ -334,6 +463,7 @@ export default function PaymentPlanStep({
             </div>
           </div>
         </form>
+        )}
       </CardContent>
     </Card>
   );

@@ -349,6 +349,7 @@ export function ProfessionalOverview() {
     };
 
     loadProfessionalData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, router]);
 
   // Suscripción en tiempo real a cambios en las citas del profesional

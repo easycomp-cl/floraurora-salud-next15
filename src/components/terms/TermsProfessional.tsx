@@ -31,15 +31,15 @@ export default function TermsProfessional() {
               1.2. Modalidades del Servicio:
             </h3>
             <p className="mb-4">
-              El Profesional podrá optar entre dos modalidades para prestar servicios en la Plataforma: 1) un plan de treinta días (o &quot;Plan Mensual&quot;), en que realizará un pago único por el valor anunciado en la plataforma, sujeto a su vez a las ofertas que en la misma se anuncien, el cual lo habilitará para prestar las atenciones que estime, durante el período contratado, sin posibilidad de reembolso por no uso o cualquier otra causa; y 2) atención por comisión (o &quot;Plan Light&quot;), en que la Plataforma descontará un porcentaje fijo equivalente al 15% del valor convenido por cada sesión que realice el Profesional, el cual deberá encontrarse dentro de lo valores mínimos y máximos autorizados por la plataforma, esto es, desde los $25.000 a los $50.000 pesos. El Profesional podrá cambiar de modalidad con libertad. En ambos casos, la duración máxima de cada sesión no podrá superar los 55 minutos.
+              El Profesional podrá optar entre dos modalidades para prestar servicios en la Plataforma: 1) un plan de treinta días (o &quot;Plan Premium&quot;), en que realizará un pago único por el valor anunciado en la plataforma, sujeto a su vez a las ofertas que en la misma se anuncien, el cual lo habilitará para prestar las atenciones que estime, durante el período contratado, sin posibilidad de reembolso por no uso o cualquier otra causa. Los precios del Plan Premium pueden variar según promociones vigentes y se encuentran publicados en la plataforma; y 2) atención por comisión (o &quot;Plan Light&quot;), en que la Plataforma descontará un porcentaje fijo equivalente al porcentaje establecido en la plataforma (actualmente 15%) del valor convenido por cada sesión que realice el Profesional, el cual deberá encontrarse dentro de lo valores mínimos y máximos autorizados por la plataforma, esto es, desde los $25.000 a los $50.000 pesos. El Profesional podrá cambiar de modalidad con libertad. En ambos casos, la duración máxima de cada sesión no podrá superar los 55 minutos.
             </p>
           </div>
 
           <div className="mb-4">
             <h3 className="text-xl font-semibold text-gray-800 mb-2">
-              1.3. Plan Mensual o Premium:
+              1.3. Plan Premium:
             </h3>
-            <p className="mb-2">La contratación del plan mensual dará acceso al Profesional a las siguientes funciones:</p>
+            <p className="mb-2">La contratación del Plan Premium dará acceso al Profesional a las siguientes funciones:</p>
             <ul className="list-disc list-inside ml-4 mb-4 space-y-1">
               <li>Agendamiento online de sesiones.</li>
               <li>Aviso automático de confirmación y recordatorio de sesión, vía correo electrónico.</li>

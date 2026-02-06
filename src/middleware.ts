@@ -15,20 +15,34 @@ export async function middleware(request: NextRequest) {
     if (pathname.startsWith('/auth/') || 
         pathname === '/' ||
         pathname.startsWith('/login') ||
-        pathname.startsWith('/signup')) {
+        pathname.startsWith('/signup') ||
+        pathname.startsWith('/callback') ||
+        pathname.startsWith('/confirm') ||
+        pathname.startsWith('/forgot-password') ||
+        pathname.startsWith('/reset-password') ||
+        pathname.startsWith('/privacy') ||
+        pathname.startsWith('/terms') ||
+        pathname.startsWith('/about') ||
+        pathname.startsWith('/contact') ||
+        pathname.startsWith('/services') ||
+        pathname.startsWith('/professionals') ||
+        pathname.startsWith('/messages')) {
         return;
     }
     
-    // Aplicar middleware a TODAS las rutas protegidas, incluyendo APIs
-    // Esto asegura que las cookies se actualicen correctamente en todas las rutas
+    // Aplicar middleware SOLO a rutas protegidas que realmente necesitan autenticación
+    // Esto asegura que las cookies se actualicen correctamente en todas las rutas protegidas
     // y previene problemas de cookies desactualizadas
-    if (pathname.startsWith('/dashboard/') || 
+    // IMPORTANTE: Incluir tanto '/dashboard' exacto como '/dashboard/' para cubrir todas las rutas
+    if (pathname === '/dashboard' ||
+        pathname.startsWith('/dashboard/') || 
         pathname.startsWith('/admin/') ||
         pathname.startsWith('/profile/') ||
         pathname.startsWith('/api/')) {
         return await updateSession(request);
     }
     
+    // Para todas las demás rutas (públicas), no hacer nada
     return;
 }
 

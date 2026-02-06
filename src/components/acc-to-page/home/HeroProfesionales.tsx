@@ -323,7 +323,7 @@ export default function HeroProfesionales() {
                   academicData = result.data;
                 }
               }
-            } catch (error) {
+            } catch {
               // Silently fail - academic data is optional
             }
 

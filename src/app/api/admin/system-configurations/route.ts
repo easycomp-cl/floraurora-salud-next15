@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminServer } from "@/utils/supabase/server";
 import { getAdminActorId } from "@/lib/auth/getAdminActor";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     // Verificar que sea admin
-    const actorId = await getAdminActorId();
+    const actorId = await getAdminActorId(request);
     if (!actorId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }
@@ -68,7 +68,7 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   try {
     // Verificar que sea admin
-    const actorId = await getAdminActorId();
+    const actorId = await getAdminActorId(request);
     if (!actorId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 });
     }

@@ -30,13 +30,15 @@ export function DateOverridesForm({
   professionalId,
   onUpdate,
 }: DateOverridesFormProps) {
+  const [timeSlots, setTimeSlots] = useState<string[]>(COMMON_TIME_SLOTS);
+  const [scheduleConfig, setScheduleConfig] = useState<{ startHour: string; endHour: string } | null>(null);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState<DateOverrideForm>({
     for_date: "",
-    timeSlots: [{ id: "temp-1", start_time: "08:00", end_time: "17:00" }],
+    timeSlots: [{ id: "temp-1", start_time: "08:00", end_time: "17:00" }], // Se actualizará cuando se carguen las configuraciones
     is_available: true,
   });
 
@@ -56,6 +58,41 @@ export function DateOverridesForm({
 
   useEffect(() => {
     loadOverrides();
+    
+    // Cargar configuración de horas permitidas
+    const loadScheduleHours = async () => {
+      try {
+        const response = await fetch("/api/schedule/hours", {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setTimeSlots(data.timeSlots);
+            setScheduleConfig(data.config);
+            // Actualizar el valor por defecto del formulario si está vacío
+            if (formData.timeSlots.length === 1 && formData.timeSlots[0].start_time === "08:00") {
+              setFormData((prev) => ({
+                ...prev,
+                timeSlots: [{
+                  ...prev.timeSlots[0],
+                  start_time: data.config.startHour,
+                  end_time: data.config.endHour,
+                }],
+              }));
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error cargando horas de horarios:", error);
+        // Usar valores por defecto si falla
+        setTimeSlots(COMMON_TIME_SLOTS);
+        setScheduleConfig({ startHour: "08:00", endHour: "23:00" });
+      }
+    };
+    
+    loadScheduleHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [professionalId, loadOverrides]);
 
   const handleInputChange = (
@@ -66,10 +103,13 @@ export function DateOverridesForm({
   };
 
   const addTimeSlot = () => {
+    const defaultStart = scheduleConfig?.startHour || "08:00";
+    const defaultEnd = scheduleConfig?.endHour || "17:00";
+    
     const newSlot: TimeSlot = {
       id: `temp-${Date.now()}`,
-      start_time: "08:00",
-      end_time: "17:00",
+      start_time: defaultStart,
+      end_time: defaultEnd,
     };
     setFormData((prev) => ({
       ...prev,
@@ -108,14 +148,19 @@ export function DateOverridesForm({
     // Validar que todos los horarios sean válidos
     const invalidSlots = formData.timeSlots.filter(
       (slot) =>
-        !AvailabilityService.validateTimeSlot(slot.start_time, slot.end_time) ||
+        !AvailabilityService.validateTimeSlot(
+          slot.start_time, 
+          slot.end_time,
+          scheduleConfig?.startHour || "08:00",
+          scheduleConfig?.endHour || "23:00"
+        ) ||
         !AvailabilityService.validateHourFormat(slot.start_time) ||
         !AvailabilityService.validateHourFormat(slot.end_time)
     );
 
     if (invalidSlots.length > 0) {
       alert(
-        "Algunos horarios no son válidos. Solo se permiten horas completas (ej: 09:00, 10:00) y deben estar dentro del rango 08:00-00:00."
+        `Algunos horarios no son válidos. Solo se permiten horas completas (ej: 09:00, 10:00) y deben estar dentro del rango ${scheduleConfig?.startHour || "08:00"}-${scheduleConfig?.endHour === "23:00" ? "00:00" : scheduleConfig?.endHour || "23:00"}.`
       );
       return;
     }
@@ -313,7 +358,7 @@ export function DateOverridesForm({
                       }
                       className="border rounded px-2 py-1 text-sm"
                     >
-                      {COMMON_TIME_SLOTS.map((time) => (
+                      {timeSlots.map((time) => (
                         <option key={time} value={time}>
                           {time}
                         </option>
@@ -327,7 +372,7 @@ export function DateOverridesForm({
                       }
                       className="border rounded px-2 py-1 text-sm"
                     >
-                      {COMMON_TIME_SLOTS.map((time) => (
+                      {timeSlots.map((time) => (
                         <option key={time} value={time}>
                           {time}
                         </option>

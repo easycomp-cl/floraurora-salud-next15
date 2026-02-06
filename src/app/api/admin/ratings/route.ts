@@ -9,8 +9,16 @@ export async function GET(request: NextRequest) {
     const authResult = await validateAuth(request);
     
     if (!authResult.isValid || !authResult.userRecordId) {
+      console.error("❌ [admin/ratings] Validación de autenticación fallida:", {
+        isValid: authResult.isValid,
+        userRecordId: authResult.userRecordId,
+        error: authResult.error,
+        hasHeader: !!request.headers.get("X-User-ID"),
+        headerValue: request.headers.get("X-User-ID"),
+      });
+      
       return NextResponse.json(
-        { error: "No autenticado" },
+        { error: authResult.error || "No autenticado" },
         { status: 401 }
       );
     }

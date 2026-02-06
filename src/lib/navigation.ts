@@ -106,7 +106,7 @@ const appointmentsNavItem: NavItem = {
 };
 
 const sessionsNavItem: NavItem = {
-  label: "Citas programadas",
+  label: "Mis Citas",
   href: "/dashboard/sessions",
   icon: Calendar,
   description: "Historial de citas",

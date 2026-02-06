@@ -26,10 +26,12 @@ export async function updateSession(request: NextRequest) {
     );
 
     try {
-        // Primero intentar obtener la sesión (esto puede actualizar las cookies)
+        // Primero intentar obtener la sesión (esto puede actualizar las cookies automáticamente
+        // si hay un refresh token válido)
         const { data: { session } } = await supabase.auth.getSession();
         
         // Luego obtener el usuario (más confiable que getSession)
+        // getUser() también intentará refrescar automáticamente si es necesario
         const { data: { user }, error } = await supabase.auth.getUser();
         
         // Determinar el usuario final: preferir getUser() pero usar session si está disponible
@@ -42,30 +44,27 @@ export async function updateSession(request: NextRequest) {
                 console.log("Middleware auth error:", error);
             }
             
-            // Si es una ruta protegida y no hay sesión válida, redirigir al login
+            // Si es una ruta protegida y no hay sesión válida, verificar qué hacer
             const pathname = request.nextUrl.pathname;
-            const isProtectedRoute = pathname.startsWith('/dashboard/') || 
-                                     pathname.startsWith('/admin/') || 
-                                     pathname.startsWith('/profile/');
             
             // Para APIs, no redirigir (retornan error 401)
             const isApiRoute = pathname.startsWith('/api/');
             
-            // Excluir rutas del dashboard (el cliente manejará la autenticación)
-            // Esto es importante porque después del login, las cookies pueden no estar
-            // disponibles inmediatamente en el middleware, pero el cliente las tiene
-            const isDashboardRoute = pathname.startsWith('/dashboard');
+            // IMPORTANTE: Para todas las rutas protegidas (dashboard, admin, profile), 
+            // NO redirigir inmediatamente desde el middleware
+            // El cliente (ProtectedRoute o componentes de página) manejará la autenticación
+            // Esto evita redirecciones prematuras cuando las cookies aún no se han sincronizado
+            // o cuando la sesión se está refrescando
             
-            if (isProtectedRoute && !isApiRoute && !isDashboardRoute) {
-                // Solo redirigir en rutas de admin o profile que no sean dashboard
-                console.log("🚫 Middleware: No hay sesión válida en ruta protegida, redirigiendo al login");
-                const loginUrl = new URL("/login", request.url);
-                loginUrl.searchParams.set("error", "session_expired");
-                return NextResponse.redirect(loginUrl);
+            // Para APIs, retornar respuesta sin redirigir (retornarán 401 si es necesario)
+            if (isApiRoute) {
+                return response;
             }
             
-            // Para APIs o rutas del dashboard, permitir que continúe (el cliente verificará)
-            // El ProtectedRoute del cliente manejará la redirección si realmente no hay sesión
+            // Para todas las rutas protegidas (dashboard, admin, profile), permitir que continúe
+            // El cliente manejará la redirección si realmente no hay sesión válida
+            // Esto es crítico para evitar redirecciones prematuras durante la navegación
+            // y problemas de sincronización de cookies
             return response;
         }
         

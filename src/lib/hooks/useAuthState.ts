@@ -60,11 +60,17 @@ export function useAuthState() {
     //   userEmail: user?.email
     // });
 
+    // Determinar si está autenticado
+    // Normalmente necesitamos tanto user como session, pero durante el refresh del token
+    // puede haber un momento donde session es null temporalmente
+    // En ese caso, si hay user, esperamos un poco más antes de considerar no autenticado
+    const isAuthenticated = !!user && !!session;
+    
     const newState = {
       user,
       session,
       isLoading: false,
-      isAuthenticated: !!user && !!session,
+      isAuthenticated,
     };
 
     setAuthState(newState);
@@ -77,9 +83,23 @@ export function useAuthState() {
     try {
       //console.log("🔍 useAuthState: Obteniendo sesión inicial...");
       
+      // Intentar obtener la sesión (esto puede refrescar automáticamente si hay refresh token)
       const { data: { session }, error } = await supabase.auth.getSession();
       
       if (error) {
+        // Si hay error pero no es de sesión faltante, intentar obtener el usuario directamente
+        if (error.message !== 'Auth session missing!') {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            // Hay usuario pero no sesión - puede estar refrescándose
+            // Intentar refrescar la sesión manualmente
+            const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+            if (refreshedSession) {
+              updateAuthState(refreshedSession.user, refreshedSession);
+              return;
+            }
+          }
+        }
         //console.error("❌ useAuthState: Error al obtener sesión inicial:", error);
         updateAuthState(null, null);
         return;
@@ -89,8 +109,23 @@ export function useAuthState() {
         //console.log("✅ useAuthState: Sesión inicial encontrada:", session.user.email);
         updateAuthState(session.user, session);
       } else {
-        //console.log("ℹ️ useAuthState: No hay sesión inicial");
-        updateAuthState(null, null);
+        // Si no hay sesión, intentar obtener el usuario directamente
+        // Puede haber un usuario pero la sesión se está refrescando
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          // Hay usuario pero no sesión - esperar un poco y reintentar
+          setTimeout(async () => {
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession?.user) {
+              updateAuthState(retrySession.user, retrySession);
+            } else {
+              updateAuthState(null, null);
+            }
+          }, 500);
+        } else {
+          //console.log("ℹ️ useAuthState: No hay sesión inicial");
+          updateAuthState(null, null);
+        }
       }
     } catch {
       //console.error("💥 useAuthState: Error inesperado:", error);
@@ -124,9 +159,13 @@ export function useAuthState() {
           //console.log("🚪 useAuthState: Usuario cerró sesión");
           updateAuthState(null, null);
         } else if (event === "TOKEN_REFRESHED" && session) {
+          // Actualizar inmediatamente cuando se refresca el token
           updateAuthState(session.user, session);
         } else if (event === "USER_UPDATED" && session) {
           updateAuthState(session.user, session);
+        } else if (event === "SIGNED_IN" && !session) {
+          // Si hay evento SIGNED_IN pero no hay sesión todavía, esperar
+          // Esto puede ocurrir durante el proceso de autenticación
         }
       }
     );

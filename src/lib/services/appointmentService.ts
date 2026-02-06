@@ -512,7 +512,6 @@ export const appointmentService = {
             gender?: unknown;
             user_id?: unknown;
           };
-          const userUuid = users?.user_id ? String(users.user_id) : null;
 
           // Consultar especialidades del profesional
           const { data: specialtiesData, error: specialtiesError } = await supabase
@@ -594,7 +593,7 @@ export const appointmentService = {
                 academicData = result.data;
               }
             }
-          } catch (academicError) {
+          } catch {
             // Silently fail - academic data is optional
           }
 

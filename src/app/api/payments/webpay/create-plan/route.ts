@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createAdminServer } from "@/utils/supabase/server";
 import { validateAuth } from "@/utils/supabase/auth-validation";
 import { getTransbankConfig } from "@/lib/config";
+import {
+  getPremiumPlanPrice,
+  getPremiumPlanPriceForNewProfessional,
+} from "@/lib/services/planPricingService";
 
 /**
  * API Route para crear una transacción de Webpay Plus para pago de plan mensual
@@ -15,39 +19,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { amount } = body;
 
-    // Validar datos requeridos
-    if (!amount) {
-      return NextResponse.json(
-        {
-          error: "Faltan datos requeridos: amount",
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validar que el monto sea un número positivo
-    const amountNumber = Number(amount);
-    if (isNaN(amountNumber) || amountNumber <= 0) {
-      return NextResponse.json(
-        { error: "El monto debe ser un número positivo" },
-        { status: 400 }
-      );
-    }
-
-    // Validar autenticación usando la función de validación centralizada
+    // Validar autenticación primero para obtener el professionalId
     console.log("🔍 [create-plan] Validando autenticación...");
     const authValidation = await validateAuth(request);
 
     if (!authValidation.isValid) {
       console.error("❌ [create-plan] Validación de autenticación fallida:", authValidation.error);
       
-      // Si hay desajuste crítico, cerrar sesión automáticamente
       if (authValidation.sessionMismatch) {
         console.error("🚨 [create-plan] Desajuste crítico detectado - cerrando sesión automáticamente");
         const supabase = await createClient(request);
         await supabase.auth.signOut();
         
-        // Limpiar cookies en la respuesta
         const errorResponse = NextResponse.json(
           { 
             error: authValidation.error || "Sesión desactualizada",
@@ -57,7 +40,6 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
         
-        // Limpiar cookies de Supabase
         const allCookies = request.cookies.getAll();
         allCookies.forEach(cookie => {
           if (cookie.name.includes('supabase') || cookie.name.includes('sb-') || cookie.name.includes('auth-token')) {
@@ -85,10 +67,28 @@ export async function POST(request: NextRequest) {
     }
 
     const professionalIdNum = Number(authValidation.userRecordId);
-    
+
+    // Si no se proporciona amount, obtenerlo desde la configuración
+    let amountNumber: number;
+    if (amount) {
+      amountNumber = Number(amount);
+      if (isNaN(amountNumber) || amountNumber <= 0) {
+        return NextResponse.json(
+          { error: "El monto debe ser un número positivo" },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Obtener precio desde la configuración parametrizada
+      amountNumber = professionalIdNum && !isNaN(professionalIdNum)
+        ? await getPremiumPlanPrice(professionalIdNum)
+        : await getPremiumPlanPriceForNewProfessional();
+    }
+
     console.log("✅ [create-plan] Autenticación validada:", {
       userRecordId: professionalIdNum,
       userId: authValidation.userId,
+      amount: amountNumber,
     });
 
     // Verificar que el profesional existe y pertenece al usuario autenticado

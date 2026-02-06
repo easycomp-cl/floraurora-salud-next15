@@ -27,6 +27,7 @@ import {
   ChevronRight,
   FileText,
   Users,
+  Tag,
 } from "lucide-react";
 import ProfessionalRequestsManagement from "./ProfessionalRequestsManagement";
 
@@ -220,6 +221,47 @@ export default function ProfessionalsManagement() {
         err instanceof Error
           ? err.message
           : "Error inesperado al actualizar el profesional.";
+      setError(message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleTogglePromotionalPrice = async (professional: AdminProfessional) => {
+    try {
+      setActionLoadingId(professional.id);
+      setMessage(null);
+      setError(null);
+
+      const newValue = !professional.use_promotional_price;
+      const response = await fetch(
+        `/api/admin/professionals/${professional.id}/promotional-price`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ use_promotional_price: newValue }),
+        }
+      );
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(
+          payload?.error ?? "No se pudo actualizar el precio promocional del profesional"
+        );
+      }
+
+      const result = await response.json();
+      setMessage(result.message || (
+        newValue
+          ? "Precio promocional activado correctamente."
+          : "Precio promocional desactivado correctamente."
+      ));
+      await loadProfessionals();
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al actualizar el precio promocional.";
       setError(message);
     } finally {
       setActionLoadingId(null);
@@ -498,8 +540,31 @@ export default function ProfessionalsManagement() {
                             {actionLoadingId === professional.id
                               ? "Procesando..."
                               : professional.is_active
-                                ? "Desactivar"
-                                : "Activar"}
+                              ? "Desactivar"
+                              : "Activar"}
+                          </Button>
+                          <Button
+                            variant={professional.use_promotional_price ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handleTogglePromotionalPrice(professional)}
+                            disabled={actionLoadingId === professional.id}
+                            className={`flex items-center gap-1 ${
+                              professional.use_promotional_price
+                                ? "bg-orange-500 hover:bg-orange-600 text-white"
+                                : ""
+                            }`}
+                            title={
+                              professional.use_promotional_price
+                                ? "Desactivar precio promocional"
+                                : "Activar precio promocional"
+                            }
+                          >
+                            <Tag className="h-3 w-3" />
+                            {actionLoadingId === professional.id
+                              ? "Procesando..."
+                              : professional.use_promotional_price
+                              ? "Precio Promo"
+                              : "Sin Promo"}
                           </Button>
 
                           {services.length > 0 && (

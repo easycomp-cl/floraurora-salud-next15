@@ -70,6 +70,7 @@ export interface AdminProfessional {
   resume_url: string | null;
   specialties: string[];
   services: AdminServiceSummary[];
+  use_promotional_price?: boolean; // Si es true, el profesional pagará precio promocional independientemente de su historial
 }
 
 export interface AdminServiceSummary {

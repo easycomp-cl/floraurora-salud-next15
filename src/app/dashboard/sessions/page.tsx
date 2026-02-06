@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import AppointmentsTable from "@/components/appointments/AppointmentsTable";
 import { appointmentService } from "@/lib/services/appointmentService";
@@ -12,6 +12,7 @@ import SatisfactionSurveyReminder from "@/components/satisfaction-survey/Satisfa
 type UserRole = 1 | 2 | 3 | null;
 
 export default function SessionsPage() {
+  const router = useRouter();
   const { isAuthenticated, isLoading, user } = useAuthState();
   const [role, setRole] = useState<UserRole>(null);
   const [appointments, setAppointments] = useState<AppointmentWithUsers[]>([]);
@@ -118,15 +119,31 @@ export default function SessionsPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    redirect("/login");
+  // No redirigir inmediatamente si hay usuario pero no hay sesión (puede estar refrescándose)
+  // Usar router.push en lugar de redirect para dar tiempo al refresh del token
+  if (!isAuthenticated && !user) {
+    router.push("/login");
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Redirigiendo...</div>
+      </div>
+    );
+  }
+
+  // Si hay usuario pero no hay sesión todavía, esperar un poco más
+  if (!isAuthenticated && user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Verificando sesión...</div>
+      </div>
+    );
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Mis Sesiones</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Mis Citas</h1>
           <p className="text-sm text-gray-500 mt-1">
             Visualiza y gestiona las citas confirmadas en FlorAurora Salud.
           </p>

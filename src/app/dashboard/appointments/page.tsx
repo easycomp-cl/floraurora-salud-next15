@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useAuthState } from "@/lib/hooks/useAuthState";
-import { redirect, useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import AppointmentScheduler from "@/components/appointments/AppointmentScheduler";
 import { profileService } from "@/lib/services/profileService";
 
@@ -81,8 +81,24 @@ export default function AppointmentsPage() {
     );
   }
 
-  if (!isAuthenticated) {
-    redirect("/login");
+  // No redirigir inmediatamente si hay usuario pero no hay sesión (puede estar refrescándose)
+  // Usar router.push en lugar de redirect para dar tiempo al refresh del token
+  if (!isAuthenticated && !user) {
+    router.push("/login");
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Redirigiendo...</div>
+      </div>
+    );
+  }
+
+  // Si hay usuario pero no hay sesión todavía, esperar un poco más
+  if (!isAuthenticated && user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Verificando sesión...</div>
+      </div>
+    );
   }
 
   if (!isPatient) {

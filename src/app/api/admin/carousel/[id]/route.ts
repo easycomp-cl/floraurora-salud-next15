@@ -1,13 +1,19 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { configService } from "@/lib/services/configService";
 import { getAdminActorId } from "@/lib/auth/getAdminActor";
 import { auditService } from "@/lib/services/auditService";
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    // Verificar que sea admin
+    const actorId = await getAdminActorId(request);
+    if (!actorId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+    
     const { id } = await context.params;
     const itemId = Number(id);
     if (Number.isNaN(itemId)) {
@@ -15,7 +21,6 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const actorId = await getAdminActorId();
     const item = await configService.upsertCarouselItem(itemId, body ?? {}, actorId);
 
     await auditService.log({
@@ -36,10 +41,16 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
+    // Verificar que sea admin
+    const actorId = await getAdminActorId(request);
+    if (!actorId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 403 });
+    }
+    
     const { id } = await context.params;
     const itemId = Number(id);
     if (Number.isNaN(itemId)) {
@@ -47,7 +58,6 @@ export async function DELETE(
     }
 
     await configService.deleteCarouselItem(itemId);
-    const actorId = await getAdminActorId();
     await auditService.log({
       actorId,
       action: "delete_carousel_item",

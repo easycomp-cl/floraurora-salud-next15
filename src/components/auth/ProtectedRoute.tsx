@@ -29,19 +29,24 @@ export default function ProtectedRoute({
     //   sessionExpiresAt: session?.expires_at,
     // });
 
+    // Si hay un usuario pero no hay sesión todavía, esperar un poco más
+    // Esto puede ocurrir durante el refresh del token
+    // (variable comentada para evitar warning de no uso)
+    // const hasUserButNoSession = user && !session;
+    
     // Solo redirigir cuando no esté cargando y no esté autenticado
-    if (!isLoading && !isAuthenticated) {
+    // Y no hay usuario (si hay usuario, puede estar refrescando la sesión)
+    if (!isLoading && !isAuthenticated && !user) {
       console.log(
         "🚫 ProtectedRoute: Usuario no autenticado, preparando redirección a:",
         redirectTo
       );
       setShouldRedirect(true);
+    } else if (!isLoading && isAuthenticated) {
+      // Si está autenticado, cancelar cualquier redirección pendiente
+      setShouldRedirect(false);
+      setRedirectAttempted(false);
     }
-    // else if (!isLoading && isAuthenticated) {
-    //   console.log("✅ ProtectedRoute: Usuario autenticado correctamente");
-    //   setShouldRedirect(false);
-    //   setRedirectAttempted(false);
-    // }
   }, [isAuthenticated, isLoading, redirectTo, user, session]);
 
   // Efecto separado para la redirección
@@ -58,8 +63,9 @@ export default function ProtectedRoute({
   }, [shouldRedirect, redirectTo, router, redirectAttempted]);
 
   // Efecto adicional para forzar redirección si el usuario no está autenticado
+  // Pero solo si realmente no hay usuario (no solo falta la sesión)
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && !redirectAttempted) {
+    if (!isLoading && !isAuthenticated && !user && !redirectAttempted) {
       // console.log("🔄 ProtectedRoute: Forzando redirección inmediata...");
       setRedirectAttempted(true);
 
@@ -67,7 +73,7 @@ export default function ProtectedRoute({
         router.push(redirectTo);
       }, 50);
     }
-  }, [isLoading, isAuthenticated, redirectAttempted, router, redirectTo]);
+  }, [isLoading, isAuthenticated, redirectAttempted, router, redirectTo, user]);
 
   // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
@@ -81,8 +87,22 @@ export default function ProtectedRoute({
     );
   }
 
-  // Si no está autenticado, mostrar mensaje de redirección
-  if (!isAuthenticated) {
+  // Si no está autenticado pero hay un usuario, esperar un poco más
+  // (puede estar refrescando la sesión)
+  if (!isAuthenticated && user) {
+    // Esperar un poco más antes de redirigir, en caso de que la sesión se esté refrescando
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Verificando sesión...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no está autenticado y no hay usuario, mostrar mensaje de redirección
+  if (!isAuthenticated && !user) {
     console.log(
       "🚫 ProtectedRoute: Acceso denegado, mostrando mensaje de redirección..."
     );

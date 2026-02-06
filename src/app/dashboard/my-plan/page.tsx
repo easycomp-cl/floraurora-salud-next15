@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { profileService } from "@/lib/services/profileService";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -36,47 +36,18 @@ interface ProfessionalPlanData {
   is_active: boolean;
 }
 
-const MONTHLY_PLAN_PRICE = 24990; // Precio del plan mensual en CLP
-
-const availablePlans = [
-  {
-    id: "commission" as const,
-    name: "Plan Light",
-    price: "15%",
-    period: "por sesión",
-    features: [
-      "Agendamiento online",
-      "Aviso automático con link de Google Meet",
-      "Ficha virtual del paciente",
-      "Emisión automática de boleta SII",
-      "Videollamada Google Meet",
-      "Recepción de pagos de pacientes",
-      "Transferencia semanal (segundo día hábil)",
-    ],
-    description:
-      "Renovación automática mensual. Solo correo con link de Meet (sin confirmación automática al paciente)",
-  },
-  {
-    id: "monthly" as const,
-    name: "Plan Mensual",
-    price: "$24.990",
-    period: "mensual",
-    features: [
-      "Agendamiento online",
-      "Aviso automático de confirmación vía mail",
-      "Aviso automático de recordatorio vía mail",
-      "Ficha virtual del paciente",
-      "Emisión automática de boleta SII",
-      "Visualización y Publicidad en página principal",
-      "Videollamada Google Meet",
-      "Recepción de pagos de pacientes",
-      "Transferencia semanal (segundo día hábil)",
-    ],
-    description:
-      "Precio preferencial por marcha blanca. Incluye todos los servicios de la aplicación",
-    note: "Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un 1,3% de comisión por cada sesión extra realizada.",
-  },
-];
+interface PlanInfo {
+  id: "commission" | "monthly";
+  name: string;
+  price: string;
+  priceValue: number;
+  period: string;
+  features: string[];
+  description: string;
+  note?: string;
+  isPromotional?: boolean;
+  normalPrice?: number;
+}
 
 export default function MyPlanPage() {
   const { user, signOut } = useAuthState();
@@ -94,6 +65,15 @@ export default function MyPlanPage() {
     "commission" | "monthly" | null
   >(null);
   const [updatingPlan, setUpdatingPlan] = useState(false);
+  const [pricingConfig, setPricingConfig] = useState<{
+    premiumNormalPrice: number;
+    premiumPromotionPrice: number;
+    premiumPromotionMonths: number;
+    lightCommissionPercentage: number;
+    premiumExtraSessionCommissionPercentage: number;
+  } | null>(null);
+  const [currentPremiumPrice, setCurrentPremiumPrice] = useState<number | null>(null);
+  const [availablePlans, setAvailablePlans] = useState<PlanInfo[]>([]);
 
   useEffect(() => {
     const loadPlanData = async () => {
@@ -101,6 +81,77 @@ export default function MyPlanPage() {
 
       try {
         setLoading(true);
+        
+        // Cargar configuraciones de precios desde la API
+        let pricingData = null;
+        let isPromotional = false;
+        
+        try {
+          const pricingResponse = await fetch("/api/plans/pricing", {
+            cache: "no-store",
+            credentials: "include",
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              "Pragma": "no-cache",
+              "X-User-ID": user.id, // Enviar user_id en header como respaldo
+            },
+          });
+          
+          if (pricingResponse.ok) {
+            const pricingResult = await pricingResponse.json();
+            if (pricingResult.success && pricingResult.pricing) {
+              pricingData = pricingResult.pricing;
+              isPromotional = pricingData.isPromotional || false;
+              
+              // Siempre usar valores de la BD
+              setPricingConfig({
+                premiumNormalPrice: pricingData.premiumNormalPrice,
+                premiumPromotionPrice: pricingData.premiumPromotionPrice,
+                premiumPromotionMonths: pricingData.premiumPromotionMonths,
+                lightCommissionPercentage: pricingData.lightCommissionPercentage,
+                premiumExtraSessionCommissionPercentage: pricingData.premiumExtraSessionCommissionPercentage,
+              });
+              setCurrentPremiumPrice(pricingData.premiumCurrentPrice);
+              
+              console.log("[my-plan] Precios cargados desde BD:", {
+                normal: pricingData.premiumNormalPrice,
+                promocion: pricingData.premiumPromotionPrice,
+                meses: pricingData.premiumPromotionMonths,
+                comision: pricingData.lightCommissionPercentage,
+                precioActual: pricingData.premiumCurrentPrice,
+                esPromocional: isPromotional,
+              });
+            } else {
+              console.warn("[my-plan] Respuesta de API sin datos válidos:", pricingResult);
+            }
+          } else {
+            const errorData = await pricingResponse.json().catch(() => ({}));
+            console.error("[my-plan] Error al cargar precios:", {
+              status: pricingResponse.status,
+              error: errorData,
+            });
+          }
+        } catch (fetchError) {
+          console.error("[my-plan] Error de red al cargar precios:", fetchError);
+        }
+
+        // Valores por defecto SOLO si falla completamente la carga
+        // Estos valores NO deberían usarse si la BD está disponible
+        const config = pricingData || {
+          premiumNormalPrice: 39990,
+          premiumPromotionPrice: 39990,
+          premiumPromotionMonths: 0,
+          lightCommissionPercentage: 15,
+          premiumExtraSessionCommissionPercentage: 1.6,
+        };
+        
+        // Solo establecer valores por defecto si realmente no se cargaron desde la BD
+        if (!pricingData) {
+          console.warn("[my-plan] Usando valores por defecto - no se pudieron cargar desde BD");
+          setPricingConfig(config);
+          setCurrentPremiumPrice(config.premiumNormalPrice);
+        }
+
         const profile = await profileService.getUserProfileByUuid(user.id);
 
         if (!profile) {
@@ -113,6 +164,8 @@ export default function MyPlanPage() {
           profile.id
         );
 
+        let data: ProfessionalPlanData;
+
         if (professional) {
           const professionalWithPlan = professional as {
             plan_type?: "commission" | "monthly" | string | null;
@@ -121,7 +174,7 @@ export default function MyPlanPage() {
             is_active?: boolean;
           };
 
-          const data: ProfessionalPlanData = {
+          data = {
             id: professional.id,
             plan_type:
               professionalWithPlan.plan_type === "commission" ||
@@ -142,7 +195,7 @@ export default function MyPlanPage() {
         } else {
           // Si no existe el profesional, crear un registro básico con plan null
           // Esto permite que el usuario pueda seleccionar un plan
-          const data = {
+          data = {
             id: profile.id,
             plan_type: null,
             last_monthly_payment_date: null,
@@ -152,6 +205,82 @@ export default function MyPlanPage() {
 
           setPlanData(data);
         }
+
+        // Asegurarse de que tenemos un precio válido
+        // Si pricingData existe, ya se estableció en setCurrentPremiumPrice arriba
+        // Si no, usar el valor por defecto que ya se estableció
+        const premiumPrice = currentPremiumPrice || (pricingData?.premiumCurrentPrice || config.premiumNormalPrice);
+        
+        // Determinar si mostrar mensaje promocional
+        // Usar isPromotionActive de la API si está disponible, sino calcularlo localmente
+        const showPromotionalMessage = pricingData?.isPromotionActive !== undefined
+          ? pricingData.isPromotionActive
+          : (config.premiumPromotionMonths > 0 && 
+             config.premiumPromotionPrice < config.premiumNormalPrice);
+        
+        // Log para debugging
+        if (pricingData) {
+          console.log("[my-plan] Configuración aplicada:", {
+            precioNormal: config.premiumNormalPrice,
+            precioPromocion: config.premiumPromotionPrice,
+            precioActual: premiumPrice,
+            mesesPromocion: config.premiumPromotionMonths,
+            comisionLight: config.lightCommissionPercentage,
+            mostrarPromocion: showPromotionalMessage,
+            isPromotionActive: pricingData.isPromotionActive,
+            isPromotional: isPromotional,
+            condicion1: config.premiumPromotionMonths > 0,
+            condicion2: config.premiumPromotionPrice < config.premiumNormalPrice,
+          });
+        }
+
+        // Construir planes con valores parametrizados
+        const plans: PlanInfo[] = [
+          {
+            id: "commission",
+            name: "Plan Light",
+            price: `${config.lightCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%`,
+            priceValue: config.lightCommissionPercentage,
+            period: "por sesión",
+            features: [
+              "Agendamiento online",
+              "Aviso automático con link de Google Meet",
+              "Ficha virtual del paciente",
+              "Emisión automática de boleta SII",
+              "Videollamada Google Meet",
+              "Recepción de pagos de pacientes",
+              "Transferencia semanal (segundo día hábil)",
+            ],
+            description:
+              "Renovación automática mensual. Solo correo con link de Meet (sin confirmación automática al paciente)",
+          },
+          {
+            id: "monthly",
+            name: "Plan Premium",
+            price: `$${premiumPrice.toLocaleString("es-CL")}`,
+            priceValue: premiumPrice,
+            period: "mensual",
+            features: [
+              "Agendamiento online",
+              "Aviso automático de confirmación vía mail",
+              "Aviso automático de recordatorio vía mail",
+              "Ficha virtual del paciente",
+              "Emisión automática de boleta SII",
+              "Visualización y Publicidad en página principal",
+              "Videollamada Google Meet",
+              "Recepción de pagos de pacientes",
+              "Transferencia semanal (segundo día hábil)",
+            ],
+            description: showPromotionalMessage
+              ? `Precio promocional por ${config.premiumPromotionMonths} meses. Incluye todos los servicios de la aplicación`
+              : "Incluye todos los servicios de la aplicación",
+            note: `Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
+            isPromotional: showPromotionalMessage,
+            normalPrice: config.premiumNormalPrice,
+          },
+        ];
+
+        setAvailablePlans(plans);
       } catch (err) {
         console.error("Error cargando datos del plan:", err);
         setError("Error al cargar los datos");
@@ -161,18 +290,88 @@ export default function MyPlanPage() {
     };
 
     loadPlanData();
+  }, [user, currentPremiumPrice]);
+
+  // Función para recargar los datos del plan (útil después de cambios)
+  const reloadPlanData = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Recargar configuraciones de precios desde la API
+      const pricingResponse = await fetch("/api/plans/pricing", {
+        cache: "no-store",
+        credentials: "include",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+          "X-User-ID": user.id, // Enviar user_id en header como respaldo
+        },
+      });
+      
+      if (pricingResponse.ok) {
+        const pricingResult = await pricingResponse.json();
+        if (pricingResult.success && pricingResult.pricing) {
+          const pricingData = pricingResult.pricing;
+          setPricingConfig({
+            premiumNormalPrice: pricingData.premiumNormalPrice,
+            premiumPromotionPrice: pricingData.premiumPromotionPrice,
+            premiumPromotionMonths: pricingData.premiumPromotionMonths,
+            lightCommissionPercentage: pricingData.lightCommissionPercentage,
+            premiumExtraSessionCommissionPercentage: pricingData.premiumExtraSessionCommissionPercentage,
+          });
+          setCurrentPremiumPrice(pricingData.premiumCurrentPrice);
+          console.log("[my-plan] Precios recargados desde BD:", pricingData);
+        }
+      }
+      
+      // Recargar datos del perfil y plan
+      const profile = await profileService.getUserProfileByUuid(user.id);
+      if (profile) {
+        const professional = await profileService.getProfessionalProfile(profile.id);
+        if (professional) {
+          const professionalWithPlan = professional as {
+            plan_type?: "commission" | "monthly" | string | null;
+            last_monthly_payment_date?: string | null;
+            monthly_plan_expires_at?: string | null;
+            is_active?: boolean;
+          };
+          
+          setPlanData({
+            id: professional.id,
+            plan_type:
+              professionalWithPlan.plan_type === "commission" ||
+              professionalWithPlan.plan_type === "monthly"
+                ? professionalWithPlan.plan_type
+                : null,
+            last_monthly_payment_date:
+              professionalWithPlan.last_monthly_payment_date || null,
+            monthly_plan_expires_at:
+              professionalWithPlan.monthly_plan_expires_at || null,
+            is_active:
+              professionalWithPlan.is_active !== undefined
+                ? professionalWithPlan.is_active
+                : false,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Error recargando datos del plan:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [user]);
 
   // Manejar estados de pago desde query params
   useEffect(() => {
     const paymentStatus = searchParams.get("payment");
-    if (paymentStatus === "success") {
+    if (paymentStatus === "success" && user) {
       // Recargar datos del plan después de un pago exitoso
-      setTimeout(() => {
-        window.location.href = "/dashboard/my-plan";
-      }, 3000);
+      reloadPlanData();
     }
-  }, [searchParams]);
+  }, [searchParams, user, reloadPlanData]);
 
   const isMonthlyPlanActive = () => {
     if (!planData || planData.plan_type !== "monthly") return false;
@@ -309,6 +508,15 @@ export default function MyPlanPage() {
       // Ya no necesitamos obtener el professionalId
       // El servidor lo determinará desde el usuario autenticado
 
+      // Asegurarse de que tenemos un precio válido antes de crear el pago
+      const priceToUse = currentPremiumPrice || pricingConfig?.premiumNormalPrice || 39990;
+      
+      if (!priceToUse || priceToUse <= 0) {
+        setError("No se pudo determinar el precio del plan. Por favor, recarga la página.");
+        setProcessingPayment(false);
+        return;
+      }
+
       // Crear transacción de Webpay
       const response = await fetch("/api/payments/webpay/create-plan", {
         method: "POST",
@@ -317,7 +525,7 @@ export default function MyPlanPage() {
           "X-User-ID": user.id, // Enviar user_id en header como respaldo
         },
         body: JSON.stringify({
-          amount: MONTHLY_PLAN_PRICE,
+          amount: priceToUse,
         }),
       });
 
@@ -516,13 +724,29 @@ export default function MyPlanPage() {
                         <p className="text-gray-700 mb-3">
                           {currentPlan.description}
                         </p>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-bold text-teal-900">
-                            {currentPlan.price}
-                          </span>
-                          <span className="text-gray-600">
-                            /{currentPlan.period}
-                          </span>
+                        <div className="flex flex-col gap-1">
+                          {currentPlan.isPromotional && currentPlan.normalPrice ? (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-xl font-bold text-gray-400 line-through">
+                                ${currentPlan.normalPrice.toLocaleString("es-CL")}
+                              </span>
+                              <span className="text-3xl font-bold text-teal-900">
+                                {currentPlan.price}
+                              </span>
+                              <span className="text-gray-600">
+                                /{currentPlan.period}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-3xl font-bold text-teal-900">
+                                {currentPlan.price}
+                              </span>
+                              <span className="text-gray-600">
+                                /{currentPlan.period}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div
@@ -733,8 +957,8 @@ export default function MyPlanPage() {
                       ) : (
                         <>
                           <DollarSign className="w-4 h-4 mr-2" />
-                          Pagar Plan Mensual - $
-                          {MONTHLY_PLAN_PRICE.toLocaleString("es-CL")} CLP
+                          Pagar Plan Premium - $
+                          {(currentPremiumPrice || pricingConfig?.premiumNormalPrice || 0).toLocaleString("es-CL")} CLP
                         </>
                       )}
                     </Button>
@@ -776,8 +1000,8 @@ export default function MyPlanPage() {
                           ) : (
                             <>
                               <DollarSign className="w-4 h-4 mr-2" />
-                              Renovar Plan Mensual - $
-                              {MONTHLY_PLAN_PRICE.toLocaleString("es-CL")} CLP
+                              Renovar Plan Premium - $
+                              {(currentPremiumPrice || pricingConfig?.premiumNormalPrice || 0).toLocaleString("es-CL")} CLP
                             </>
                           )}
                         </Button>
@@ -836,8 +1060,9 @@ export default function MyPlanPage() {
                     Información del Plan
                   </h4>
                   <p className="text-sm text-gray-700 mb-2">
-                    <strong>Plan de Comisión:</strong> Pagas un porcentaje (15%)
-                    por cada cita realizada.
+                    <strong>Plan de Comisión:</strong> Pagas un porcentaje (
+                    {(pricingConfig?.lightCommissionPercentage || 15).toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}%) por cada
+                    cita realizada.
                   </p>
                   <p className="text-sm text-gray-600 mb-2">
                     No necesitas realizar pagos mensuales. Las comisiones se
@@ -1023,12 +1248,30 @@ export default function MyPlanPage() {
                           </CardDescription>
                         </div>
                         <div className="text-center sm:text-right flex-shrink-0">
-                          <div className="text-2xl font-bold text-primary">
-                            {plan.price}
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            /{plan.period}
-                          </div>
+                          {plan.isPromotional && plan.normalPrice ? (
+                            <div className="flex flex-col items-end gap-1">
+                              <div className="flex items-baseline gap-2">
+                                <span className="text-lg font-bold text-muted-foreground line-through">
+                                  ${plan.normalPrice.toLocaleString("es-CL")}
+                                </span>
+                                <span className="text-2xl font-bold text-primary">
+                                  {plan.price}
+                                </span>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                /{plan.period}
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="text-2xl font-bold text-primary">
+                                {plan.price}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                /{plan.period}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1082,15 +1325,16 @@ export default function MyPlanPage() {
                 <AlertDescription>
                   {selectedPlan === "monthly" ? (
                     <>
-                      <strong>Plan Mensual seleccionado:</strong> Al continuar,
+                      <strong>Plan Premium seleccionado:</strong> Al continuar,
                       serás redirigido a WebPay para realizar el pago de $
-                      {MONTHLY_PLAN_PRICE.toLocaleString("es-CL")} CLP.
+                      {(currentPremiumPrice || pricingConfig?.premiumNormalPrice || 0).toLocaleString("es-CL")} CLP.
                     </>
                   ) : (
                     <>
                       <strong>Plan Light seleccionado:</strong> Este plan se
-                      activará inmediatamente. Pagarás un 15% de comisión por
-                      cada sesión realizada.
+                      activará inmediatamente. Pagarás un{" "}
+                      {(pricingConfig?.lightCommissionPercentage || 15).toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de
+                      comisión por cada sesión realizada.
                     </>
                   )}
                 </AlertDescription>

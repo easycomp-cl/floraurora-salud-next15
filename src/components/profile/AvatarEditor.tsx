@@ -31,7 +31,6 @@ export default function AvatarEditor({
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [position, setPosition] = useState({ x: 50, y: 50 }); // Porcentajes (50% = centro)
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -146,7 +145,6 @@ export default function AvatarEditor({
       x: e.clientX,
       y: e.clientY,
     };
-    setDragStart(startPos);
     dragStartRef.current = startPos;
     // Guardar la posición inicial de la imagen
     positionStartRef.current = { ...position };
@@ -172,7 +170,6 @@ export default function AvatarEditor({
       x: touch.clientX,
       y: touch.clientY,
     };
-    setDragStart(startPos);
     dragStartRef.current = startPos;
     // Guardar la posición inicial de la imagen
     positionStartRef.current = { ...position };

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Trash2 } from "lucide-react";
 import type { CarouselItem } from "@/lib/types/adminConfig";
+import { clientGetUser } from "@/lib/client-auth";
 
 interface CarouselFormState {
   title: string;
@@ -67,7 +68,20 @@ export default function CarouselManagerPanel() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch("/api/admin/carousel", { cache: "no-store" });
+      
+      // Obtener el usuario actual para incluir el header X-User-ID
+      const { user } = await clientGetUser();
+      if (!user) {
+        throw new Error("No autenticado");
+      }
+
+      const response = await fetch("/api/admin/carousel", {
+        cache: "no-store",
+        credentials: "include", // Incluir cookies para autenticación
+        headers: {
+          "X-User-ID": user.id, // Enviar user_id en header como respaldo
+        },
+      });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload?.error ?? "No se pudo obtener el carrusel");
@@ -168,6 +182,13 @@ export default function CarouselManagerPanel() {
   const handleSubmit = async () => {
     try {
       setIsSubmitting(true);
+      
+      // Obtener el usuario actual para incluir el header X-User-ID
+      const { user } = await clientGetUser();
+      if (!user) {
+        throw new Error("No autenticado");
+      }
+      
       const payload = {
         ...formState,
         display_order: Number(formState.display_order),
@@ -184,7 +205,11 @@ export default function CarouselManagerPanel() {
         editingId ? `/api/admin/carousel/${editingId}` : "/api/admin/carousel",
         {
           method: editingId ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          credentials: "include", // Incluir cookies para autenticación
+          headers: {
+            "Content-Type": "application/json",
+            "X-User-ID": user.id, // Enviar user_id en header como respaldo
+          },
           body: JSON.stringify(payload),
         },
       );
@@ -216,8 +241,19 @@ export default function CarouselManagerPanel() {
 
     try {
       setIsDeleting(true);
+      
+      // Obtener el usuario actual para incluir el header X-User-ID
+      const { user } = await clientGetUser();
+      if (!user) {
+        throw new Error("No autenticado");
+      }
+      
       const response = await fetch(`/api/admin/carousel/${itemToDelete}`, {
         method: "DELETE",
+        credentials: "include", // Incluir cookies para autenticación
+        headers: {
+          "X-User-ID": user.id, // Enviar user_id en header como respaldo
+        },
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));

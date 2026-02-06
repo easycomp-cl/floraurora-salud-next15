@@ -21,6 +21,7 @@ export default function SchedulesPage() {
   } | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [scheduleConfig, setScheduleConfig] = useState<{ startHour: string; endHour: string } | null>(null);
 
   const loadUserProfile = useCallback(async () => {
     try {
@@ -48,6 +49,26 @@ export default function SchedulesPage() {
     if (isAuthenticated && user) {
       loadUserProfile();
     }
+    
+    // Cargar configuración de horas permitidas
+    const loadScheduleHours = async () => {
+      try {
+        const response = await fetch("/api/schedule/hours", {
+          cache: "no-store",
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            setScheduleConfig(data.config);
+          }
+        }
+      } catch (error) {
+        console.error("Error cargando horas de horarios:", error);
+        setScheduleConfig({ startHour: "08:00", endHour: "23:00" });
+      }
+    };
+    
+    loadScheduleHours();
   }, [isAuthenticated, user, loadUserProfile]);
 
   const handleUpdate = () => {
@@ -162,7 +183,7 @@ export default function SchedulesPage() {
             <AlertDescription>
               <strong>Horarios Semanales:</strong> Configura tus horarios
               regulares de disponibilidad para cada día de la semana. Solo se
-              permiten horas completas (08:00-00:00).
+              permiten horas completas ({scheduleConfig?.startHour || "08:00"}-{scheduleConfig?.endHour === "23:00" ? "00:00" : scheduleConfig?.endHour || "23:00"}).
             </AlertDescription>
           </Alert>
 
@@ -179,7 +200,7 @@ export default function SchedulesPage() {
             <AlertDescription>
               <strong>Excepciones de Fecha:</strong> Define horarios especiales
               para fechas específicas (días festivos, horarios extendidos,
-              etc.). Solo se permiten horas completas (08:00-00:00).
+              etc.). Solo se permiten horas completas ({scheduleConfig?.startHour || "08:00"}-{scheduleConfig?.endHour === "23:00" ? "00:00" : scheduleConfig?.endHour || "23:00"}).
             </AlertDescription>
           </Alert>
         </div>

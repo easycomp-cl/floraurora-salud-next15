@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { profileService } from "@/lib/services/profileService";
-import { redirect } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -72,6 +73,8 @@ const translateRole = (role: string): string => {
 };
 
 export default function UserProfilePage() {
+  const router = useRouter();
+  const { user: authUser, isLoading: authLoading } = useAuthState();
   const [profileData, setProfileData] = useState<UserProfileData>({
     user: null,
     profile: null,
@@ -335,14 +338,39 @@ export default function UserProfilePage() {
     return <div className="text-red-500">Error: {profileData.error}</div>;
   }
 
-  if (!profileData.user) {
-    redirect("/login");
+  // No redirigir inmediatamente si hay usuario autenticado pero el perfil aún se está cargando
+  // o si la sesión se está refrescando
+  if (!profileData.user && !authLoading && !authUser) {
+    router.push("/login");
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Redirigiendo...</div>
+      </div>
+    );
+  }
+
+  // Si hay usuario autenticado pero el perfil aún se está cargando, esperar
+  if (!profileData.user && (authLoading || authUser)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Cargando perfil...</div>
+      </div>
+    );
   }
 
   // if (!isAuthenticated || !fullProfile) {
   //   redirect("/login");
   //   return null; // Ensure nothing else renders after redirect
   // }
+
+  // Verificación de tipo para asegurar que profileData.user no sea null
+  if (!profileData.user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Cargando perfil...</div>
+      </div>
+    );
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<

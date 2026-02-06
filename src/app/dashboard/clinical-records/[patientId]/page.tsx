@@ -34,8 +34,18 @@ export default function ClinicalRecordsPage() {
       return;
     }
 
-    if (!isAuthenticated || !user) {
+    // No redirigir inmediatamente si hay usuario pero la sesión se está refrescando
+    if (!isAuthenticated && !user) {
       router.push("/login");
+      return;
+    }
+
+    // Si hay usuario pero no hay sesión todavía, esperar un poco más (puede estar refrescándose)
+    if (!isAuthenticated && user) {
+      return; // Esperar a que se refresque la sesión
+    }
+
+    if (!user) {
       return;
     }
 

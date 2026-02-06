@@ -309,8 +309,17 @@ export class AvailabilityService {
 
   /**
    * Valida si un horario es válido
+   * @param startTime - Hora de inicio en formato HH:MM
+   * @param endTime - Hora de fin en formato HH:MM
+   * @param startHour - Hora inicial permitida (por defecto "08:00")
+   * @param endHour - Hora final permitida (por defecto "23:00")
    */
-  static validateTimeSlot(startTime: string, endTime: string): boolean {
+  static validateTimeSlot(
+    startTime: string, 
+    endTime: string,
+    startHour: string = "08:00",
+    endHour: string = "23:00"
+  ): boolean {
     // Convertir a minutos para manejar correctamente 00:00
     const timeToMinutes = (time: string) => {
       const [hours, minutes] = time.split(':').map(Number);
@@ -328,9 +337,11 @@ export class AvailabilityService {
       return false;
     }
     
-    // Validar que estén dentro del rango permitido (08:00 - 00:00)
-    const minMinutes = timeToMinutes('08:00'); // 480 minutos
-    const maxMinutes = 1440; // 24:00 = 00:00 del día siguiente
+    // Validar que estén dentro del rango permitido
+    const minMinutes = timeToMinutes(startHour);
+    const endHourMinutes = timeToMinutes(endHour);
+    // Si endHour es 00:00, usar 1440 minutos (medianoche del día siguiente)
+    const maxMinutes = endHourMinutes === 0 ? 1440 : endHourMinutes;
     
     return startMinutes >= minMinutes && actualEndMinutes <= maxMinutes;
   }
