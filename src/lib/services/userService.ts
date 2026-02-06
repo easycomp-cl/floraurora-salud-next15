@@ -23,10 +23,13 @@ export class UserService {
         .from("users")
         .select("user_id")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
-        console.error("❌ Error al verificar usuario:", error);
+      if (error) {
+        // Solo loguear errores que no sean "no encontrado"
+        if (error.code !== "PGRST116") {
+          console.error("❌ Error al verificar usuario:", error);
+        }
         return false;
       }
 
@@ -58,20 +61,29 @@ export class UserService {
           created_at: new Date().toISOString()
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) {
         // Si es un error de duplicación, considerarlo como éxito
         if (error.code === '23505' && error.message.includes('duplicate key')) {
           // Intentar obtener el usuario existente
           const existingUser = await this.getUserById(userData.user_id);
-          if (existingUser.success) {
+          if (existingUser.success && existingUser.data) {
             return { success: true, data: existingUser.data, isExisting: true };
           }
         }
         
         console.error("❌ Error al crear usuario:", error);
-        throw error;
+        return { success: false, error };
+      }
+
+      if (!data) {
+        // Si no hay datos pero tampoco hay error, intentar obtener el usuario
+        const existingUser = await this.getUserById(userData.user_id);
+        if (existingUser.success && existingUser.data) {
+          return { success: true, data: existingUser.data, isExisting: true };
+        }
+        return { success: false, error: { message: "No se pudo crear el usuario" } };
       }
 
       return { success: true, data };
@@ -90,11 +102,18 @@ export class UserService {
         .from("users")
         .select("*")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        console.error("Error al obtener usuario:", error);
-        throw error;
+        // Solo loguear errores que no sean "no encontrado"
+        if (error.code !== "PGRST116") {
+          console.error("Error al obtener usuario:", error);
+        }
+        return { success: false, error, data: null };
+      }
+
+      if (!data) {
+        return { success: false, error: { code: "PGRST116", message: "Usuario no encontrado" }, data: null };
       }
 
       return { success: true, data };

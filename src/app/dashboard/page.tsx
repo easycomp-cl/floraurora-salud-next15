@@ -28,10 +28,44 @@ export default function DashboardPage() {
       try {
         const profile = await profileService.getUserProfileByUuid(user.id);
         if (!isMounted) return;
-        setRole(profile?.role ?? null);
+        
+        if (profile) {
+          setRole(profile.role ?? null);
+        } else {
+          // Si no hay perfil, intentar crear el usuario básico
+          console.log("⚠️ No se encontró perfil del usuario, intentando crear usuario básico...");
+          try {
+            const { UserService } = await import("@/lib/services/userService");
+            const fullName = user.user_metadata?.full_name || user.email?.split("@")[0] || "Usuario";
+            const nameParts = fullName.split(" ");
+            const firstName = nameParts[0] || "Usuario";
+            const lastName = nameParts.slice(1).join(" ") || "";
+            
+            const result = await UserService.createUser({
+              user_id: user.id,
+              email: user.email || "",
+              name: firstName,
+              last_name: lastName,
+              role: 2, // Rol por defecto: paciente
+              is_active: true,
+            });
+            
+            if (result.success && result.data) {
+              setRole(result.data.role ?? 2);
+            } else {
+              setRole(2); // Usar rol por defecto
+            }
+          } catch (createError) {
+            console.error("Error al crear usuario básico:", createError);
+            setRole(2); // Usar rol por defecto en caso de error
+          }
+        }
       } catch (error) {
         console.error("Error obteniendo el rol del usuario:", error);
-        if (isMounted) setRole(null);
+        if (isMounted) {
+          // En caso de error, usar rol por defecto (paciente)
+          setRole(2);
+        }
       } finally {
         if (isMounted) setIsRoleLoading(false);
       }

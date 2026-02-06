@@ -47,7 +47,7 @@ export default function TermsProfessional() {
               <li>Emisión automática de boleta de honorarios ante el Servicio de Impuestos Internos, previo ingreso de datos y autorización del profesional.</li>
               <li>Visualización del profesional en la página principal de la plataforma.</li>
               <li>Realización de las sesiones convenidas mediante videollamada del servicio &quot;Google Meet&quot;.</li>
-              <li>Recepción de pagos de los pacientes, los cuales se transferirán a los profesionales el tercer día hábil desde la realización de la sesión, con una deducción de un 1,3% sobre el valor de la misma por costos de operación.</li>
+              <li>Recepción de pagos de los pacientes, los cuales se transferirán a los profesionales el tercer día hábil desde la realización de la sesión, con una deducción de un 1,6% sobre el valor de la misma por costos de operación.</li>
             </ul>
           </div>
 
@@ -61,7 +61,7 @@ export default function TermsProfessional() {
               <li>Ficha virtual del paciente.</li>
               <li>Emisión automática de boleta de honorarios ante el Servicio de Impuestos Internos, previo ingreso de datos y autorización del profesional.</li>
               <li>Realización de las sesiones convenidas mediante videollamada del servicio &quot;Google Meet&quot;.</li>
-              <li>Recepción de pagos de los pacientes, los cuales se transferirán a los profesionales el tercer día hábil desde la realización de la sesión, con una deducción de un 1,3% sobre el valor de la misma por costos de operación, además de la tarifa indicada en el punto 1.2.</li>
+              <li>Recepción de pagos de los pacientes, los cuales se transferirán a los profesionales el tercer día hábil desde la realización de la sesión, con una deducción de un 1,6% sobre el valor de la misma por costos de operación, además de la tarifa indicada en el punto 1.2.</li>
             </ul>
           </div>
         </section>

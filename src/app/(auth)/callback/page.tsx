@@ -122,9 +122,17 @@ export default function AuthCallback() {
         let userRole: number | null = null;
         try {
           const profile = await profileService.getUserProfileByUuid(user.id);
-          userRole = profile?.role ?? null;
+          if (profile) {
+            userRole = profile.role ?? null;
+          } else {
+            // Si no hay perfil, usar el rol por defecto (paciente = 2)
+            console.log("⚠️ No se encontró perfil del usuario (error), usando rol por defecto (paciente)");
+            userRole = 2;
+          }
         } catch (roleError) {
           console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+          // En caso de error, usar rol por defecto (paciente = 2)
+          userRole = 2;
         }
 
         // Determinar el destino según el rol del usuario
@@ -178,9 +186,17 @@ export default function AuthCallback() {
         let userRole: number | null = null;
         try {
           const profile = await profileService.getUserProfileByUuid(user.id);
-          userRole = profile?.role ?? null;
+          if (profile) {
+            userRole = profile.role ?? null;
+          } else {
+            // Si no hay perfil, usar el rol por defecto (paciente = 2)
+            console.log("⚠️ No se encontró perfil del usuario (error), usando rol por defecto (paciente)");
+            userRole = 2;
+          }
         } catch (roleError) {
           console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+          // En caso de error, usar rol por defecto (paciente = 2)
+          userRole = 2;
         }
 
         // Determinar el destino según el rol del usuario
@@ -243,9 +259,17 @@ export default function AuthCallback() {
         if (user) {
           try {
             const profile = await profileService.getUserProfileByUuid(user.id);
-            userRole = profile?.role ?? null;
+            if (profile) {
+              userRole = profile.role ?? null;
+            } else {
+              // Si no hay perfil, usar el rol por defecto (paciente = 2)
+              console.log("⚠️ No se encontró perfil del usuario (timeout), usando rol por defecto (paciente)");
+              userRole = 2;
+            }
           } catch (roleError) {
             console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+            // En caso de error, usar rol por defecto (paciente = 2)
+            userRole = 2;
           }
         }
 

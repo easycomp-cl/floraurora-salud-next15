@@ -42,7 +42,7 @@ export async function validateAuth(
         .from("users")
         .select("id, user_id")
         .eq("user_id", headerUserId)
-        .single();
+        .maybeSingle();
 
       if (!userError && userRecord) {
         return {
@@ -88,7 +88,7 @@ export async function validateAuth(
     .from("users")
     .select("id, user_id")
     .eq("user_id", finalUserId)
-    .single();
+    .maybeSingle();
 
   if (userError || !userRecord) {
     return {

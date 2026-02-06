@@ -54,10 +54,13 @@ export const profileService = {
       .from('users')
       .select('*')
       .eq('id', id) 
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching user profile:', error);
+    if (error) {
+      // Solo loguear errores que no sean "no encontrado"
+      if (error.code !== 'PGRST116') {
+        console.error('Error fetching user profile:', error);
+      }
       return null;
     }
     
@@ -68,10 +71,13 @@ export const profileService = {
       .from('users')
       .select('*')
       .eq('user_id', userId) 
-      .single();
+      .maybeSingle();
     
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching user profile:', error);
+    if (error) {
+      // Solo loguear errores que no sean "no encontrado"
+      if (error.code !== 'PGRST116') {
+        console.error('Error fetching user profile:', error);
+      }
       return null;
     }
     
