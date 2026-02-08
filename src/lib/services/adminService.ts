@@ -157,6 +157,9 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
     specialties,
     services,
     use_promotional_price: Boolean(row.use_promotional_price ?? false),
+    plan_type: (row.plan_type as "commission" | "monthly" | null) ?? null,
+    monthly_plan_expires_at: (row.monthly_plan_expires_at as string) ?? null,
+    last_monthly_payment_date: (row.last_monthly_payment_date as string) ?? null,
   };
 }
 
@@ -746,11 +749,11 @@ export const adminService = {
 
     await sendNotificationEmail({
       to: user.email,
-      subject: "Recuperación de contraseña - FlorAurora Salud",
+      subject: "Crear tu contraseña - FlorAurora Salud",
       message:
-        "Has solicitado restablecer tu contraseña. Haz clic en el botón para continuar con el proceso.",
+        "Tu cuenta ha sido autorizada. Haz clic en el botón para crear tu contraseña y acceder a la plataforma.",
       actionUrl: recoveryLink,
-      actionText: "Restablecer contraseña",
+      actionText: "Crear contraseña",
     });
 
     return { recoveryLink };
@@ -768,6 +771,9 @@ export const adminService = {
         resume_url,
         is_active,
         use_promotional_price,
+        plan_type,
+        monthly_plan_expires_at,
+        last_monthly_payment_date,
         professional_titles(
           id,
           title_name
@@ -807,6 +813,9 @@ export const adminService = {
           resume_url,
           is_active,
           use_promotional_price,
+          plan_type,
+          monthly_plan_expires_at,
+          last_monthly_payment_date,
           professional_titles(
             id,
             title_name
@@ -839,6 +848,9 @@ export const adminService = {
             resume_url,
             is_active,
             use_promotional_price,
+            plan_type,
+            monthly_plan_expires_at,
+            last_monthly_payment_date,
             professional_titles(
               id,
               title_name
@@ -998,27 +1010,138 @@ export const adminService = {
 
   async assignServicesToProfessional(payload: AssignProfessionalPayload): Promise<void> {
     const supabase = createAdminServer();
+    
+    console.log("[adminService.assignServicesToProfessional] Iniciando asignación:", {
+      professionalId: payload.professionalId,
+      serviceIds: payload.serviceIds,
+      serviceCount: payload.serviceIds.length,
+    });
+    
+    // Verificar que el profesional existe
+    const { data: professional, error: professionalError } = await supabase
+      .from("professionals")
+      .select("id")
+      .eq("id", payload.professionalId)
+      .single();
+
+    if (professionalError || !professional) {
+      console.error("[adminService.assignServicesToProfessional] Error verificando profesional:", professionalError);
+      throw new Error(`No se encontró el profesional con ID ${payload.professionalId}: ${professionalError?.message ?? "sin detalles"}`);
+    }
+
+    console.log("[adminService.assignServicesToProfessional] Profesional encontrado:", professional.id);
+
+    // Verificar que los servicios existen si se están asignando
+    if (payload.serviceIds.length > 0) {
+      const { data: existingServices, error: servicesError } = await supabase
+        .from("services")
+        .select("id")
+        .in("id", payload.serviceIds);
+
+      if (servicesError) {
+        console.error("[adminService.assignServicesToProfessional] Error verificando servicios:", servicesError);
+        throw new Error(`Error al verificar servicios: ${servicesError.message}`);
+      }
+
+      const existingServiceIds = existingServices?.map(s => s.id) || [];
+      const invalidServiceIds = payload.serviceIds.filter(id => !existingServiceIds.includes(id));
+      
+      if (invalidServiceIds.length > 0) {
+        console.error("[adminService.assignServicesToProfessional] Servicios inválidos:", invalidServiceIds);
+        throw new Error(`Los siguientes servicios no existen: ${invalidServiceIds.join(", ")}`);
+      }
+
+      console.log("[adminService.assignServicesToProfessional] Servicios válidos:", existingServiceIds);
+    }
+
+    // Eliminar servicios previos
+    console.log("[adminService.assignServicesToProfessional] Eliminando servicios previos...");
     const { error: deleteError } = await supabase
       .from("service_professionals")
       .delete()
-      .eq("professional_id", payload.professionalId);
+      .eq("professional_id", payload.professionalId)
+      .select();
 
     if (deleteError) {
-      throw new Error(`No se pudieron limpiar los servicios previos: ${deleteError.message}`);
+      // Si la tabla no existe, es un error crítico
+      if (deleteError.message.includes("relation") && deleteError.message.includes("does not exist")) {
+        console.error("[adminService.assignServicesToProfessional] Tabla service_professionals no existe");
+        throw new Error(`La tabla service_professionals no existe. Por favor, ejecuta las migraciones necesarias.`);
+      }
+      
+      // Si el error es de permisos RLS, también es crítico
+      if (deleteError.message.includes("permission denied") || deleteError.message.includes("policy")) {
+        console.error("[adminService.assignServicesToProfessional] Error de permisos RLS:", deleteError);
+        throw new Error(`Error de permisos al eliminar servicios previos: ${deleteError.message}. Verifica las políticas RLS.`);
+      }
+      
+      // Otros errores pueden ser aceptables (ej: no hay registros para eliminar)
+      console.warn("[adminService.assignServicesToProfessional] Advertencia al eliminar servicios previos:", deleteError.message);
+    } else {
+      console.log(`[adminService.assignServicesToProfessional] Servicios previos eliminados exitosamente`);
     }
 
+    // Si no hay servicios para asignar, solo limpiar y retornar
     if (payload.serviceIds.length === 0) {
+      console.log("[adminService.assignServicesToProfessional] No hay servicios para asignar, finalizando");
       return;
     }
 
+    // Insertar nuevos servicios
     const rows = payload.serviceIds.map((serviceId) => ({
       professional_id: payload.professionalId,
       service_id: serviceId,
     }));
 
-    const { error: insertError } = await supabase.from("service_professionals").insert(rows);
+    console.log("[adminService.assignServicesToProfessional] Insertando servicios:", rows);
+    const { error: insertError, data: insertedData } = await supabase
+      .from("service_professionals")
+      .insert(rows)
+      .select();
+
     if (insertError) {
-      throw new Error(`No se pudieron asignar los servicios: ${insertError.message}`);
+      console.error("[adminService.assignServicesToProfessional] Error al insertar servicios:", {
+        error: insertError,
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+      });
+
+      // Si el error es de duplicado, intentar eliminar e insertar de nuevo
+      if (insertError.code === "23505" || insertError.message.includes("duplicate") || insertError.message.includes("unique")) {
+        console.log("[adminService.assignServicesToProfessional] Error de duplicado detectado, reintentando...");
+        
+        // Eliminar todos los servicios del profesional
+        const { error: retryDeleteError } = await supabase
+          .from("service_professionals")
+          .delete()
+          .eq("professional_id", payload.professionalId);
+        
+        if (retryDeleteError && !retryDeleteError.message.includes("does not exist")) {
+          console.error("[adminService.assignServicesToProfessional] Error al limpiar en reintento:", retryDeleteError);
+          throw new Error(`Error al limpiar servicios duplicados: ${retryDeleteError.message}`);
+        }
+
+        // Reintentar inserción
+        const { error: retryInsertError, data: retryInsertedData } = await supabase
+          .from("service_professionals")
+          .insert(rows)
+          .select();
+          
+        if (retryInsertError) {
+          console.error("[adminService.assignServicesToProfessional] Error en reintento de inserción:", retryInsertError);
+          throw new Error(`No se pudieron asignar los servicios después del reintento: ${retryInsertError.message}`);
+        }
+        
+        console.log("[adminService.assignServicesToProfessional] Servicios insertados exitosamente en reintento:", retryInsertedData?.length);
+      } else if (insertError.message.includes("permission denied") || insertError.message.includes("policy")) {
+        throw new Error(`Error de permisos al asignar servicios: ${insertError.message}. Verifica las políticas RLS para service_professionals.`);
+      } else {
+        throw new Error(`No se pudieron asignar los servicios: ${insertError.message}${insertError.details ? ` - ${insertError.details}` : ""}${insertError.hint ? ` - ${insertError.hint}` : ""}`);
+      }
+    } else {
+      console.log("[adminService.assignServicesToProfessional] Servicios asignados exitosamente:", insertedData?.length);
     }
   },
 

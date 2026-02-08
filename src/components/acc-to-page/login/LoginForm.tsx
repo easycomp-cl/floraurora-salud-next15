@@ -30,10 +30,23 @@ export function LoginForm() {
     loading: false,
   });
   const [showResetSuccess, setShowResetSuccess] = useState(false);
+  const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Verificar si viene de un registro exitoso
+    if (searchParams.get("registered") === "true") {
+      setShowRegistrationSuccess(true);
+      // Remover el parámetro de la URL sin recargar
+      router.replace("/login");
+      // Ocultar el mensaje después de 5 segundos
+      const timer = setTimeout(() => {
+        setShowRegistrationSuccess(false);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+
     // Verificar si viene de un password reset exitoso
     if (searchParams.get("passwordReset") === "success") {
       setShowResetSuccess(true);
@@ -75,6 +88,17 @@ export function LoginForm() {
       setState({
         success: false,
         error: "Tu sesión ha expirado. Por favor, inicia sesión nuevamente.",
+        loading: false,
+      });
+      // Remover el parámetro de la URL sin recargar
+      router.replace("/login");
+    }
+
+    // Verificar si el correo está pendiente de confirmación
+    if (searchParams.get("email-pending") === "true") {
+      setState({
+        success: false,
+        error: "Tu cuenta fue creada pero no se pudo enviar el correo de confirmación. Por favor, contacta a soporte o intenta iniciar sesión directamente.",
         loading: false,
       });
       // Remover el parámetro de la URL sin recargar
@@ -225,6 +249,29 @@ export function LoginForm() {
             <Button type="submit" className="w-full" disabled={state.loading}>
               {state.loading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
+
+            {/* Mostrar mensaje de éxito de registro */}
+            {showRegistrationSuccess && (
+              <div className="bg-green-50 border border-green-200 text-green-800 text-sm text-center p-3 rounded-lg flex items-center justify-center gap-2">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="font-medium">
+                  ¡Cuenta creada exitosamente! Ya puedes iniciar sesión.
+                </span>
+              </div>
+            )}
 
             {/* Mostrar mensaje de error si existe */}
             {!state.success && state.error && (

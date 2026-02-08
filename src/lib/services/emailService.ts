@@ -475,3 +475,99 @@ export async function sendPatientAppointmentReminderEmail(
   });
 }
 
+/**
+ * Envía notificación al correo de contacto cuando se registra un nuevo paciente
+ */
+interface PatientRegistrationNotificationParams {
+  patientName: string;
+  patientEmail: string;
+  patientPhone?: string | null;
+}
+
+export async function sendPatientRegistrationNotification(
+  data: PatientRegistrationNotificationParams
+) {
+  const subject = "Nuevo registro de paciente - FlorAurora Salud";
+  
+  const message = `
+    Se ha registrado un nuevo paciente en la plataforma:
+    
+    Nombre: ${data.patientName}
+    Email: ${data.patientEmail}
+    ${data.patientPhone ? `Teléfono: ${data.patientPhone}` : ''}
+    
+    Fecha de registro: ${new Date().toLocaleString('es-CL', { 
+      timeZone: 'America/Santiago',
+      dateStyle: 'long',
+      timeStyle: 'short'
+    })}
+  `;
+
+  const html = await render(
+    createElement(NotificationEmail, {
+      subject,
+      message,
+      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/users`,
+      actionText: 'Ver usuarios',
+    })
+  );
+
+  return await sendEmail({
+    to: process.env.CONTACT_EMAIL || 'contacto@floraurorasalud.cl',
+    from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
+    subject,
+    html,
+    replyTo: data.patientEmail,
+  });
+}
+
+/**
+ * Envía notificación al correo de contacto cuando se registra una nueva solicitud de profesional
+ */
+interface ProfessionalRegistrationNotificationParams {
+  professionalName: string;
+  professionalEmail: string;
+  professionalPhone?: string | null;
+  rut?: string | null;
+}
+
+export async function sendProfessionalRegistrationNotification(
+  data: ProfessionalRegistrationNotificationParams
+) {
+  const subject = "Nueva solicitud de registro profesional - FlorAurora Salud";
+  
+  const message = `
+    Se ha recibido una nueva solicitud de registro profesional:
+    
+    Nombre: ${data.professionalName}
+    Email: ${data.professionalEmail}
+    ${data.professionalPhone ? `Teléfono: ${data.professionalPhone}` : ''}
+    ${data.rut ? `RUT: ${data.rut}` : ''}
+    
+    Fecha de solicitud: ${new Date().toLocaleString('es-CL', { 
+      timeZone: 'America/Santiago',
+      dateStyle: 'long',
+      timeStyle: 'short'
+    })}
+    
+    Por favor, revisa la solicitud en el panel de administración.
+  `;
+
+  const html = await render(
+    createElement(NotificationEmail, {
+      subject,
+      message,
+      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/professionals`,
+      actionText: 'Revisar solicitudes',
+    })
+  );
+
+  return await sendEmail({
+    to: process.env.CONTACT_EMAIL || 'contacto@floraurorasalud.cl',
+    from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
+    subject,
+    html,
+    replyTo: data.professionalEmail,
+  });
+}
+

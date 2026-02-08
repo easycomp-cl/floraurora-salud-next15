@@ -71,6 +71,9 @@ export interface AdminProfessional {
   specialties: string[];
   services: AdminServiceSummary[];
   use_promotional_price?: boolean; // Si es true, el profesional pagará precio promocional independientemente de su historial
+  plan_type?: "commission" | "monthly" | null; // Tipo de plan del profesional
+  monthly_plan_expires_at?: string | null; // Fecha de expiración del plan mensual
+  last_monthly_payment_date?: string | null; // Fecha del último pago mensual exitoso
 }
 
 export interface AdminServiceSummary {

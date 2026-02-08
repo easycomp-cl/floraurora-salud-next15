@@ -300,7 +300,7 @@ export async function signup(formData: FormData) {
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     console.error("❌ Variables de entorno de Supabase no configuradas");
-    redirect("/auth/signup?error=config-error");
+    redirect("/signup?error=config-error");
   }
 
   const supabase = await createClient();
@@ -326,7 +326,7 @@ export async function signup(formData: FormData) {
 
   if (!parsed.success) {
     console.log("❌ Error de validación Zod en signup:", parsed.error.flatten());
-    redirect("/auth/signup?error=invalid-data");
+    redirect("/signup?error=invalid-data");
   }
 
   // 2. Verificar si el usuario ya existe en Supabase Auth
@@ -334,14 +334,14 @@ export async function signup(formData: FormData) {
 
   if (listUsersError) {
     console.error("Error al listar usuarios para verificar existencia:", listUsersError);
-    redirect("/auth/signup?error=auth-service-error");
+    redirect("/signup?error=auth-service-error");
   }
 
   if (existingUsers?.users) {
     const userExists = existingUsers.users.some((user) => user.email?.toLowerCase() === email);
     if (userExists) {
       console.log("🔍 Usuario ya existe:", email);
-      redirect("/auth/signup?error=user-exists");
+      redirect("/signup?error=user-exists");
     }
   }
 
@@ -371,16 +371,16 @@ export async function signup(formData: FormData) {
   console.log("🔍 Resultado del registro Supabase:", {
     hasError: !!signUpError,
     error: signUpError,
-    hasUser: !!signUpData.user,
-    user: signUpData.user,
-    hasSession: !!signUpData.session,
-    emailSent: signUpData.user ? !signUpData.user.email_confirmed_at : false,
-    emailConfirmed: signUpData.user?.email_confirmed_at,
-    needsConfirmation: signUpData.user ? !signUpData.user.email_confirmed_at : false
+    hasUser: !!signUpData?.user,
+    user: signUpData?.user,
+    hasSession: !!signUpData?.session,
+    emailSent: signUpData?.user ? !signUpData.user.email_confirmed_at : false,
+    emailConfirmed: signUpData?.user?.email_confirmed_at,
+    needsConfirmation: signUpData?.user ? !signUpData.user.email_confirmed_at : false
   });
 
   // Logging específico para debugging de correos
-  if (signUpData.user && !signUpData.user.email_confirmed_at) {
+  if (signUpData?.user && !signUpData.user.email_confirmed_at) {
     console.log("📧 CORREO DEBE HABERSE ENVIADO:", {
       userId: signUpData.user.id,
       email: signUpData.user.email,
@@ -388,7 +388,7 @@ export async function signup(formData: FormData) {
       redirectUrl: `${baseUrl}/confirm`,
       userMetadata: signUpData.user.user_metadata
     });
-  } else if (signUpData.user && signUpData.user.email_confirmed_at) {
+  } else if (signUpData?.user && signUpData.user.email_confirmed_at) {
     console.log("⚠️ CORREO YA CONFIRMADO (caso inesperado):", {
       userId: signUpData.user.id,
       email: signUpData.user.email,
@@ -397,34 +397,466 @@ export async function signup(formData: FormData) {
   }
 
   if (signUpError) {
-    console.error("❌ Error al registrar usuario en Supabase Auth:", {
-      message: signUpError.message,
-      status: signUpError.status,
-      name: signUpError.name,
-      fullError: signUpError
-    });
+    // Verificar primero si es un error de correo (caso esperado con fallback)
+    const isEmailError = signUpError.message.includes("Error sending confirmation email") || 
+                         signUpError.code === 'unexpected_failure' ||
+                         (signUpError.status === 500 && signUpError.message.toLowerCase().includes("email"));
     
+    // Manejar error de envío de correo - este es un caso esperado que se maneja con fallback
+    // NO es un error crítico, es parte del flujo normal cuando Supabase no puede enviar correos
+    if (isEmailError) {
+      console.log("ℹ️ Supabase no pudo enviar correo de confirmación (esperado), usando fallback manual...");
+      
+      // Si hay un usuario en signUpData, usarlo directamente
+      if (signUpData?.user) {
+        const user = signUpData.user as { id: string; email?: string | null; email_confirmed_at?: string | null; user_metadata?: Record<string, unknown> | null };
+        console.log("✅ Usuario creado a pesar del error de correo:", {
+          userId: user.id,
+          emailConfirmed: !!user.email_confirmed_at
+        });
+        
+        // Crear el registro en la tabla users si no existe usando el cliente Admin
+        try {
+          const { data: existingUser } = await admin
+            .from("users")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          
+          if (!existingUser) {
+            const fullNameFromMeta = user.user_metadata?.full_name;
+            const fullName = (typeof fullNameFromMeta === 'string' ? fullNameFromMeta : null) || `${firstName} ${lastName}`;
+            const nameParts = fullName.split(" ");
+            const firstNameFromMeta = nameParts[0] || firstName;
+            const lastNameFromMeta = nameParts.slice(1).join(" ") || lastName;
+            
+            const { error: userInsertError } = await admin
+              .from("users")
+              .insert({
+                user_id: user.id,
+                email: user.email || email,
+                name: firstNameFromMeta,
+                last_name: lastNameFromMeta,
+                role: 2, // Rol por defecto: paciente
+                is_active: true,
+                created_at: new Date().toISOString()
+              });
+
+            if (userInsertError && userInsertError.code !== '23505') {
+              console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
+            } else {
+              console.log("✅ Usuario creado en tabla users después del error de correo");
+            }
+          }
+        } catch (createErr) {
+          console.error("⚠️ Error al crear usuario en tabla users:", createErr);
+          // Continuar aunque falle, el usuario puede iniciar sesión después
+        }
+        
+        // Redirigir a página de confirmación con mensaje
+        console.log("⚠️ Usuario creado pero el correo no se pudo enviar");
+        redirect("/confirm?email-sent=false");
+      } else {
+        // No hay usuario en signUpData, verificar usando listUsers
+        console.log("⚠️ No hay usuario en signUpData, verificando con listUsers...");
+        try {
+          const { data: listedUsers, error: listError } = await admin.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000
+          });
+          
+          if (!listError && listedUsers?.users) {
+            const checkUser = listedUsers.users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
+            
+            if (checkUser) {
+              console.log("✅ Usuario encontrado en listUsers:", {
+                userId: checkUser.id,
+                emailConfirmed: !!checkUser.email_confirmed_at
+              });
+              
+              // Crear el registro en la tabla users si no existe usando el cliente Admin
+              try {
+                const { data: existingUser } = await admin
+                  .from("users")
+                  .select("id")
+                  .eq("user_id", checkUser.id)
+                  .maybeSingle();
+                
+                if (!existingUser) {
+                  const fullName = checkUser.user_metadata?.full_name || `${firstName} ${lastName}`;
+                  const nameParts = fullName.split(" ");
+                  const firstNameFromMeta = nameParts[0] || firstName;
+                  const lastNameFromMeta = nameParts.slice(1).join(" ") || lastName;
+                  
+                  const { error: userInsertError } = await admin
+                    .from("users")
+                    .insert({
+                      user_id: checkUser.id,
+                      email: checkUser.email || email,
+                      name: firstNameFromMeta,
+                      last_name: lastNameFromMeta,
+                      role: 2,
+                      is_active: true,
+                      created_at: new Date().toISOString()
+                    });
+
+                  if (userInsertError && userInsertError.code !== '23505') {
+                    console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
+                  } else {
+                    console.log("✅ Usuario creado en tabla users");
+                  }
+                }
+              } catch (createErr) {
+                console.error("⚠️ Error al crear usuario en tabla users:", createErr);
+              }
+              
+              // Redirigir según el estado de confirmación
+              if (checkUser.email_confirmed_at) {
+                console.log("✅ Email ya confirmado, redirigiendo al login...");
+                redirect("/login?registered=true");
+              } else {
+                console.log("⚠️ Usuario creado pero necesita confirmar email");
+                redirect("/confirm?email-sent=false");
+              }
+            } else {
+              console.log("❌ Usuario NO se creó debido al error de correo");
+              // Intentar crear el usuario usando la API de Admin como fallback
+              console.log("🔄 Intentando crear usuario usando API de Admin como fallback...");
+              try {
+                // Verificar una vez más si el usuario existe (por si se creó entre verificaciones)
+                const { data: doubleCheckUsers } = await admin.auth.admin.listUsers({
+                  page: 1,
+                  perPage: 1000
+                });
+                
+                const doubleCheckUser = doubleCheckUsers?.users?.find(
+                  (u) => (u.email || "").toLowerCase() === email.toLowerCase()
+                );
+                
+                if (doubleCheckUser) {
+                  console.log("✅ Usuario encontrado en segunda verificación:", {
+                    userId: doubleCheckUser.id,
+                    emailConfirmed: !!doubleCheckUser.email_confirmed_at
+                  });
+                  
+                  // Crear el registro en la tabla users si no existe usando el cliente Admin
+                  try {
+                    const { data: existingUser } = await admin
+                      .from("users")
+                      .select("id")
+                      .eq("user_id", doubleCheckUser.id)
+                      .maybeSingle();
+                    
+                    if (!existingUser) {
+                      const fullName = doubleCheckUser.user_metadata?.full_name || `${firstName} ${lastName}`;
+                      const nameParts = fullName.split(" ");
+                      const firstNameFromMeta = nameParts[0] || firstName;
+                      const lastNameFromMeta = nameParts.slice(1).join(" ") || lastName;
+                      
+                      const { error: userInsertError } = await admin
+                        .from("users")
+                        .insert({
+                          user_id: doubleCheckUser.id,
+                          email: doubleCheckUser.email || email,
+                          name: firstNameFromMeta,
+                          last_name: lastNameFromMeta,
+                          role: 2,
+                          is_active: true,
+                          created_at: new Date().toISOString()
+                        });
+
+                      if (userInsertError && userInsertError.code !== '23505') {
+                        console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
+                      } else {
+                        console.log("✅ Usuario creado en tabla users");
+                      }
+                    }
+                  } catch (createErr) {
+                    console.error("⚠️ Error al crear usuario en tabla users:", createErr);
+                  }
+                  
+                  // Redirigir según el estado de confirmación
+                  if (doubleCheckUser.email_confirmed_at) {
+                    console.log("✅ Email ya confirmado, redirigiendo al login...");
+                    redirect("/login?registered=true");
+                  } else {
+                    console.log("⚠️ Usuario creado pero necesita confirmar email");
+                    redirect("/confirm?email-sent=false");
+                  }
+                  return; // Salir de la función
+                }
+                
+                // Si no existe, crear el usuario usando la API de Admin
+                // NO confirmar el email automáticamente - generaremos el enlace y lo enviaremos manualmente
+                const { data: adminUserData, error: adminCreateError } = await admin.auth.admin.createUser({
+                  email: email,
+                  password: password,
+                  email_confirm: false, // NO confirmar automáticamente - enviaremos el correo manualmente
+                  user_metadata: {
+                    full_name: `${firstName} ${lastName}`,
+                    email: email,
+                  },
+                });
+
+                if (adminCreateError || !adminUserData?.user) {
+                  console.error("❌ Error al crear usuario con API de Admin:", adminCreateError);
+                  
+                  // Si el error es que el usuario ya existe, verificar y continuar
+                  if (adminCreateError?.message?.includes("already registered") || 
+                      adminCreateError?.message?.toLowerCase().includes("already exists")) {
+                    console.log("⚠️ Usuario ya existe según API de Admin, verificando...");
+                    const { data: finalCheckUsers } = await admin.auth.admin.listUsers({
+                      page: 1,
+                      perPage: 1000
+                    });
+                    
+                    const finalCheckUser = finalCheckUsers?.users?.find(
+                      (u) => (u.email || "").toLowerCase() === email.toLowerCase()
+                    );
+                    
+                    if (finalCheckUser) {
+                      console.log("✅ Usuario encontrado después del error 'already exists'");
+                      redirect("/signup?error=user-exists");
+                    } else {
+                      redirect("/signup?error=email-service-error");
+                    }
+                  } else {
+                    redirect("/signup?error=email-service-error");
+                  }
+                  return;
+                }
+
+                console.log("✅ Usuario creado exitosamente con API de Admin:", {
+                  userId: adminUserData.user.id,
+                  emailConfirmed: !!adminUserData.user.email_confirmed_at
+                });
+
+                // Generar enlace de confirmación y enviarlo manualmente
+                let confirmationLink: string | null = null;
+                try {
+                  const { data: linkData, error: linkError } = await admin.auth.admin.generateLink({
+                    type: "signup",
+                    email: email,
+                    password: password,
+                    options: {
+                      redirectTo: `${baseUrl}/confirmation`,
+                    },
+                  });
+
+                  if (linkError || !linkData?.properties?.action_link) {
+                    console.error("⚠️ Error al generar enlace de confirmación:", linkError);
+                  } else {
+                    confirmationLink = linkData.properties.action_link;
+                    console.log("✅ Enlace de confirmación generado exitosamente");
+                    console.log("🔗 Enlace generado (primeros 100 chars):", confirmationLink.substring(0, 100) + "...");
+                    console.log("🔗 URL completa del enlace:", confirmationLink);
+                    
+                    // Verificar que el enlace tenga el formato correcto
+                    try {
+                      const linkUrl = new URL(confirmationLink);
+                      console.log("🔗 Parámetros del enlace:", {
+                        hostname: linkUrl.hostname,
+                        pathname: linkUrl.pathname,
+                        searchParams: Object.fromEntries(linkUrl.searchParams)
+                      });
+                    } catch (urlError) {
+                      console.warn("⚠️ Error al parsear URL del enlace:", urlError);
+                    }
+                    
+                    // Enviar el correo manualmente usando SendGrid
+                    try {
+                      const { sendNotificationEmail } = await import("@/lib/services/emailService");
+                      await sendNotificationEmail({
+                        to: email,
+                        subject: "Confirma tu correo electrónico - FlorAurora Salud",
+                        message: `Hola ${firstName},\n\nGracias por registrarte en FlorAurora Salud. Por favor, confirma tu correo electrónico haciendo clic en el botón a continuación para activar tu cuenta.`,
+                        actionUrl: confirmationLink,
+                        actionText: "Confirmar correo electrónico",
+                      });
+                      console.log("✅ Correo de confirmación enviado manualmente");
+                    } catch (emailError) {
+                      console.error("⚠️ Error al enviar correo de confirmación manualmente:", emailError);
+                      // Continuar aunque falle el correo - el usuario puede solicitar reenvío
+                    }
+                  }
+                } catch (linkGenError) {
+                  console.error("⚠️ Error al generar/enviar enlace de confirmación:", linkGenError);
+                  // Continuar aunque falle - el usuario puede solicitar reenvío después
+                }
+
+                // Crear el registro en la tabla users usando el cliente Admin (bypassea RLS)
+                try {
+                  const { data: userRecord, error: userInsertError } = await admin
+                    .from("users")
+                    .insert({
+                      user_id: adminUserData.user.id,
+                      email: adminUserData.user.email || email,
+                      name: firstName,
+                      last_name: lastName,
+                      role: 2, // Rol por defecto: paciente
+                      is_active: true,
+                      created_at: new Date().toISOString()
+                    })
+                    .select()
+                    .maybeSingle();
+
+                  if (userInsertError) {
+                    // Si es un error de duplicación, el usuario ya existe
+                    if (userInsertError.code === '23505' && userInsertError.message.includes('duplicate key')) {
+                      console.log("⚠️ Usuario ya existe en tabla users, continuando...");
+                    } else {
+                      console.error("❌ Error al crear usuario en tabla users:", userInsertError);
+                      // Salir del try antes de hacer redirect
+                      throw new Error("Error al crear usuario en tabla users");
+                    }
+                  } else if (userRecord) {
+                    console.log("✅ Usuario creado en tabla users:", userRecord.id);
+                  }
+                  
+                  // Crear perfil de paciente básico usando el cliente Admin
+                  // Primero obtener el id numérico del usuario (ya lo tenemos o lo obtenemos)
+                  let userData = userRecord;
+                  if (!userData) {
+                    // Si no tenemos el registro, obtenerlo
+                    const { data: fetchedUserData } = await admin
+                      .from("users")
+                      .select("id")
+                      .eq("user_id", adminUserData.user.id)
+                      .maybeSingle();
+                    userData = fetchedUserData;
+                  }
+                  
+                  if (userData?.id) {
+                    try {
+                      // Verificar si el perfil de paciente ya existe
+                      const { data: existingPatient } = await admin
+                        .from("patients")
+                        .select("id")
+                        .eq("id", userData.id)
+                        .maybeSingle();
+                      
+                      if (!existingPatient) {
+                        const { error: patientInsertError } = await admin
+                          .from("patients")
+                          .insert({
+                            id: userData.id,
+                            emergency_contact_name: "",
+                            emergency_contact_phone: "",
+                            health_insurances_id: 1,
+                          });
+
+                        if (patientInsertError) {
+                          // Si es un error de duplicación, el perfil ya existe (race condition)
+                          if (patientInsertError.code === '23505') {
+                            console.log("⚠️ Perfil de paciente ya existe, continuando...");
+                          } else {
+                            console.error("⚠️ Error al crear perfil de paciente:", patientInsertError);
+                            // No es crítico, el usuario puede completar su perfil después
+                          }
+                        } else {
+                          console.log("✅ Perfil de paciente creado");
+                          
+                          // Enviar notificación al correo de contacto
+                          try {
+                            const { sendPatientRegistrationNotification } = await import("@/lib/services/emailService");
+                            await sendPatientRegistrationNotification({
+                              patientName: `${firstName} ${lastName}`,
+                              patientEmail: email,
+                              patientPhone: null,
+                            });
+                            console.log("✅ Notificación de registro de paciente enviada al correo de contacto");
+                          } catch (notificationError) {
+                            console.error("⚠️ Error al enviar notificación de registro (no crítico):", notificationError);
+                            // No es crítico, el registro ya se completó exitosamente
+                          }
+                        }
+                      } else {
+                        console.log("✅ Perfil de paciente ya existe");
+                      }
+                    } catch (profileErr) {
+                      console.error("⚠️ Error al crear perfil de paciente:", profileErr);
+                      // No es crítico, el usuario puede completar su perfil después
+                    }
+                  }
+                } catch (createErr: unknown) {
+                  // Verificar si es un redirect de Next.js (no es un error real)
+                  if (createErr && typeof createErr === "object" && "digest" in createErr && typeof createErr.digest === "string" && createErr.digest.includes("NEXT_REDIRECT")) {
+                    throw createErr; // Re-lanzar el redirect
+                  }
+                  console.error("❌ Error al crear usuario en tabla users:", createErr);
+                  redirect("/signup?error=signup-failed");
+                  return; // No continuar después del redirect
+                }
+
+                  // Redirigir a la página de confirmación indicando que se envió el correo
+                  console.log("✅ Registro completado exitosamente, redirigiendo a confirmación...");
+                  if (confirmationLink) {
+                    redirect("/confirm?email-sent=true&registered=true");
+                  } else {
+                    // Si no se pudo generar el enlace, redirigir al login con mensaje
+                    redirect("/login?registered=true&email-pending=true");
+                  }
+              } catch (adminErr: unknown) {
+                // Verificar si es un redirect de Next.js (no es un error real)
+                if (adminErr && typeof adminErr === "object" && "digest" in adminErr && typeof adminErr.digest === "string" && adminErr.digest.includes("NEXT_REDIRECT")) {
+                  throw adminErr; // Re-lanzar el redirect
+                }
+                console.error("❌ Error al crear usuario con API de Admin:", adminErr);
+                redirect("/signup?error=email-service-error");
+              }
+            }
+          } else {
+            console.error("❌ Error al listar usuarios:", listError);
+            redirect("/signup?error=signup-failed");
+          }
+        } catch (checkErr: unknown) {
+          // Verificar si es un redirect de Next.js (no es un error real)
+          if (checkErr && typeof checkErr === "object" && "digest" in checkErr && typeof checkErr.digest === "string" && checkErr.digest.includes("NEXT_REDIRECT")) {
+            throw checkErr; // Re-lanzar el redirect
+          }
+          console.error("❌ Error al verificar usuario:", checkErr);
+          redirect("/signup?error=signup-failed");
+        }
+      }
+      
+      // Si llegamos aquí, el fallback de correo se manejó correctamente
+      // No necesitamos hacer nada más, el flujo continúa normalmente
+      return; // Salir temprano para evitar procesar otros errores
+    }
+    
+    // Si NO es un error de correo, manejar otros errores específicos
     if (signUpError.message.includes("User already registered")) {
       console.log("🔍 Usuario ya registrado, redirigiendo...");
-      redirect("/auth/signup?error=user-exists");
+      redirect("/signup?error=user-exists");
+      return;
     }
     
     if (signUpError.message.includes("Invalid email")) {
       console.log("🔍 Email inválido");
-      redirect("/auth/signup?error=invalid-email");
+      redirect("/signup?error=invalid-email");
+      return;
     }
     
     if (signUpError.message.includes("Password should be at least")) {
       console.log("🔍 Contraseña muy corta");
-      redirect("/auth/signup?error=weak-password");
+      redirect("/signup?error=weak-password");
+      return;
     }
     
+    // Si llegamos aquí, es un error real no esperado
+    console.error("❌ Error al registrar usuario en Supabase Auth:", {
+      message: signUpError.message,
+      status: signUpError.status,
+      name: signUpError.name,
+      code: signUpError.code,
+    });
+    
     console.log("🔍 Error genérico de registro, redirigiendo...");
-    redirect("/auth/signup?error=signup-failed");
+    redirect("/signup?error=signup-failed");
   }
 
   // 4. Verificar que el registro fue exitoso
-  if (signUpData.user) {
+  if (signUpData?.user) {
     console.log("✅ Usuario registrado exitosamente en Supabase Auth:", {
       userId: signUpData.user.id,
       email: signUpData.user.email,
@@ -439,7 +871,7 @@ export async function signup(formData: FormData) {
     }
   } else {
     console.error("❌ Error: signUpData.user es nulo después de un registro exitoso sin error.");
-    redirect("/auth/signup?error=unexpected-error");
+    redirect("/signup?error=unexpected-error");
   }
   
   console.log("🔍 Redirigiendo a página de confirmación...");
@@ -715,7 +1147,7 @@ export async function signupPro(formData: FormData) {
     }
   }
 
-  // 6. Enviar correo de notificación (se hará en background)
+  // 6. Enviar correo de notificación al profesional (se hará en background)
   try {
     const { sendProfessionalRequestReceivedEmail } = await import("@/lib/services/emailService");
     await sendProfessionalRequestReceivedEmail({
@@ -723,8 +1155,23 @@ export async function signupPro(formData: FormData) {
       professionalName: full_name,
     });
   } catch (emailError) {
-    console.error("Error al enviar correo (no crítico):", emailError);
+    console.error("Error al enviar correo al profesional (no crítico):", emailError);
     // No redirigir por error de email, solo loguear
+  }
+
+  // 7. Enviar notificación al correo de contacto sobre la nueva solicitud profesional
+  try {
+    const { sendProfessionalRegistrationNotification } = await import("@/lib/services/emailService");
+    await sendProfessionalRegistrationNotification({
+      professionalName: full_name,
+      professionalEmail: email,
+      professionalPhone: phone_number || null,
+      rut: rut || null,
+    });
+    console.log("✅ Notificación de solicitud profesional enviada al correo de contacto");
+  } catch (notificationError) {
+    console.error("⚠️ Error al enviar notificación al correo de contacto (no crítico):", notificationError);
+    // No redirigir por error de notificación, solo loguear
   }
 
   revalidatePath("/", "layout");

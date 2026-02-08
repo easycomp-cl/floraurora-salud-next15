@@ -42,13 +42,13 @@ export function ResetPasswordForm() {
 
     const initializeSession = async () => {
       const supabase = createClient();
-      
+
       // Verificar si hay un hash en la URL (viene después del redirect de Supabase)
       // Formato: #access_token=...&refresh_token=...&type=recovery
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get("access_token");
       const type = hashParams.get("type");
-      
+
       if (accessToken && type === "recovery") {
         // Establecer la sesión con el token del hash
         const { error: sessionError } = await supabase.auth.setSession({
@@ -70,8 +70,10 @@ export function ResetPasswordForm() {
         }
 
         // Verificar que el usuario esté autenticado
-        const { data: { user } } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (user) {
           setTokenValid(true);
           setIsChecking(false);
@@ -88,60 +90,112 @@ export function ResetPasswordForm() {
           return;
         }
       }
-      
+
       // Si no hay hash, verificar si hay un código en los query params (flujo alternativo)
       const { searchParams } = new URL(window.location.href);
       const code = searchParams.get("code");
 
       if (code) {
-        // Esperar a que detectSessionInUrl procese automáticamente el código
-        let attempts = 0;
-        const maxAttempts = 20;
-        const checkSession = async () => {
-          const { data: { session } } = await supabase.auth.getSession();
-          
-          if (session) {
-            setIsChecking(false);
-            setTokenValid(true);
-            return true;
-          }
-          
-          attempts++;
-          return false;
-        };
+        // Procesar el código directamente usando exchangeCodeForSession
+        try {
+          const { data: sessionData, error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
 
-        // Verificar inmediatamente
-        if (await checkSession()) return;
-
-        // Intentar cada 500ms
-        const interval = setInterval(async () => {
-          if (await checkSession()) {
-            clearInterval(interval);
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
+          if (exchangeError) {
+            console.error(
+              "Error intercambiando código por sesión:",
+              exchangeError
+            );
             setIsChecking(false);
             setTokenValid(false);
             setState({
               success: false,
-              error: "El enlace ya fue utilizado o ha expirado. Solicita un nuevo enlace.",
+              error:
+                "El enlace es inválido o ha expirado. Solicita un nuevo enlace.",
               loading: false,
               message: null,
             });
+            return;
           }
-        }, 500);
 
-        // Timeout final
-        setTimeout(() => {
-          clearInterval(interval);
-          if (isChecking) {
-            setIsChecking(false);
-            setTokenValid(false);
+          if (sessionData?.session) {
+            // Verificar que el usuario esté autenticado
+            const {
+              data: { user },
+            } = await supabase.auth.getUser();
+
+            if (user) {
+              setTokenValid(true);
+              setIsChecking(false);
+              return;
+            }
           }
-        }, 10000);
+
+          // Si no hay sesión después del intercambio, esperar un poco y verificar
+          let attempts = 0;
+          const maxAttempts = 10;
+          const checkSession = async () => {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession();
+
+            if (session) {
+              setIsChecking(false);
+              setTokenValid(true);
+              return true;
+            }
+
+            attempts++;
+            return false;
+          };
+
+          // Verificar inmediatamente
+          if (await checkSession()) return;
+
+          // Intentar cada 500ms
+          const interval = setInterval(async () => {
+            if (await checkSession()) {
+              clearInterval(interval);
+            } else if (attempts >= maxAttempts) {
+              clearInterval(interval);
+              setIsChecking(false);
+              setTokenValid(false);
+              setState({
+                success: false,
+                error:
+                  "El enlace ya fue utilizado o ha expirado. Solicita un nuevo enlace.",
+                loading: false,
+                message: null,
+              });
+            }
+          }, 500);
+
+          // Timeout final
+          setTimeout(() => {
+            clearInterval(interval);
+            if (isChecking) {
+              setIsChecking(false);
+              setTokenValid(false);
+            }
+          }, 5000);
+        } catch (error) {
+          console.error("Error procesando código:", error);
+          setIsChecking(false);
+          setTokenValid(false);
+          setState({
+            success: false,
+            error:
+              "Error al procesar el enlace. Por favor, solicita un nuevo enlace.",
+            loading: false,
+            message: null,
+          });
+        }
       } else {
         // No hay ni hash ni código, verificar si ya hay una sesión activa
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (session) {
           setTokenValid(true);
           setIsChecking(false);
@@ -150,7 +204,8 @@ export function ResetPasswordForm() {
           setTokenValid(false);
           setState({
             success: false,
-            error: "Enlace inválido o expirado. Por favor, solicita un nuevo enlace.",
+            error:
+              "Enlace inválido o expirado. Por favor, solicita un nuevo enlace.",
             loading: false,
             message: null,
           });
@@ -166,7 +221,9 @@ export function ResetPasswordForm() {
     setState({ ...state, loading: true, error: null, message: null });
 
     const password = (e.currentTarget.password as HTMLInputElement).value;
-    const confirmPassword = (e.currentTarget.confirmPassword as HTMLInputElement).value;
+    const confirmPassword = (
+      e.currentTarget.confirmPassword as HTMLInputElement
+    ).value;
 
     // Validación básica
     if (password !== confirmPassword) {
@@ -205,7 +262,7 @@ export function ResetPasswordForm() {
         });
         return;
       }
-      
+
       // Redirigir al login después de éxito
       router.push("/login?passwordReset=success");
     } catch {
@@ -224,7 +281,9 @@ export function ResetPasswordForm() {
       <Card className="mx-auto p-5 max-w-md">
         <CardHeader>
           <CardTitle className="text-2xl">Verificando...</CardTitle>
-          <CardDescription>Por favor espera mientras verificamos tu enlace</CardDescription>
+          <CardDescription>
+            Por favor espera mientras verificamos tu enlace
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center py-8">
@@ -240,7 +299,9 @@ export function ResetPasswordForm() {
     return (
       <Card className="mx-auto p-5 max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl text-red-600">Enlace Inválido</CardTitle>
+          <CardTitle className="text-2xl text-red-600">
+            Enlace Inválido
+          </CardTitle>
           <CardDescription>
             Tu enlace de reseteo de contraseña es inválido o ha expirado
           </CardDescription>
@@ -248,13 +309,11 @@ export function ResetPasswordForm() {
         <CardContent>
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
-              Los enlaces de reseteo de contraseña expiran por seguridad. 
-              Por favor, solicita un nuevo enlace.
+              Los enlaces de reseteo de contraseña expiran por seguridad. Por
+              favor, solicita un nuevo enlace.
             </p>
             <Button asChild className="w-full">
-              <Link href="/login">
-                Volver al Inicio de Sesión
-              </Link>
+              <Link href="/login">Volver al Inicio de Sesión</Link>
             </Button>
           </div>
         </CardContent>
@@ -327,4 +386,3 @@ export function ResetPasswordForm() {
     </Card>
   );
 }
-

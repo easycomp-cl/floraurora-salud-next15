@@ -28,6 +28,8 @@ import {
   FileText,
   Users,
   Tag,
+  CreditCard,
+  Calendar,
 } from "lucide-react";
 import ProfessionalRequestsManagement from "./ProfessionalRequestsManagement";
 
@@ -49,7 +51,9 @@ function formatServicesList(services: AdminServiceSummary[]) {
 }
 
 export default function ProfessionalsManagement() {
-  const [activeTab, setActiveTab] = useState<"professionals" | "requests">("professionals");
+  const [activeTab, setActiveTab] = useState<"professionals" | "requests">(
+    "professionals"
+  );
   const [allProfessionals, setAllProfessionals] = useState<AdminProfessional[]>(
     []
   );
@@ -227,7 +231,9 @@ export default function ProfessionalsManagement() {
     }
   };
 
-  const handleTogglePromotionalPrice = async (professional: AdminProfessional) => {
+  const handleTogglePromotionalPrice = async (
+    professional: AdminProfessional
+  ) => {
     try {
       setActionLoadingId(professional.id);
       setMessage(null);
@@ -246,16 +252,18 @@ export default function ProfessionalsManagement() {
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(
-          payload?.error ?? "No se pudo actualizar el precio promocional del profesional"
+          payload?.error ??
+            "No se pudo actualizar el precio promocional del profesional"
         );
       }
 
       const result = await response.json();
-      setMessage(result.message || (
-        newValue
-          ? "Precio promocional activado correctamente."
-          : "Precio promocional desactivado correctamente."
-      ));
+      setMessage(
+        result.message ||
+          (newValue
+            ? "Precio promocional activado correctamente."
+            : "Precio promocional desactivado correctamente.")
+      );
       await loadProfessionals();
     } catch (err) {
       const message =
@@ -358,394 +366,488 @@ export default function ProfessionalsManagement() {
                 Gestión de profesionales
               </CardTitle>
               <p className="text-sm text-gray-500">
-                Administra profesionales, sus especialidades y servicios asignados.
+                Administra profesionales, sus especialidades y servicios
+                asignados.
               </p>
             </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* Filtros y búsqueda */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-1 space-y-1.5">
-              <Label htmlFor="search">Buscar</Label>
-              <Input
-                id="search"
-                placeholder="Nombre, correo, teléfono o especialidad"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-              />
-            </div>
+            <CardContent className="space-y-6">
+              {/* Filtros y búsqueda */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="md:col-span-1 space-y-1.5">
+                  <Label htmlFor="search">Buscar</Label>
+                  <Input
+                    id="search"
+                    placeholder="Nombre, correo, teléfono o especialidad"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.target.value)}
+                  />
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="statusFilter">Estado</Label>
-              <select
-                id="statusFilter"
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                value={statusFilter}
-                onChange={(event) =>
-                  setStatusFilter(
-                    event.target.value as "all" | "active" | "inactive"
-                  )
-                }
-              >
-                <option value="all">Todos</option>
-                <option value="active">Activos</option>
-                <option value="inactive">Inactivos</option>
-              </select>
-            </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="statusFilter">Estado</Label>
+                  <select
+                    id="statusFilter"
+                    className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    value={statusFilter}
+                    onChange={(event) =>
+                      setStatusFilter(
+                        event.target.value as "all" | "active" | "inactive"
+                      )
+                    }
+                  >
+                    <option value="all">Todos</option>
+                    <option value="active">Activos</option>
+                    <option value="inactive">Inactivos</option>
+                  </select>
+                </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="titleFilter">Título/Área</Label>
-              <select
-                id="titleFilter"
-                className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                value={titleFilter}
-                onChange={(event) => setTitleFilter(event.target.value)}
-              >
-                <option value="all">Todos</option>
-                {availableTitles.map((title) => (
-                  <option key={title} value={title}>
-                    {title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="titleFilter">Título/Área</Label>
+                  <select
+                    id="titleFilter"
+                    className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    value={titleFilter}
+                    onChange={(event) => setTitleFilter(event.target.value)}
+                  >
+                    <option value="all">Todos</option>
+                    {availableTitles.map((title) => (
+                      <option key={title} value={title}>
+                        {title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
 
-          {message && (
-            <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
-              {message}
-            </div>
-          )}
+              {message && (
+                <div className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
+                  {message}
+                </div>
+              )}
 
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+              {error && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
 
-          {/* Tabla */}
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Profesional
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Contacto
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Título/Área
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Especialidades
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Estado
-                  </th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-6 text-center text-gray-500"
-                    >
-                      Cargando profesionales...
-                    </td>
-                  </tr>
-                ) : paginatedProfessionals.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-6 text-center text-gray-500"
-                    >
-                      No se encontraron profesionales con los filtros
-                      seleccionados.
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedProfessionals.map((professional) => (
-                    <tr key={professional.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-gray-900">
-                            {professional.name} {professional.last_name}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            ID #{professional.id}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col space-y-0.5">
-                          <span className="text-sm text-gray-700">
-                            {professional.email ?? "-"}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {professional.phone_number ?? "-"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <Stethoscope className="h-4 w-4 text-primary" />
-                          <span className="text-sm text-gray-700">
-                            {professional.title_name ?? "Sin título"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {professional.specialties.length > 0 ? (
-                            professional.specialties.map((specialty, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-                              >
-                                {specialty}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-xs text-gray-400">
-                              Sin especialidades
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {professional.is_active ? (
-                            <BadgeCheck className="h-4 w-4 text-green-500" />
-                          ) : (
-                            <BadgeX className="h-4 w-4 text-red-500" />
-                          )}
-                          <span className="text-sm text-gray-700">
-                            {professional.is_active ? "Activo" : "Inactivo"}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleActive(professional)}
-                            disabled={actionLoadingId === professional.id}
-                          >
-                            {actionLoadingId === professional.id
-                              ? "Procesando..."
-                              : professional.is_active
-                              ? "Desactivar"
-                              : "Activar"}
-                          </Button>
-                          <Button
-                            variant={professional.use_promotional_price ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleTogglePromotionalPrice(professional)}
-                            disabled={actionLoadingId === professional.id}
-                            className={`flex items-center gap-1 ${
-                              professional.use_promotional_price
-                                ? "bg-orange-500 hover:bg-orange-600 text-white"
-                                : ""
-                            }`}
-                            title={
-                              professional.use_promotional_price
-                                ? "Desactivar precio promocional"
-                                : "Activar precio promocional"
-                            }
-                          >
-                            <Tag className="h-3 w-3" />
-                            {actionLoadingId === professional.id
-                              ? "Procesando..."
-                              : professional.use_promotional_price
-                              ? "Precio Promo"
-                              : "Sin Promo"}
-                          </Button>
-
-                          {services.length > 0 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleOpenAssignServices(professional)
-                              }
-                            >
-                              Servicios
-                            </Button>
-                          )}
-                        </div>
-                      </td>
+              {/* Tabla */}
+              <div className="overflow-x-auto rounded-lg border border-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Profesional
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Contacto
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Título/Área
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Especialidades
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Plan
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Estado
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                        Acciones
+                      </th>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {isLoading ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-6 text-center text-gray-500"
+                        >
+                          Cargando profesionales...
+                        </td>
+                      </tr>
+                    ) : paginatedProfessionals.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={7}
+                          className="px-4 py-6 text-center text-gray-500"
+                        >
+                          No se encontraron profesionales con los filtros
+                          seleccionados.
+                        </td>
+                      </tr>
+                    ) : (
+                      paginatedProfessionals.map((professional) => (
+                        <tr key={professional.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-gray-900">
+                                {professional.name} {professional.last_name}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ID #{professional.id}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col space-y-0.5">
+                              <span className="text-sm text-gray-700">
+                                {professional.email ?? "-"}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {professional.phone_number ?? "-"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <Stethoscope className="h-4 w-4 text-primary" />
+                              <span className="text-sm text-gray-700">
+                                {professional.title_name ?? "Sin título"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-1">
+                              {professional.specialties.length > 0 ? (
+                                professional.specialties.map(
+                                  (specialty, idx) => (
+                                    <span
+                                      key={idx}
+                                      className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
+                                    >
+                                      {specialty}
+                                    </span>
+                                  )
+                                )
+                              ) : (
+                                <span className="text-xs text-gray-400">
+                                  Sin especialidades
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1">
+                              {professional.plan_type ? (
+                                <>
+                                  <div className="flex items-center gap-2">
+                                    <CreditCard className="h-4 w-4 text-primary" />
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {professional.plan_type === "commission"
+                                        ? "Plan Comisión"
+                                        : "Plan Mensual"}
+                                    </span>
+                                  </div>
+                                  {professional.plan_type === "monthly" && (
+                                    <div className="flex items-center gap-1 text-xs text-gray-500">
+                                      <Calendar className="h-3 w-3" />
+                                      {professional.monthly_plan_expires_at ? (
+                                        <>
+                                          Expira:{" "}
+                                          {new Date(
+                                            professional.monthly_plan_expires_at
+                                          ).toLocaleDateString("es-CL", {
+                                            day: "2-digit",
+                                            month: "2-digit",
+                                            year: "numeric",
+                                          })}
+                                          {new Date(
+                                            professional.monthly_plan_expires_at
+                                          ) > new Date() ? (
+                                            <span className="ml-1 text-green-600">
+                                              (Activo)
+                                            </span>
+                                          ) : (
+                                            <span className="ml-1 text-red-600">
+                                              (Vencido)
+                                            </span>
+                                          )}
+                                        </>
+                                      ) : (
+                                        <span className="text-red-600">
+                                          Sin fecha de expiración
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              ) : (
+                                <span className="text-xs text-gray-400">
+                                  Sin plan asignado
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {professional.is_active ? (
+                                <BadgeCheck className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <BadgeX className="h-4 w-4 text-red-500" />
+                              )}
+                              <span className="text-sm text-gray-700">
+                                {professional.is_active ? "Activo" : "Inactivo"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleToggleActive(professional)}
+                                disabled={actionLoadingId === professional.id}
+                              >
+                                {actionLoadingId === professional.id
+                                  ? "Procesando..."
+                                  : professional.is_active
+                                    ? "Desactivar"
+                                    : "Activar"}
+                              </Button>
+                              <Button
+                                variant={
+                                  professional.use_promotional_price
+                                    ? "default"
+                                    : "outline"
+                                }
+                                size="sm"
+                                onClick={() =>
+                                  handleTogglePromotionalPrice(professional)
+                                }
+                                disabled={actionLoadingId === professional.id}
+                                className={`flex items-center gap-1 ${
+                                  professional.use_promotional_price
+                                    ? "bg-orange-500 hover:bg-orange-600 text-white"
+                                    : ""
+                                }`}
+                                title={
+                                  professional.use_promotional_price
+                                    ? "Desactivar precio promocional"
+                                    : "Activar precio promocional"
+                                }
+                              >
+                                <Tag className="h-3 w-3" />
+                                {actionLoadingId === professional.id
+                                  ? "Procesando..."
+                                  : professional.use_promotional_price
+                                    ? "Precio Promo"
+                                    : "Sin Promo"}
+                              </Button>
 
-          {/* Paginación */}
-          <div className="flex flex-col items-center justify-between gap-4 border-t border-gray-200 pt-4 text-sm text-gray-600 md:flex-row">
-            <span>
-              Mostrando {paginatedProfessionals.length} de{" "}
-              {filteredProfessionals.length} profesionales
-            </span>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-                disabled={page <= 1 || isLoading}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Anterior
-              </Button>
-              <span>
-                Página {page} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setPage((prev) => Math.min(prev + 1, totalPages))
-                }
-                disabled={page >= totalPages || isLoading}
-              >
-                Siguiente
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Dialog para asignar servicios */}
-      <Dialog
-        open={isAssignDialogOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setIsAssignDialogOpen(open);
-            setSelectedProfessional(null);
-          } else {
-            setIsAssignDialogOpen(true);
-          }
-        }}
-      >
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Asignar servicios</DialogTitle>
-            <DialogDescription>
-              Selecciona los servicios disponibles que podrá ofrecer el
-              profesional.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedProfessional && (
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {selectedProfessional.name} {selectedProfessional.last_name}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Actualmente asignados:{" "}
-                  {formatServicesList(selectedProfessional.services)}
-                </p>
+                              {services.length > 0 && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() =>
+                                    handleOpenAssignServices(professional)
+                                  }
+                                >
+                                  Servicios
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="servicesSelect">Servicios disponibles</Label>
-                <select
-                  id="servicesSelect"
-                  multiple
-                  className="h-48 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  value={selectedServiceIds.map(String)}
-                  onChange={(event) => {
-                    const options = Array.from(event.target.selectedOptions);
-                    setSelectedServiceIds(
-                      options.map((option) => Number(option.value))
-                    );
-                  }}
-                >
-                  {activeServices.length === 0 ? (
-                    <option value="" disabled>
-                      No hay servicios activos configurados
-                    </option>
-                  ) : (
-                    activeServices.map((service) => {
-                      const formatPrice = () => {
-                        if (service.minimum_amount !== null && service.minimum_amount !== undefined) {
-                          if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
-                            return `$${service.minimum_amount.toLocaleString('es-CL')} - $${service.maximum_amount.toLocaleString('es-CL')}`;
-                          }
-                          return `$${service.minimum_amount.toLocaleString('es-CL')}`;
-                        }
-                        if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
-                          return `Hasta $${service.maximum_amount.toLocaleString('es-CL')}`;
-                        }
-                        return 'Precio no definido';
-                      };
-                      return (
-                        <option key={service.id} value={service.id}>
-                          {service.name} · {service.duration_minutes} min · {formatPrice()}
+              {/* Paginación */}
+              <div className="flex flex-col items-center justify-between gap-4 border-t border-gray-200 pt-4 text-sm text-gray-600 md:flex-row">
+                <span>
+                  Mostrando {paginatedProfessionals.length} de{" "}
+                  {filteredProfessionals.length} profesionales
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+                    disabled={page <= 1 || isLoading}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Anterior
+                  </Button>
+                  <span>
+                    Página {page} de {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setPage((prev) => Math.min(prev + 1, totalPages))
+                    }
+                    disabled={page >= totalPages || isLoading}
+                  >
+                    Siguiente
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Dialog para asignar servicios */}
+          <Dialog
+            open={isAssignDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setIsAssignDialogOpen(open);
+                setSelectedProfessional(null);
+              } else {
+                setIsAssignDialogOpen(true);
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Asignar servicios</DialogTitle>
+                <DialogDescription>
+                  Selecciona los servicios disponibles que podrá ofrecer el
+                  profesional.
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedProfessional && (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedProfessional.name}{" "}
+                      {selectedProfessional.last_name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Actualmente asignados:{" "}
+                      {formatServicesList(selectedProfessional.services)}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="servicesSelect">
+                      Servicios disponibles
+                    </Label>
+                    <select
+                      id="servicesSelect"
+                      multiple
+                      className="h-48 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                      value={selectedServiceIds.map(String)}
+                      onChange={(event) => {
+                        const options = Array.from(
+                          event.target.selectedOptions
+                        );
+                        setSelectedServiceIds(
+                          options.map((option) => Number(option.value))
+                        );
+                      }}
+                    >
+                      {activeServices.length === 0 ? (
+                        <option value="" disabled>
+                          No hay servicios activos configurados
                         </option>
-                      );
-                    })
-                  )}
-                </select>
-              </div>
+                      ) : (
+                        activeServices.map((service) => {
+                          const formatPrice = () => {
+                            if (
+                              service.minimum_amount !== null &&
+                              service.minimum_amount !== undefined
+                            ) {
+                              if (
+                                service.maximum_amount !== null &&
+                                service.maximum_amount !== undefined
+                              ) {
+                                return `$${service.minimum_amount.toLocaleString("es-CL")} - $${service.maximum_amount.toLocaleString("es-CL")}`;
+                              }
+                              return `$${service.minimum_amount.toLocaleString("es-CL")}`;
+                            }
+                            if (
+                              service.maximum_amount !== null &&
+                              service.maximum_amount !== undefined
+                            ) {
+                              return `Hasta $${service.maximum_amount.toLocaleString("es-CL")}`;
+                            }
+                            return "Precio no definido";
+                          };
+                          return (
+                            <option key={service.id} value={service.id}>
+                              {service.name} · {service.duration_minutes} min ·{" "}
+                              {formatPrice()}
+                            </option>
+                          );
+                        })
+                      )}
+                    </select>
+                  </div>
 
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-                <p className="font-medium text-gray-700">
-                  Resumen de servicios activos:
-                </p>
-                <ul className="mt-2 space-y-1">
-                  {services.map((service) => {
-                    const formatPrice = () => {
-                      if (service.minimum_amount !== null && service.minimum_amount !== undefined) {
-                        if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
-                          return `$${service.minimum_amount.toLocaleString('es-CL')} - $${service.maximum_amount.toLocaleString('es-CL')}`;
-                        }
-                        return `$${service.minimum_amount.toLocaleString('es-CL')}`;
-                      }
-                      if (service.maximum_amount !== null && service.maximum_amount !== undefined) {
-                        return `Hasta $${service.maximum_amount.toLocaleString('es-CL')}`;
-                      }
-                      return 'Precio no definido';
-                    };
-                    return (
-                      <li key={service.id} className="flex items-center gap-2">
-                        <Clock className="h-3.5 w-3.5 text-primary" />
-                        <span className="flex-1">
-                          {service.name} ({service.duration_minutes} min)
-                        </span>
-                        <span className="flex items-center gap-1 text-gray-500">
-                          <DollarSign className="h-3 w-3" />
-                          {formatPrice()}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+                  <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+                    <p className="font-medium text-gray-700">
+                      Resumen de servicios activos:
+                    </p>
+                    <ul className="mt-2 space-y-1">
+                      {services.map((service) => {
+                        const formatPrice = () => {
+                          if (
+                            service.minimum_amount !== null &&
+                            service.minimum_amount !== undefined
+                          ) {
+                            if (
+                              service.maximum_amount !== null &&
+                              service.maximum_amount !== undefined
+                            ) {
+                              return `$${service.minimum_amount.toLocaleString("es-CL")} - $${service.maximum_amount.toLocaleString("es-CL")}`;
+                            }
+                            return `$${service.minimum_amount.toLocaleString("es-CL")}`;
+                          }
+                          if (
+                            service.maximum_amount !== null &&
+                            service.maximum_amount !== undefined
+                          ) {
+                            return `Hasta $${service.maximum_amount.toLocaleString("es-CL")}`;
+                          }
+                          return "Precio no definido";
+                        };
+                        return (
+                          <li
+                            key={service.id}
+                            className="flex items-center gap-2"
+                          >
+                            <Clock className="h-3.5 w-3.5 text-primary" />
+                            <span className="flex-1">
+                              {service.name} ({service.duration_minutes} min)
+                            </span>
+                            <span className="flex items-center gap-1 text-gray-500">
+                              <DollarSign className="h-3 w-3" />
+                              {formatPrice()}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
 
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsAssignDialogOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button onClick={handleAssignServices} disabled={isSubmitting}>
-                  {isSubmitting ? "Guardando..." : "Guardar cambios"}
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAssignDialogOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleAssignServices}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? "Guardando..." : "Guardar cambios"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </section>
