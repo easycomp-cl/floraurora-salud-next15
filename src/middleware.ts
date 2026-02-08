@@ -18,6 +18,8 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/signup') ||
         pathname.startsWith('/callback') ||
         pathname.startsWith('/confirm') ||
+        pathname.startsWith('/confirmation') ||
+        pathname.startsWith('/confirmed') ||
         pathname.startsWith('/forgot-password') ||
         pathname.startsWith('/reset-password') ||
         pathname.startsWith('/privacy') ||

@@ -354,13 +354,13 @@ export async function signup(formData: FormData) {
   });
   
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  console.log("🔍 URL de redirección configurada:", `${baseUrl}/confirm`);
+  console.log("🔍 URL de redirección configurada:", `${baseUrl}/confirmation`);
   
   const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
     email: email,
     password: password,
     options: {
-      emailRedirectTo: `${baseUrl}/confirm`,
+      emailRedirectTo: `${baseUrl}/confirmation`,
       data: {
         full_name: `${firstName} ${lastName}`,
         email: email,
@@ -385,7 +385,7 @@ export async function signup(formData: FormData) {
       userId: signUpData.user.id,
       email: signUpData.user.email,
       emailConfirmed: signUpData.user.email_confirmed_at,
-      redirectUrl: `${baseUrl}/confirm`,
+      redirectUrl: `${baseUrl}/confirmation`,
       userMetadata: signUpData.user.user_metadata
     });
   } else if (signUpData?.user && signUpData.user.email_confirmed_at) {
@@ -455,7 +455,7 @@ export async function signup(formData: FormData) {
         
         // Redirigir a página de confirmación con mensaje
         console.log("⚠️ Usuario creado pero el correo no se pudo enviar");
-        redirect("/confirm?email-sent=false");
+        redirect("/confirmation?email-sent=false");
       } else {
         // No hay usuario en signUpData, verificar usando listUsers
         console.log("⚠️ No hay usuario en signUpData, verificando con listUsers...");
@@ -516,7 +516,7 @@ export async function signup(formData: FormData) {
                 redirect("/login?registered=true");
               } else {
                 console.log("⚠️ Usuario creado pero necesita confirmar email");
-                redirect("/confirm?email-sent=false");
+                redirect("/confirmation?email-sent=false");
               }
             } else {
               console.log("❌ Usuario NO se creó debido al error de correo");
@@ -581,7 +581,7 @@ export async function signup(formData: FormData) {
                     redirect("/login?registered=true");
                   } else {
                     console.log("⚠️ Usuario creado pero necesita confirmar email");
-                    redirect("/confirm?email-sent=false");
+                    redirect("/confirmation?email-sent=false");
                   }
                   return; // Salir de la función
                 }
@@ -791,7 +791,7 @@ export async function signup(formData: FormData) {
                   // Redirigir a la página de confirmación indicando que se envió el correo
                   console.log("✅ Registro completado exitosamente, redirigiendo a confirmación...");
                   if (confirmationLink) {
-                    redirect("/confirm?email-sent=true&registered=true");
+                    redirect("/confirmation?email-sent=true&registered=true");
                   } else {
                     // Si no se pudo generar el enlace, redirigir al login con mensaje
                     redirect("/login?registered=true&email-pending=true");
@@ -876,7 +876,7 @@ export async function signup(formData: FormData) {
   
   console.log("🔍 Redirigiendo a página de confirmación...");
   revalidatePath("/", "layout");
-  redirect("/confirm");
+  redirect("/confirmation");
 }
 
 export async function signupPro(formData: FormData) {

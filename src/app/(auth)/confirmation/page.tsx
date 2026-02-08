@@ -18,16 +18,20 @@ export default function ConfirmationPage() {
       const searchParams = url.searchParams;
       const hashParams = new URLSearchParams(url.hash.substring(1));
       
-      // Buscar token_hash en query params o hash
-      let token_hash = searchParams.get("token_hash") || hashParams.get("token_hash");
-      const type = searchParams.get("type") || hashParams.get("type");
+      // Buscar access_token en el hash (formato estándar de Supabase)
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const type = hashParams.get("type") || searchParams.get("type");
       
-      // También buscar en otros formatos posibles
+      // También buscar token_hash (formato alternativo)
+      let token_hash = searchParams.get("token_hash") || hashParams.get("token_hash");
       if (!token_hash) {
         token_hash = searchParams.get("token") || hashParams.get("token");
       }
       
       console.log("🔍 Parámetros de confirmación detectados:", {
+        hasAccessToken: !!accessToken,
+        hasRefreshToken: !!refreshToken,
         token_hash: token_hash ? token_hash.substring(0, 20) + "..." : null,
         type,
         hasHash: url.hash.length > 0,
@@ -35,8 +39,109 @@ export default function ConfirmationPage() {
         allHashParams: Object.fromEntries(hashParams),
       });
 
-      if (token_hash && type) {
-        console.log("🔍 Iniciando confirmación de correo:", {
+      // Caso 1: Formato con access_token en el hash (formato estándar de Supabase)
+      if (accessToken && refreshToken && type) {
+        console.log("🔍 Confirmando con access_token del hash...");
+        
+        try {
+          // Establecer la sesión con los tokens del hash
+          const { error: sessionError, data: sessionData } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (sessionError) {
+            console.error("❌ Error al establecer sesión:", sessionError);
+            setMessage("Error al confirmar su correo electrónico. El enlace puede haber expirado.");
+            setIsError(true);
+            setTimeout(() => {
+              router.push("/login?error=confirmation-failed");
+            }, 3000);
+            return;
+          }
+
+          // Obtener el usuario después de establecer la sesión
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+          if (userError || !user) {
+            console.error("❌ Error al obtener usuario:", userError);
+            setMessage("Error al verificar su cuenta. Por favor, intenta iniciar sesión.");
+            setIsError(true);
+            setTimeout(() => {
+              router.push("/login?error=confirmation-failed");
+            }, 3000);
+            return;
+          }
+
+          console.log("✅ Sesión establecida y usuario obtenido:", {
+            userId: user.id,
+            email: user.email,
+            emailConfirmed: !!user.email_confirmed_at,
+          });
+
+          // Obtener datos adicionales del usuario desde los metadatos
+          const userMetadata = user.user_metadata || {};
+          const fullName = (typeof userMetadata.full_name === 'string' ? userMetadata.full_name : "") || "";
+          const [firstName = "", lastName = ""] = fullName.split(" ");
+
+          console.log("🔍 Datos del usuario para inserción:", {
+            user_id: user.id,
+            email: user.email,
+            full_name: fullName,
+            firstName,
+            lastName,
+          });
+
+          // Crear/verificar usuario y perfil usando API route (evita problemas de RLS)
+          try {
+            const response = await fetch("/api/auth/confirm-user", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                userId: user.id,
+                email: user.email || "",
+                firstName: firstName,
+                lastName: lastName,
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              console.error("❌ Error al crear/verificar usuario:", errorData);
+              // Continuar de todas formas - el usuario puede existir ya
+            } else {
+              const result = await response.json();
+              console.log("✅ Usuario y perfil creados/verificados:", result);
+            }
+          } catch (apiError) {
+            console.error("⚠️ Error al llamar API de confirmación:", apiError);
+            // Continuar de todas formas - el usuario puede existir ya
+          }
+
+          setMessage("¡Correo confirmado exitosamente! Tu cuenta ha sido activada. Ahora puedes iniciar sesión.");
+          setIsSuccess(true);
+          
+          // Limpiar el hash de la URL para evitar problemas
+          window.history.replaceState(null, "", window.location.pathname);
+          
+          // Pequeño delay para mostrar el mensaje de éxito antes de redirigir
+          setTimeout(() => {
+            router.push("/login?confirmed=true");
+          }, 3000);
+        } catch (error) {
+          console.error("❌ Error inesperado al confirmar:", error);
+          setMessage("Error inesperado al confirmar el correo electrónico.");
+          setIsError(true);
+          setTimeout(() => {
+            router.push("/login?error=confirmation-failed");
+          }, 3000);
+        }
+      }
+      // Caso 2: Formato con token_hash (formato alternativo)
+      else if (token_hash && type) {
+        console.log("🔍 Iniciando confirmación con token_hash:", {
           token_hash: token_hash.substring(0, 20) + "...",
           type,
         });
@@ -65,7 +170,7 @@ export default function ConfirmationPage() {
 
             // Obtener datos adicionales del usuario desde los metadatos
             const userMetadata = data.user.user_metadata || {};
-            const fullName = userMetadata.full_name || "";
+            const fullName = (typeof userMetadata.full_name === 'string' ? userMetadata.full_name : "") || "";
             const [firstName = "", lastName = ""] = fullName.split(" ");
 
             console.log("🔍 Datos del usuario para inserción:", {
@@ -104,13 +209,13 @@ export default function ConfirmationPage() {
               // Continuar de todas formas - el usuario puede existir ya
             }
 
-            setMessage("¡Correo confirmado exitosamente! Tu cuenta ha sido activada.");
+            setMessage("¡Correo confirmado exitosamente! Tu cuenta ha sido activada. Ahora puedes iniciar sesión.");
             setIsSuccess(true);
             
             // Pequeño delay para mostrar el mensaje de éxito antes de redirigir
             setTimeout(() => {
-              router.push("/confirmed");
-            }, 2000);
+              router.push("/login?confirmed=true");
+            }, 3000);
           } else {
             console.error("❌ Error al confirmar el correo electrónico:", error);
             setMessage(error?.message || "Error al confirmar su correo electrónico. El enlace puede haber expirado.");
@@ -131,28 +236,13 @@ export default function ConfirmationPage() {
           }, 3000);
         }
       } else {
-        // Verificar si hay otros parámetros en la URL (puede venir de Supabase con formato diferente)
-        const allParams = new URLSearchParams(window.location.search);
-        console.log("🔍 Parámetros en URL:", Object.fromEntries(allParams));
-        
-        if (allParams.size === 0) {
-          setMessage("Faltan parámetros para la confirmación. Por favor, usa el enlace completo del correo electrónico.");
-          setIsError(true);
-        } else {
-          // Intentar extraer token_hash de otros parámetros posibles
-          const possibleToken = allParams.get("token") || allParams.get("access_token");
-          if (possibleToken) {
-            console.log("⚠️ Formato de token diferente detectado, redirigiendo a login...");
-            setMessage("El formato del enlace no es el esperado. Por favor, intenta iniciar sesión directamente.");
-            setIsError(true);
-            setTimeout(() => {
-              router.push("/login");
-            }, 3000);
-          } else {
-            setMessage("Faltan parámetros para la confirmación. Por favor, usa el enlace completo del correo electrónico.");
-            setIsError(true);
-          }
-        }
+        // No se encontraron parámetros válidos
+        console.log("⚠️ No se encontraron parámetros de confirmación válidos");
+        setMessage("Faltan parámetros para la confirmación. Por favor, usa el enlace completo del correo electrónico.");
+        setIsError(true);
+        setTimeout(() => {
+          router.push("/login?error=invalid-link");
+        }, 3000);
       }
     };
 
