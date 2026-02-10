@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { Suspense, useState, useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { signup } from "@/lib/auth-actions";
+import { signup, type SignupState } from "@/lib/auth-actions";
 import { SignUpFormWrapper } from "./SignUpFormWrapper";
 import { AlertCircle, XCircle, Eye, EyeOff, Loader2 } from "lucide-react";
 
@@ -35,12 +35,25 @@ function SignUpSubmitButton() {
   );
 }
 
+export interface SignUpFormValues {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+}
+
 function SignUpFormFields({
   showPassword,
   setShowPassword,
+  passwordError,
+  values,
+  onChange,
 }: {
   showPassword: boolean;
   setShowPassword: (v: boolean) => void;
+  passwordError?: string;
+  values: SignUpFormValues;
+  onChange: (field: keyof SignUpFormValues, value: string) => void;
 }) {
   const { pending } = useFormStatus();
   return (
@@ -67,6 +80,8 @@ function SignUpFormFields({
               id="first-name"
               placeholder="Javier"
               required
+              value={values.firstName}
+              onChange={(e) => onChange("firstName", e.target.value)}
             />
           </div>
           <div className="grid gap-2">
@@ -76,6 +91,8 @@ function SignUpFormFields({
               id="last-name"
               placeholder="Núñez"
               required
+              value={values.lastName}
+              onChange={(e) => onChange("lastName", e.target.value)}
             />
           </div>
         </div>
@@ -87,6 +104,8 @@ function SignUpFormFields({
             type="email"
             placeholder="m@ejemplo.com"
             required
+            value={values.email}
+            onChange={(e) => onChange("email", e.target.value)}
           />
         </div>
         <div className="grid gap-2">
@@ -97,7 +116,10 @@ function SignUpFormFields({
               id="password"
               type={showPassword ? "text" : "password"}
               required
+              minLength={6}
               className="pr-10"
+              value={values.password}
+              onChange={(e) => onChange("password", e.target.value)}
             />
             <button
               type="button"
@@ -112,6 +134,12 @@ function SignUpFormFields({
               )}
             </button>
           </div>
+          <p className="text-xs text-gray-500">
+            Mín. 6 caracteres, al menos 1 mayúscula, 1 número. No solo números ni solo letras.
+          </p>
+          {passwordError && (
+            <p className="text-sm text-red-600">{passwordError}</p>
+          )}
         </div>
         <SignUpSubmitButton />
       </div>
@@ -119,10 +147,26 @@ function SignUpFormFields({
   );
 }
 
+const initialFormValues: SignUpFormValues = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+};
+
 function SignUpFormContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const [showPassword, setShowPassword] = useState(false);
+  const [formValues, setFormValues] = useState<SignUpFormValues>(initialFormValues);
+  const [state, formAction] = useActionState<SignupState, FormData>(signup, null);
+
+  const passwordError = state?.field === "password" ? state.error : undefined;
+  const generalError = state?.field === "general" ? state.error : undefined;
+
+  const handleFieldChange = (field: keyof SignUpFormValues, value: string) => {
+    setFormValues((prev) => ({ ...prev, [field]: value }));
+  };
 
   const getErrorContent = () => {
     switch (error) {
@@ -143,13 +187,7 @@ function SignUpFormContent() {
           variant: "destructive" as const,
         };
       case "weak-password":
-        return {
-          title: "Contraseña débil",
-          description: "La contraseña no cumple con los requisitos mínimos.",
-          message: "La contraseña debe tener al menos 6 caracteres.",
-          icon: <AlertCircle className="h-5 w-5" />,
-          variant: "destructive" as const,
-        };
+        return null; // Ahora se muestra debajo del campo de contraseña
       case "signup-failed":
         return {
           title: "Error al crear cuenta",
@@ -214,7 +252,10 @@ function SignUpFormContent() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {errorContent && (
+        {generalError && (
+          <p className="mb-4 text-sm text-red-600">{generalError}</p>
+        )}
+        {!generalError && errorContent && (
           <Alert variant={errorContent.variant} className="mb-4">
             {errorContent.icon}
             <AlertTitle>{errorContent.title}</AlertTitle>
@@ -225,8 +266,14 @@ function SignUpFormContent() {
           </Alert>
         )}
 
-        <form action={signup} className="relative">
-          <SignUpFormFields showPassword={showPassword} setShowPassword={setShowPassword} />
+        <form action={formAction} className="relative">
+          <SignUpFormFields
+            showPassword={showPassword}
+            setShowPassword={setShowPassword}
+            passwordError={passwordError}
+            values={formValues}
+            onChange={handleFieldChange}
+          />
         </form>
 
         <SignUpFormWrapper />

@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-// Removed unused import: resetPassword
 import { createClient } from "@/utils/supabase/browser";
+import { resetPasswordSchema } from "@/lib/validations/password";
 import { Eye, EyeOff } from "lucide-react";
 
 type ResetState = {
@@ -228,21 +228,19 @@ export function ResetPasswordForm() {
       e.currentTarget.confirmPassword as HTMLInputElement
     ).value;
 
-    // Validación básica
-    if (password !== confirmPassword) {
-      setState({
-        success: false,
-        error: "Las contraseñas no coinciden",
-        loading: false,
-        message: null,
-      });
-      return;
-    }
+    // Validación con Zod
+    const parsed = resetPasswordSchema.safeParse({
+      password,
+      confirmPassword,
+    });
 
-    if (password.length < 6) {
+    if (!parsed.success) {
+      const firstError = parsed.error.flatten().fieldErrors.password?.[0]
+        ?? parsed.error.flatten().fieldErrors.confirmPassword?.[0]
+        ?? parsed.error.issues[0]?.message;
       setState({
         success: false,
-        error: "La contraseña debe tener al menos 6 caracteres",
+        error: firstError ?? "Datos de formulario inválidos",
         loading: false,
         message: null,
       });
@@ -253,7 +251,7 @@ export function ResetPasswordForm() {
       // Usar el cliente del browser directamente
       const supabase = createClient();
       const { error } = await supabase.auth.updateUser({
-        password,
+        password: parsed.data.password,
       });
 
       if (error) {
@@ -363,7 +361,7 @@ export function ResetPasswordForm() {
                 </button>
               </div>
               <p className="text-xs text-gray-500">
-                Debe contener al menos una mayúscula, una minúscula y un número
+                Mín. 6 caracteres, al menos 1 mayúscula, 1 número. No solo números ni solo letras.
               </p>
             </div>
             <div className="grid gap-2">

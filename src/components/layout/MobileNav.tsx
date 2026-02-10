@@ -6,7 +6,7 @@ import { navItems, getAuthenticatedNavItems, adminNavigationItems, NavItem } fro
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { useMobileMenu } from "@/lib/hooks/useMobileMenu";
 import { useUserProfile } from "@/lib/hooks/useUserProfile";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const MobileNav = () => {
   const { user, isAuthenticated, signOut } = useAuthState();
@@ -51,6 +51,18 @@ const MobileNav = () => {
       setIsLoginDropdownOpen(true);
     }
   };
+
+  // Bloquear scroll del body cuando el menú está abierto para que el scroll sea solo dentro del menú
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
 
   const renderNavItem = (item: NavItem) => {
     // Para items con subItems en navegación de marketing, mantener dropdown
@@ -158,10 +170,10 @@ const MobileNav = () => {
         )}
       </button>
 
-      {/* Menú móvil */}
+      {/* Menú móvil - scroll interno para poder llegar a Cerrar Sesión en pantallas pequeñas */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50">
-          <div className="py-2">
+        <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 max-h-[calc(100vh-4rem)] overflow-hidden">
+          <div className="py-2 overflow-y-auto overscroll-contain max-h-[calc(100vh-4rem)]">
             {/* Navegación de marketing para todos los usuarios */}
             {navItems.map(renderNavItem)}
 

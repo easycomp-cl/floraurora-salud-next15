@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { adminService } from "@/lib/services/adminService";
 import { auditService } from "@/lib/services/auditService";
 import { getAdminActorId } from "@/lib/auth/getAdminActor";
+import { passwordSchema } from "@/lib/validations/password";
 import type { AdminRole, AdminUserStatus } from "@/lib/types/admin";
 
 const parseRole = (value: string | null): AdminRole | "all" | undefined => {
@@ -62,9 +63,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const passwordResult = passwordSchema.safeParse(body.password);
+    if (!passwordResult.success) {
+      const message = passwordResult.error.issues[0]?.message ?? "Contraseña inválida";
+      return NextResponse.json(
+        { error: message },
+        { status: 400 },
+      );
+    }
+
     const user = await adminService.createUser({
       email: String(body.email),
-      password: String(body.password),
+      password: passwordResult.data,
       role: String(body.role) as AdminRole,
       name: body.name ? String(body.name) : undefined,
       last_name: body.last_name ? String(body.last_name) : undefined,

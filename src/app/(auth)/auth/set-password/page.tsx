@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { resetPasswordSchema } from "@/lib/validations/password";
 import { CheckCircle2, XCircle, Loader2, Eye, EyeOff } from "lucide-react";
 
 export default function SetPasswordPage() {
@@ -81,23 +82,18 @@ export default function SetPasswordPage() {
     setLoading(true);
     setError(null);
 
-    // Validaciones
-    if (password.length < 8) {
-      setError("La contraseña debe tener al menos 8 caracteres");
-      setLoading(false);
-      return;
-    }
+    // Validación con Zod
+    const parsed = resetPasswordSchema.safeParse({
+      password,
+      confirmPassword,
+    });
 
-    if (password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
-      setLoading(false);
-      return;
-    }
-
-    // Validar que tenga al menos una mayúscula, una minúscula y un número
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!passwordRegex.test(password)) {
-      setError("La contraseña debe contener al menos una mayúscula, una minúscula y un número");
+    if (!parsed.success) {
+      const firstError =
+        parsed.error.flatten().fieldErrors.password?.[0] ??
+        parsed.error.flatten().fieldErrors.confirmPassword?.[0] ??
+        parsed.error.issues[0]?.message;
+      setError(firstError ?? "Datos de formulario inválidos");
       setLoading(false);
       return;
     }
@@ -107,7 +103,7 @@ export default function SetPasswordPage() {
       
       // Actualizar la contraseña
       const { error: updateError } = await supabase.auth.updateUser({
-        password,
+        password: parsed.data.password,
       });
 
       if (updateError) {
@@ -266,7 +262,7 @@ export default function SetPasswordPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={6}
                   className="pr-10"
                 />
                 <button
@@ -278,7 +274,7 @@ export default function SetPasswordPage() {
                 </button>
               </div>
               <p className="text-xs text-gray-500">
-                Mínimo 8 caracteres, debe incluir mayúsculas, minúsculas y números
+                Mín. 6 caracteres, al menos 1 mayúscula, 1 número. No solo números ni solo letras.
               </p>
             </div>
 
@@ -291,7 +287,7 @@ export default function SetPasswordPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
-                  minLength={8}
+                  minLength={6}
                   className="pr-10"
                 />
                 <button

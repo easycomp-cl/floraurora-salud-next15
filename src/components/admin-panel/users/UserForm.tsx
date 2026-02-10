@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import type { AdminRole, AdminUser } from "@/lib/types/admin";
+import { passwordSchema } from "@/lib/validations/password";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -164,15 +165,19 @@ export default function UserForm({
               placeholder="Contraseña temporal"
               {...register("password", {
                 required: "La contraseña es obligatoria",
-                minLength: {
-                  value: 8,
-                  message: "La contraseña debe tener al menos 8 caracteres",
+                validate: (value) => {
+                  if (!value?.trim()) return "La contraseña es obligatoria";
+                  const result = passwordSchema.safeParse(value);
+                  return result.success ? true : result.error.issues[0]?.message ?? "Contraseña inválida";
                 },
               })}
             />
             {errors.password && (
               <p className="text-sm text-red-600">{errors.password.message}</p>
             )}
+            <p className="text-xs text-gray-500">
+              Mín. 6 caracteres, al menos 1 mayúscula, 1 número. No solo números ni solo letras.
+            </p>
           </div>
         )}
       </div>

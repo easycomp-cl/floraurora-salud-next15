@@ -9,7 +9,7 @@ import { executeSignupPro } from "@/lib/signupProLogic";
 import { logAccountProvider } from "@/utils/supabase/accountProvider";
 
 import { z } from "zod";
-import { resetPasswordSchema } from "@/lib/validations/password";
+import { resetPasswordSchema, passwordSchema } from "@/lib/validations/password";
 
 const loginSchema = z.object({
   email: z.string().email("Correo electrónico inválido"),
@@ -20,7 +20,7 @@ const signupSchema = z.object({
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
   email: z.string().email("Correo electrónico inválido"),
-  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
+  password: passwordSchema,
 });
 
 export async function getSession() {
@@ -277,21 +277,25 @@ export async function login(prevState: { message?: string; error?: string } | nu
   redirect("/dashboard");
 }
 
-export async function signup(formData: FormData) {
+export type SignupState = { error?: string; field?: "password" | "general" } | null;
 
+export async function signup(
+  prevState: SignupState | null,
+  formData: FormData
+): Promise<SignupState> {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     console.error("❌ Variables de entorno de Supabase no configuradas");
-    redirect("/signup?error=config-error");
+    return { error: "Error de configuración del sistema.", field: "general" };
   }
 
   const supabase = await createClient();
   const admin = createAdminServer();
-  const firstName = formData.get("first-name") as string;
-  const lastName = formData.get("last-name") as string;
+  const firstName = (formData.get("first-name") as string) || "";
+  const lastName = (formData.get("last-name") as string) || "";
   const email = (formData.get("email") as string)?.toLowerCase().trim() || "";
-  const password = formData.get("password") as string;
+  const password = (formData.get("password") as string) || "";
 
-  // 1. Validar los datos con Zod
+  // 1. Validar los datos con Zod - devolver error sin redirigir para no perder el formulario
   const parsed = signupSchema.safeParse({
     firstName,
     lastName,
@@ -300,7 +304,14 @@ export async function signup(formData: FormData) {
   });
 
   if (!parsed.success) {
-    redirect("/signup?error=invalid-data");
+    const passwordError = parsed.error.flatten().fieldErrors.password?.[0];
+    if (passwordError) {
+      return { error: passwordError, field: "password" };
+    }
+    return {
+      error: "Los datos proporcionados no son válidos. Completa todos los campos correctamente.",
+      field: "general",
+    };
   }
 
   // 2. Verificaciones en paralelo (más rápido)
@@ -310,10 +321,16 @@ export async function signup(formData: FormData) {
   ]);
 
   if (professionalResult.data) {
-    redirect("/signup?error=professional-request-pending");
+    return {
+      error: "Este correo tiene una solicitud de profesional en proceso. No puedes registrarte como paciente mientras se evalúa.",
+      field: "general",
+    };
   }
   if (usersResult.data) {
-    redirect("/signup?error=user-exists");
+    return {
+      error: "Este correo electrónico ya está registrado. Si ya tienes cuenta, inicia sesión o recupera tu contraseña.",
+      field: "general",
+    };
   }
 
   // 3. Registrar el usuario en Supabase Auth
@@ -546,7 +563,7 @@ export async function signup(formData: FormData) {
                     }
                     redirect("/confirmation?email-sent=true&registered=true");
                   }
-                  return;
+                  return null;
                 }
                 
                 // Si no existe, crear el usuario usando la API de Admin
@@ -636,12 +653,11 @@ export async function signup(formData: FormData) {
                         }
                       }
                       redirect(finalCheckUser.email_confirmed_at ? "/login?registered=true" : "/confirmation?email-sent=true&registered=true");
-                      return;
+                      return null;
                     }
                   }
                   console.error("❌ Error al crear usuario:", adminCreateError);
-                  redirect("/signup?error=email-service-error");
-                  return;
+                  return { error: "Error al enviar el correo de confirmación. Intenta nuevamente.", field: "general" as const };
                 }
 
                 // Generar enlace de confirmación y enviarlo manualmente
@@ -771,8 +787,7 @@ export async function signup(formData: FormData) {
                     throw createErr; // Re-lanzar el redirect
                   }
                   console.error("❌ Error al crear usuario en tabla users:", createErr);
-                  redirect("/signup?error=signup-failed");
-                  return; // No continuar después del redirect
+                  return { error: "No se pudo crear tu cuenta. Intenta nuevamente.", field: "general" as const };
                 }
 
                   if (confirmationLink) {
@@ -787,12 +802,12 @@ export async function signup(formData: FormData) {
                   throw adminErr; // Re-lanzar el redirect
                 }
                 console.error("❌ Error al crear usuario con API de Admin:", adminErr);
-                redirect("/signup?error=email-service-error");
+                return { error: "Error al enviar el correo de confirmación. Intenta nuevamente.", field: "general" as const };
               }
             }
           } else {
             console.error("❌ Error al listar usuarios:", listError);
-            redirect("/signup?error=signup-failed");
+            return { error: "No se pudo crear tu cuenta. Intenta nuevamente.", field: "general" as const };
           }
         } catch (checkErr: unknown) {
           // Verificar si es un redirect de Next.js (no es un error real)
@@ -800,13 +815,13 @@ export async function signup(formData: FormData) {
             throw checkErr; // Re-lanzar el redirect
           }
           console.error("❌ Error al verificar usuario:", checkErr);
-          redirect("/signup?error=signup-failed");
+          return { error: "No se pudo crear tu cuenta. Intenta nuevamente.", field: "general" as const };
         }
       }
       
       // Si llegamos aquí, el fallback de correo se manejó correctamente
       // No necesitamos hacer nada más, el flujo continúa normalmente
-      return; // Salir temprano para evitar procesar otros errores
+      return null; // Salir temprano para evitar procesar otros errores
     }
     
     // Si NO es un error de correo, manejar otros errores específicos
@@ -820,20 +835,17 @@ export async function signup(formData: FormData) {
         // El usuario fue creado (ej. doble clic). El correo ya se envió. Redirigir a confirmación.
         revalidatePath("/", "layout");
         redirect("/confirmation?email-sent=true&registered=true");
-        return;
+        return null;
       }
-      redirect("/signup?error=user-exists");
-      return;
+      return { error: "Este correo electrónico ya está registrado.", field: "general" as const };
     }
     
     if (signUpError.message.includes("Invalid email")) {
-      redirect("/signup?error=invalid-email");
-      return;
+      return { error: "El correo electrónico proporcionado no es válido.", field: "general" as const };
     }
     
     if (signUpError.message.includes("Password should be at least")) {
-      redirect("/signup?error=weak-password");
-      return;
+      return { error: "La contraseña no cumple los requisitos mínimos.", field: "password" as const };
     }
     
     // Si llegamos aquí, es un error real no esperado
@@ -844,14 +856,14 @@ export async function signup(formData: FormData) {
       code: signUpError.code,
     });
     
-    redirect("/signup?error=signup-failed");
+    return { error: "No se pudo crear tu cuenta. Intenta nuevamente.", field: "general" as const };
   }
 
   // 4. Verificar que el registro fue exitoso
   if (signUpData?.user) {
   } else {
     console.error("❌ Error: signUpData.user es nulo después de un registro exitoso sin error.");
-    redirect("/signup?error=unexpected-error");
+    return { error: "Error inesperado al crear la cuenta. Intenta nuevamente.", field: "general" as const };
   }
   
   revalidatePath("/", "layout");
