@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -16,7 +17,107 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { signup } from "@/lib/auth-actions";
 import { SignUpFormWrapper } from "./SignUpFormWrapper";
-import { AlertCircle, XCircle, Eye, EyeOff } from "lucide-react";
+import { AlertCircle, XCircle, Eye, EyeOff, Loader2 } from "lucide-react";
+
+function SignUpSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Registrando...
+        </>
+      ) : (
+        "Crear una cuenta"
+      )}
+    </Button>
+  );
+}
+
+function SignUpFormFields({
+  showPassword,
+  setShowPassword,
+}: {
+  showPassword: boolean;
+  setShowPassword: (v: boolean) => void;
+}) {
+  const { pending } = useFormStatus();
+  return (
+    <>
+      {pending && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/90 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3 px-6">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="text-center text-sm font-medium text-foreground">
+              Creando tu cuenta...
+            </p>
+            <p className="text-center text-xs text-muted-foreground">
+              Revisa tu correo electrónico y haz clic en el enlace para confirmar tu cuenta.
+            </p>
+          </div>
+        </div>
+      )}
+      <div className="grid gap-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="first-name">Nombre</Label>
+            <Input
+              name="first-name"
+              id="first-name"
+              placeholder="Javier"
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="last-name">Apellido</Label>
+            <Input
+              name="last-name"
+              id="last-name"
+              placeholder="Núñez"
+              required
+            />
+          </div>
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="email">Correo electrónico</Label>
+          <Input
+            name="email"
+            id="email"
+            type="email"
+            placeholder="m@ejemplo.com"
+            required
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="password">Contraseña</Label>
+          <div className="relative">
+            <Input
+              name="password"
+              id="password"
+              type={showPassword ? "text" : "password"}
+              required
+              className="pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+        <SignUpSubmitButton />
+      </div>
+    </>
+  );
+}
 
 function SignUpFormContent() {
   const searchParams = useSearchParams();
@@ -124,66 +225,8 @@ function SignUpFormContent() {
           </Alert>
         )}
 
-        <form action={signup}>
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="first-name">Nombre</Label>
-                <Input
-                  name="first-name"
-                  id="first-name"
-                  placeholder="Javier"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="last-name">Apellido</Label>
-                <Input
-                  name="last-name"
-                  id="last-name"
-                  placeholder="Núñez"
-                  required
-                />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Correo electrónico</Label>
-              <Input
-                name="email"
-                id="email"
-                type="email"
-                placeholder="m@ejemplo.com"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">Contraseña</Label>
-              <div className="relative">
-                <Input
-                  name="password"
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  required
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
-                >
-                  {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" className="w-full">
-              Crear una cuenta
-            </Button>
-          </div>
+        <form action={signup} className="relative">
+          <SignUpFormFields showPassword={showPassword} setShowPassword={setShowPassword} />
         </form>
 
         <SignUpFormWrapper />

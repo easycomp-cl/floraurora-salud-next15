@@ -303,31 +303,17 @@ export async function signup(formData: FormData) {
     redirect("/signup?error=invalid-data");
   }
 
-  // 2. Verificar si el email tiene una solicitud de profesional en proceso (pending/resubmitted)
-  const { data: pendingProfessionalRequest } = await admin
-    .from("professional_requests")
-    .select("id")
-    .eq("email", email)
-    .in("status", ["pending", "resubmitted"])
-    .maybeSingle();
+  // 2. Verificaciones en paralelo (más rápido)
+  const [professionalResult, usersResult] = await Promise.all([
+    admin.from("professional_requests").select("id").eq("email", email).in("status", ["pending", "resubmitted"]).maybeSingle(),
+    admin.from("users").select("id").eq("email", email).maybeSingle(),
+  ]);
 
-  if (pendingProfessionalRequest) {
+  if (professionalResult.data) {
     redirect("/signup?error=professional-request-pending");
   }
-
-  // 3. Verificar si el usuario ya existe en Supabase Auth
-  const { data: existingUsers, error: listUsersError } = await admin.auth.admin.listUsers();
-
-  if (listUsersError) {
-    console.error("Error al listar usuarios para verificar existencia:", listUsersError);
-    redirect("/signup?error=auth-service-error");
-  }
-
-  if (existingUsers?.users) {
-    const userExists = existingUsers.users.some((user) => user.email?.toLowerCase() === email);
-    if (userExists) {
-      redirect("/signup?error=user-exists");
-    }
+  if (usersResult.data) {
+    redirect("/signup?error=user-exists");
   }
 
   // 3. Registrar el usuario en Supabase Auth
@@ -824,8 +810,18 @@ export async function signup(formData: FormData) {
     }
     
     // Si NO es un error de correo, manejar otros errores específicos
-    if (signUpError.message.includes("User already registered")) {
-      console.log("🔍 Usuario ya registrado, redirigiendo...");
+    // "User already registered" / "already exists" puede ocurrir en doble envío: el usuario fue creado y el correo enviado
+    const isAlreadyRegisteredError = 
+      signUpError.message.includes("User already registered") ||
+      signUpError.message.toLowerCase().includes("already registered") ||
+      signUpError.message.toLowerCase().includes("already exists");
+    if (isAlreadyRegisteredError) {
+      if (signUpData?.user) {
+        // El usuario fue creado (ej. doble clic). El correo ya se envió. Redirigir a confirmación.
+        revalidatePath("/", "layout");
+        redirect("/confirmation?email-sent=true&registered=true");
+        return;
+      }
       redirect("/signup?error=user-exists");
       return;
     }
