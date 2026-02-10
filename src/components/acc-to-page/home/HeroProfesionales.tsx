@@ -156,7 +156,8 @@ export default function HeroProfesionales() {
       try {
         setIsLoading(true);
 
-        // Obtener profesionales con plan mensual activo
+        // Obtener profesionales con plan mensual activo (excluye sin plan asignado)
+        const now = new Date().toISOString();
         const { data, error } = await supabaseTyped
           .from("professionals")
           .select(
@@ -186,8 +187,9 @@ export default function HeroProfesionales() {
           `
           )
           .eq("is_active", true)
+          .eq("plan_type", "monthly")
+          .gt("monthly_plan_expires_at", now)
           .eq("users.is_active", true)
-          .or("plan_type.is.null,plan_type.eq.monthly")
           .order("id", { ascending: true });
 
         if (error) {
@@ -201,19 +203,12 @@ export default function HeroProfesionales() {
           return;
         }
 
-        // Filtrar solo los que tienen plan mensual activo (monthly_plan_expires_at > ahora) o plan_type null (prueba)
-        const now = new Date().toISOString();
+        // Filtro adicional: solo profesionales con plan mensual activo (plan_type=monthly y monthly_plan_expires_at > ahora)
+        const nowDate = new Date();
         const activeProfessionals = data.filter((prof: ProfessionalFromDB) => {
-          // Si plan_type es null, es de prueba (incluirlo)
-          if (!prof.plan_type || prof.plan_type === null) return true;
-          // Si plan_type es monthly, verificar que monthly_plan_expires_at esté en el futuro
-          if (prof.plan_type === "monthly") {
-            if (!prof.monthly_plan_expires_at) return false;
-            const expiresAt = new Date(prof.monthly_plan_expires_at);
-            const nowDate = new Date(now);
-            return expiresAt > nowDate;
-          }
-          return false;
+          if (prof.plan_type !== "monthly") return false;
+          if (!prof.monthly_plan_expires_at) return false;
+          return new Date(prof.monthly_plan_expires_at) > nowDate;
         });
 
         // Obtener especialidades y datos académicos para cada profesional

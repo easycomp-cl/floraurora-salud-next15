@@ -12,6 +12,7 @@ import {
   ProfessionalRequestReceivedEmail,
 } from "@/components/email_templates";
 import { createElement } from 'react';
+import { getSiteUrl } from '@/lib/utils/url';
 
 // Configurar la API key de SendGrid
 if (process.env.SENDGRID_API_KEY) {
@@ -379,7 +380,7 @@ interface ProfessionalRequestRejectedEmailParams {
 export async function sendProfessionalRequestRejectedEmail(
   data: ProfessionalRequestRejectedEmailParams
 ) {
-  const resubmitUrl = `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/signup-pro`;
+  const resubmitUrl = `${getSiteUrl()}/signup-pro`;
   
   const html = await render(
     createElement(ProfessionalRequestRejectedEmail, {
@@ -463,7 +464,7 @@ export async function sendPatientRegistrationNotification(
     createElement(NotificationEmail, {
       subject,
       message,
-      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/users`,
+      actionUrl: `${getSiteUrl()}/admin/users`,
       actionText: 'Ver usuarios',
     })
   );
@@ -491,30 +492,38 @@ export async function sendProfessionalRegistrationNotification(
   data: ProfessionalRegistrationNotificationParams
 ) {
   const subject = "Nueva solicitud de registro profesional - FlorAurora Salud";
-  
-  const message = `
-    Se ha recibido una nueva solicitud de registro profesional:
-    
-    Nombre: ${data.professionalName}
-    Email: ${data.professionalEmail}
-    ${data.professionalPhone ? `Teléfono: ${data.professionalPhone}` : ''}
-    ${data.rut ? `RUT: ${data.rut}` : ''}
-    
-    Fecha de solicitud: ${new Date().toLocaleString('es-CL', { 
-      timeZone: 'America/Santiago',
-      dateStyle: 'long',
-      timeStyle: 'short'
-    })}
-    
-    Por favor, revisa la solicitud en el panel de administración.
-  `;
+
+  const lines: string[] = [
+    "Se ha recibido una nueva solicitud de registro profesional.",
+    "",
+    "Datos del profesional:",
+    `• Nombre: ${data.professionalName}`,
+    `• Email: ${data.professionalEmail}`,
+  ];
+  if (data.professionalPhone) {
+    lines.push(`• Teléfono: ${data.professionalPhone}`);
+  }
+  if (data.rut) {
+    lines.push(`• RUT: ${data.rut}`);
+  }
+  lines.push(
+    "",
+    `Fecha de solicitud: ${new Date().toLocaleString("es-CL", {
+      timeZone: "America/Santiago",
+      dateStyle: "long",
+      timeStyle: "short",
+    })}`,
+    "",
+    "Por favor, revisa la solicitud en el panel de administración."
+  );
+  const message = lines.join("\n");
 
   const html = await render(
     createElement(NotificationEmail, {
       subject,
       message,
-      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/professionals`,
-      actionText: 'Revisar solicitudes',
+      actionUrl: `${getSiteUrl()}/admin/professionals`,
+      actionText: "Revisar solicitudes",
     })
   );
 
@@ -576,7 +585,7 @@ Gracias por ser parte de nuestra plataforma.
     createElement(NotificationEmail, {
       subject: professionalSubject,
       message: professionalMessage,
-      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard/my-plan`,
+      actionUrl: `${getSiteUrl()}/dashboard/my-plan`,
       actionText: 'Ver mi plan',
     })
   );
@@ -597,7 +606,7 @@ ${expirationDateStr ? `Plan vigente hasta: ${expirationDateStr}` : ''}
     createElement(NotificationEmail, {
       subject: contactSubject,
       message: contactMessage,
-      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/users`,
+      actionUrl: `${getSiteUrl()}/admin/users`,
       actionText: 'Ver administración',
     })
   );

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { supabaseTyped } from "@/utils/supabase/client";
 import {
   Card,
   CardContent,
@@ -42,22 +44,81 @@ export default function PersonalDataStep({
   pendingRequestMessage = { show: false },
   onDismissMessage,
 }: PersonalDataStepProps) {
+  // Solo bloquear el botón cuando hay solicitud pendiente en revisión.
+  // Para "Usuario Ya Registrado" permitir retentar tras cambiar email o RUT.
+  const blockContinue =
+    pendingRequestMessage.show && pendingRequestMessage.type === "pending_request";
+  const [regions, setRegions] = useState<{ id: number; name: string }[]>([]);
+  const [municipalities, setMunicipalities] = useState<{ id: number; name: string; region_id: number }[]>([]);
+  const [isLoadingRegions, setIsLoadingRegions] = useState(true);
+  const [isLoadingMunicipalities, setIsLoadingMunicipalities] = useState(false);
+
+  useEffect(() => {
+    const fetchRegions = async () => {
+      try {
+        const { data, error } = await supabaseTyped
+          .from("regions")
+          .select("id, name")
+          .order("name");
+        if (!error) setRegions((data || []) as { id: number; name: string }[]);
+      } catch {
+        setRegions([]);
+      } finally {
+        setIsLoadingRegions(false);
+      }
+    };
+    fetchRegions();
+  }, []);
+
+  useEffect(() => {
+    if (!data.region || data.region <= 0) {
+      setMunicipalities([]);
+      return;
+    }
+    const fetchMunicipalities = async () => {
+      setIsLoadingMunicipalities(true);
+      try {
+        const { data: muniData, error } = await supabaseTyped
+          .from("municipalities")
+          .select("id, name, region_id")
+          .eq("region_id", data.region)
+          .order("name");
+        if (!error) setMunicipalities((muniData || []) as { id: number; name: string; region_id: number }[]);
+        else setMunicipalities([]);
+      } catch {
+        setMunicipalities([]);
+      } finally {
+        setIsLoadingMunicipalities(false);
+      }
+    };
+    fetchMunicipalities();
+  }, [data.region]);
+
   const handleInputChange = (
     field: keyof PersonalDataFormData,
-    value: string
+    value: string | number
   ) => {
-    let formattedValue = value;
+    if (field === "region" || field === "municipality") {
+      const numValue = typeof value === "string" ? parseInt(value, 10) : value;
+      const update: Partial<PersonalDataFormData> = { ...data, [field]: numValue || 0 };
+      if (field === "region") {
+        (update as Partial<PersonalDataFormData>).municipality = 0;
+      }
+      onChange(update as PersonalDataFormData);
+      return;
+    }
+
+    let formattedValue = value as string;
 
     if (field === "rut" || field === "email") {
       if (field === "rut") {
-        formattedValue = formatRUT(value);
+        formattedValue = formatRUT(value as string);
       }
-      // Limpiar mensaje de solicitud pendiente si el usuario cambia RUT o email
       if (onDismissMessage && pendingRequestMessage.show) {
         onDismissMessage();
       }
     } else if (field === "phone_number") {
-      formattedValue = formatPhone(value);
+      formattedValue = formatPhone(value as string);
     }
 
     onChange({
@@ -190,6 +251,58 @@ export default function PersonalDataStep({
               {errors.phone_number && (
                 <p className="text-sm text-red-600">{errors.phone_number}</p>
               )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="region">Región *</Label>
+                <select
+                  id="region"
+                  value={data.region && data.region > 0 ? data.region : ""}
+                  onChange={(e) => handleInputChange("region", e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">Selecciona una región</option>
+                  {isLoadingRegions ? (
+                    <option disabled>Cargando regiones...</option>
+                  ) : (
+                    regions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))
+                  )}
+                </select>
+                {errors.region && (
+                  <p className="text-sm text-red-600">{errors.region}</p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="municipality">Comuna *</Label>
+                <select
+                  id="municipality"
+                  value={data.municipality && data.municipality > 0 ? data.municipality : ""}
+                  onChange={(e) => handleInputChange("municipality", e.target.value)}
+                  disabled={!data.region || data.region <= 0}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <option value="">
+                    {!data.region || data.region <= 0
+                      ? "Primero selecciona una región"
+                      : isLoadingMunicipalities
+                        ? "Cargando comunas..."
+                        : "Selecciona una comuna"}
+                  </option>
+                  {municipalities.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.municipality && (
+                  <p className="text-sm text-red-600">{errors.municipality}</p>
+                )}
+              </div>
             </div>
 
             {/* Mensaje de solicitud pendiente o usuario existente */}
@@ -348,75 +461,45 @@ export default function PersonalDataStep({
               // Mensaje para usuario existente por RUT
               if (pendingRequestMessage.type === "existing_user_rut") {
                 return (
-                  <div className="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-lg p-6 shadow-lg">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                          <AlertCircle className="w-6 h-6 text-red-600" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-red-900 mb-2">
-                          Usuario Ya Registrado
-                        </h3>
-                        <p className="text-red-800 mb-4">
-                          Ya existe un usuario registrado con este RUT en nuestra plataforma.
-                        </p>
-                        <div className="bg-white/60 rounded-lg p-4 space-y-2 mb-4">
-                          {pendingRequestMessage.email && (
-                            <div className="flex items-center gap-2 text-sm text-red-900">
-                              <Mail className="w-4 h-4" />
-                              <span>
-                                <strong>Email asociado:</strong> {maskEmail(pendingRequestMessage.email)}
-                              </span>
-                            </div>
-                          )}
-                          {pendingRequestMessage.userRut && (
-                            <div className="flex items-center gap-2 text-sm text-red-900">
-                              <span>
-                                <strong>RUT:</strong> {maskRut(pendingRequestMessage.userRut)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="bg-red-100 border border-red-300 rounded-lg p-3">
-                          <p className="text-sm text-red-900 font-medium">
-                            💡 Si ya tienes una cuenta, puedes iniciar sesión. Si olvidaste tu contraseña, puedes recuperarla.
-                          </p>
-                        </div>
+                  <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-900">Usuario Ya Registrado</p>
+                      <p className="text-sm text-red-800 mt-1">
+                        Ya existe un usuario con este RUT. Si ya tienes cuenta, inicia sesión. Para registrarte con otro correo o RUT, modifica los datos y haz clic en Continuar.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-3">
                         {onDismissMessage && (
-                          <div className="mt-4 flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={onDismissMessage}
-                              className="flex-1 border-red-300 text-red-700 hover:bg-red-100"
-                            >
-                              Entendido
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => window.location.href = "/login"}
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              Iniciar Sesión
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onDismissMessage}
+                            className="border-red-300 text-red-700 hover:bg-red-100 h-8 text-xs"
+                          >
+                            Entendido
+                          </Button>
                         )}
-                      </div>
-                      {onDismissMessage && (
-                        <button
+                        <Button
                           type="button"
-                          onClick={onDismissMessage}
-                          className="flex-shrink-0 text-red-600 hover:text-red-800 transition-colors"
-                          aria-label="Cerrar mensaje"
+                          size="sm"
+                          onClick={() => window.location.href = "/login"}
+                          className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
                         >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
+                          Iniciar Sesión
+                        </Button>
+                      </div>
                     </div>
+                    {onDismissMessage && (
+                      <button
+                        type="button"
+                        onClick={onDismissMessage}
+                        className="flex-shrink-0 text-red-600 hover:text-red-800"
+                        aria-label="Cerrar mensaje"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 );
               }
@@ -424,75 +507,45 @@ export default function PersonalDataStep({
               // Mensaje para usuario existente por email
               if (pendingRequestMessage.type === "existing_user_email") {
                 return (
-                  <div className="bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-lg p-6 shadow-lg">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                          <AlertCircle className="w-6 h-6 text-red-600" />
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-red-900 mb-2">
-                          Usuario Ya Registrado
-                        </h3>
-                        <p className="text-red-800 mb-4">
-                          Ya existe un usuario registrado con este correo electrónico en nuestra plataforma.
-                        </p>
-                        <div className="bg-white/60 rounded-lg p-4 space-y-2 mb-4">
-                          {pendingRequestMessage.email && (
-                            <div className="flex items-center gap-2 text-sm text-red-900">
-                              <Mail className="w-4 h-4" />
-                              <span>
-                                <strong>Email:</strong> {maskEmail(pendingRequestMessage.email)}
-                              </span>
-                            </div>
-                          )}
-                          {pendingRequestMessage.userRut && (
-                            <div className="flex items-center gap-2 text-sm text-red-900">
-                              <span>
-                                <strong>RUT asociado:</strong> {maskRut(pendingRequestMessage.userRut)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                        <div className="bg-red-100 border border-red-300 rounded-lg p-3">
-                          <p className="text-sm text-red-900 font-medium">
-                            💡 Si ya tienes una cuenta, puedes iniciar sesión. Si olvidaste tu contraseña, puedes recuperarla.
-                          </p>
-                        </div>
+                  <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-red-900">Usuario Ya Registrado</p>
+                      <p className="text-sm text-red-800 mt-1">
+                        Ya existe un usuario con este correo. Si ya tienes cuenta, inicia sesión. Para registrarte con otro correo o RUT, modifica los datos y haz clic en Continuar.
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-3">
                         {onDismissMessage && (
-                          <div className="mt-4 flex gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={onDismissMessage}
-                              className="flex-1 border-red-300 text-red-700 hover:bg-red-100"
-                            >
-                              Entendido
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => window.location.href = "/login"}
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
-                            >
-                              Iniciar Sesión
-                            </Button>
-                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={onDismissMessage}
+                            className="border-red-300 text-red-700 hover:bg-red-100 h-8 text-xs"
+                          >
+                            Entendido
+                          </Button>
                         )}
-                      </div>
-                      {onDismissMessage && (
-                        <button
+                        <Button
                           type="button"
-                          onClick={onDismissMessage}
-                          className="flex-shrink-0 text-red-600 hover:text-red-800 transition-colors"
-                          aria-label="Cerrar mensaje"
+                          size="sm"
+                          onClick={() => window.location.href = "/login"}
+                          className="bg-red-600 hover:bg-red-700 text-white h-8 text-xs"
                         >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
+                          Iniciar Sesión
+                        </Button>
+                      </div>
                     </div>
+                    {onDismissMessage && (
+                      <button
+                        type="button"
+                        onClick={onDismissMessage}
+                        className="flex-shrink-0 text-red-600 hover:text-red-800"
+                        aria-label="Cerrar mensaje"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 );
               }
@@ -503,7 +556,7 @@ export default function PersonalDataStep({
             <Button 
               type="submit" 
               className="w-full"
-              disabled={isCheckingRequest || pendingRequestMessage.show}
+              disabled={isCheckingRequest || blockContinue}
             >
               {isCheckingRequest ? (
                 <>

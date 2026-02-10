@@ -44,6 +44,7 @@ interface ProfessionalSpecialtyQuery {
     created_at: string;
     minimum_amount: number | null;
     maximum_amount: number | null;
+    is_active?: boolean | null;
   } | null;
 }
 
@@ -143,12 +144,13 @@ export const profileService = {
     return data || [];
   },
 
-  // Obtener especialidades disponibles por título
+  // Obtener especialidades disponibles por título (solo las activas)
   async getSpecialtiesByTitle(titleId: number): Promise<ProfessionalSpecialty[]> {
     const { data, error } = await supabaseTyped
       .from('specialties')
       .select('*')
       .eq('title_id', titleId)
+      .eq('is_active', true)
       .order('name');
     
     if (error) {
@@ -175,7 +177,7 @@ export const profileService = {
     return data || [];
   },
 
-  // Obtener especialidades de un profesional por su id
+  // Obtener especialidades de un profesional por su id (solo las activas)
   async getProfessionalSpecialties(professionalId: number): Promise<ProfessionalSpecialty[]> {
     const { data, error } = await supabaseTyped
       .from('professional_specialties')
@@ -188,7 +190,8 @@ export const profileService = {
           title_id,
           created_at,
           minimum_amount,
-          maximum_amount
+          maximum_amount,
+          is_active
         )
       `)
       .eq('professional_id', professionalId);
@@ -202,21 +205,22 @@ export const profileService = {
       return [];
     }
     
-    // Mapear los datos para que coincidan con la interfaz ProfessionalSpecialty
+    // Mapear y filtrar solo especialidades activas (is_active = true; null se considera activa)
     const specialties = (data as unknown as ProfessionalSpecialtyQuery[])?.map((item) => {
-      const { specialties: specialtyData, professional_amount } = item; // specialties es un objeto individual, no un array
+      const { specialties: specialtyData, professional_amount } = item;
       
-      // Validar que el objeto de especialidad exista
       if (!specialtyData || typeof specialtyData !== 'object') {
         console.warn('No specialty found for item:', item);
         return null;
       }
       
-      // Validar que tenga al menos la propiedad id
       if (specialtyData.id === undefined || specialtyData.id === null) {
         console.warn('Specialty data missing required id property:', specialtyData);
         return null;
       }
+      
+      // Excluir especialidades inactivas
+      if (specialtyData.is_active === false) return null;
       
       const specialty: ProfessionalSpecialty = {
         id: specialtyData.id,
@@ -225,7 +229,6 @@ export const profileService = {
         created_at: specialtyData.created_at || new Date().toISOString(),
       };
       
-      // Agregar campos opcionales solo si existen
       if (professional_amount !== null && professional_amount !== undefined) {
         specialty.professional_amount = Number(professional_amount);
       }

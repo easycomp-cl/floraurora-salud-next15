@@ -878,7 +878,7 @@ export default function ProfessionalsManagement() {
                       Resumen de servicios activos:
                     </p>
                     <ul className="mt-2 space-y-1">
-                      {services.map((service) => {
+                      {activeServices.map((service) => {
                         const formatPrice = () => {
                           if (
                             service.minimum_amount !== null &&

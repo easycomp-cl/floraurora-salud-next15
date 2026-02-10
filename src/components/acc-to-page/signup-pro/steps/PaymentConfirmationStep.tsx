@@ -74,19 +74,8 @@ export default function PaymentConfirmationStep({
 
   // Enviar formulario automáticamente al montar el componente
   useEffect(() => {
-    // Prevenir ejecución múltiple usando sessionStorage
-    const storageKey = `signup-pro-submitted-${stepData.personalData.email}`;
-    const submissionStatus = sessionStorage.getItem(storageKey);
-    
-    if (hasSubmittedRef.current || submissionStatus) {
-      // Si ya se envió, redirigir según el estado guardado
-      if (submissionStatus === "success") {
-        router.push("/signup-pro/success");
-      } else if (submissionStatus === "existing") {
-        router.push("/signup-pro/success?existing=true");
-      }
-      return;
-    }
+    // Solo prevenir doble ejecución en el mismo montaje (React Strict Mode)
+    if (hasSubmittedRef.current) return;
 
     const submitForm = async () => {
       // Marcar como enviado inmediatamente para prevenir doble ejecución
@@ -148,6 +137,17 @@ export default function PaymentConfirmationStep({
         formData.append("birth_date", stepData.personalData.birth_date);
         formData.append("email", stepData.personalData.email);
         formData.append("phone_number", stepData.personalData.phone_number);
+        if (stepData.personalData.region && stepData.personalData.region > 0) {
+          formData.append("region_id", String(stepData.personalData.region));
+        }
+        if (stepData.personalData.municipality && stepData.personalData.municipality > 0) {
+          formData.append("municipality_id", String(stepData.personalData.municipality));
+        }
+
+        // Plan de pago: light -> commission, monthly -> monthly
+        if (stepData.paymentPlan.plan_type) {
+          formData.append("plan_type", stepData.paymentPlan.plan_type === "light" ? "commission" : "monthly");
+        }
 
         // Datos académicos
         formData.append("university", stepData.academicData.university);
@@ -185,62 +185,48 @@ export default function PaymentConfirmationStep({
 
         if (checkData.exists && checkData.type === "pending_request") {
           // Ya existe una solicitud pendiente, redirigir directamente
-          console.log("Ya existe una solicitud pendiente, redirigiendo...");
-          sessionStorage.setItem(storageKey, "existing");
           router.push("/signup-pro/success?existing=true");
           return;
         }
 
-        // 4. Enviar formulario (solo datos y URLs, no archivos)
-        // Importar dinámicamente para evitar problemas con hot reload
-        const { signupPro: signupProAction } = await import("@/lib/auth-actions");
-        await signupProAction(formData);
+        // Validar que los documentos obligatorios se subieron correctamente
+        if (!degree_copy_url || !id_copy_url || !professional_certificate_url) {
+          const failedDocs: string[] = [];
+          if (!degree_copy_url) failedDocs.push("copia del título");
+          if (!id_copy_url) failedDocs.push("cédula de identidad");
+          if (!professional_certificate_url) failedDocs.push("currículum");
+          throw new Error(`No se pudieron subir los archivos: ${failedDocs.join(", ")}. Por favor, vuelve al paso de documentos e intenta de nuevo.`);
+        }
 
-        // Si llegamos aquí, fue exitoso (signupPro redirige)
-        // NOTA: Normalmente signupPro hace redirect() que lanza una excepción especial
-        // Si llegamos aquí es porque no hubo redirect, así que fue exitoso
-        sessionStorage.setItem(storageKey, "success");
-        setConfirmationStatus("success");
+        // 4. Enviar formulario vía API (más confiable que Server Action)
+        const response = await fetch("/api/auth/signup-pro", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (data.success && data.redirectUrl) {
+          router.push(data.redirectUrl);
+          return;
+        }
+
+        // Si hay redirectUrl para errores (ej. user-exists), redirigir
+        if (data.redirectUrl && !response.ok) {
+          router.push(data.redirectUrl);
+          return;
+        }
+
+        // Error de la API
+        throw new Error(data.error || "Error al enviar la solicitud");
       } catch (error: unknown) {
-        // Verificar si es un redirect de Next.js (no es un error real)
-        // Next.js redirect() lanza un error especial con digest "NEXT_REDIRECT"
-        const errorWithDigest = error as { digest?: string };
-        const isRedirect = 
-          errorWithDigest?.digest === "NEXT_REDIRECT" ||
-          errorWithDigest?.digest?.includes("NEXT_REDIRECT") ||
-          (error instanceof Error && error.message.includes("NEXT_REDIRECT"));
-        
-        if (isRedirect) {
-          // Es un redirect exitoso, no mostrar error
-          // El redirect se procesará automáticamente por Next.js
-          sessionStorage.setItem(storageKey, "success");
-          setConfirmationStatus("success");
-          return;
-        }
-
-        // Si es un error de "ya existe solicitud", redirigir en lugar de mostrar error
-        if (error instanceof Error && error.message.includes("solicitud pendiente")) {
-          sessionStorage.setItem(storageKey, "existing");
-          router.push("/signup-pro/success?existing=true");
-          return;
-        }
-
-        // Es un error real
         console.error("Error al enviar formulario:", error);
         setConfirmationStatus("failed");
-        
-        // Manejar específicamente el error de Server Action no encontrada
-        if (error instanceof Error && error.message.includes("Server Action")) {
-          setErrorMessage(
-            "Error de conexión con el servidor. Por favor, recarga la página e intenta nuevamente."
-          );
-        } else {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : "Error al enviar la solicitud. Por favor intenta nuevamente."
-          );
-        }
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Error al enviar la solicitud. Por favor intenta nuevamente."
+        );
       }
     };
 
@@ -306,6 +292,15 @@ export default function PaymentConfirmationStep({
       formData.append("birth_date", stepData.personalData.birth_date);
       formData.append("email", stepData.personalData.email);
       formData.append("phone_number", stepData.personalData.phone_number);
+      if (stepData.personalData.region && stepData.personalData.region > 0) {
+        formData.append("region_id", String(stepData.personalData.region));
+      }
+      if (stepData.personalData.municipality && stepData.personalData.municipality > 0) {
+        formData.append("municipality_id", String(stepData.personalData.municipality));
+      }
+      if (stepData.paymentPlan.plan_type) {
+        formData.append("plan_type", stepData.paymentPlan.plan_type === "light" ? "commission" : "monthly");
+      }
 
       // Datos académicos
       formData.append("university", stepData.academicData.university);
@@ -328,46 +323,50 @@ export default function PaymentConfirmationStep({
       if (additional_certificates_urls.length > 0) {
         formData.append("additional_certificates_urls", JSON.stringify(additional_certificates_urls));
       }
-      formData.append("temp_user_id", tempUserId); // Para reorganizar archivos después
+      formData.append("temp_user_id", tempUserId);
 
-      // 3. Enviar formulario (solo datos y URLs, no archivos)
-      // Importar dinámicamente para evitar problemas con hot reload
-      const { signupPro: signupProAction } = await import("@/lib/auth-actions");
-      await signupProAction(formData);
-
-      setConfirmationStatus("success");
-    } catch (error: unknown) {
-      // Verificar si es un redirect de Next.js (no es un error real)
-      // Next.js redirect() lanza un error especial con digest "NEXT_REDIRECT"
-      const errorWithDigest = error as { digest?: string };
-      const isRedirect = 
-        errorWithDigest?.digest === "NEXT_REDIRECT" ||
-        errorWithDigest?.digest?.includes("NEXT_REDIRECT") ||
-        (error instanceof Error && error.message.includes("NEXT_REDIRECT"));
-      
-      if (isRedirect) {
-        // Es un redirect exitoso, no mostrar error
-        // El redirect se procesará automáticamente por Next.js
-        setConfirmationStatus("success");
+      // Verificar solicitud existente
+      const checkUrl = new URL("/api/check-professional-request", window.location.origin);
+      checkUrl.searchParams.append("email", stepData.personalData.email);
+      if (stepData.personalData.rut) {
+        checkUrl.searchParams.append("rut", stepData.personalData.rut);
+      }
+      const checkResponse = await fetch(checkUrl.toString());
+      const checkData = await checkResponse.json();
+      if (checkData.exists && checkData.type === "pending_request") {
+        router.push("/signup-pro/success?existing=true");
         return;
       }
 
-      // Es un error real
+      // Validar documentos
+      if (!degree_copy_url || !id_copy_url || !professional_certificate_url) {
+        throw new Error("No se pudieron subir los archivos. Por favor, vuelve al paso de documentos e intenta de nuevo.");
+      }
+
+      // Enviar vía API
+      const response = await fetch("/api/auth/signup-pro", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+
+      if (data.success && data.redirectUrl) {
+        router.push(data.redirectUrl);
+        return;
+      }
+      if (data.redirectUrl && !response.ok) {
+        router.push(data.redirectUrl);
+        return;
+      }
+      throw new Error(data.error || "Error al enviar la solicitud");
+    } catch (error: unknown) {
       console.error("Error al reintentar envío:", error);
       setConfirmationStatus("failed");
-      
-      // Manejar específicamente el error de Server Action no encontrada
-      if (error instanceof Error && error.message.includes("Server Action")) {
-        setErrorMessage(
-          "Error de conexión con el servidor. Por favor, recarga la página e intenta nuevamente."
-        );
-      } else {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "Error al enviar la solicitud. Por favor intenta nuevamente."
-        );
-      }
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Error al enviar la solicitud. Por favor intenta nuevamente."
+      );
     }
   };
 

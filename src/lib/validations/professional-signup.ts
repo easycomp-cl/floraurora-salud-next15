@@ -87,6 +87,14 @@ export const personalDataSchema = z.object({
     .string()
     .min(1, "⚠️ Este campo es obligatorio")
     .refine(validatePhone, "⚠️ Ingresa un teléfono válido (ej: +56912345678 o 912345678)"),
+  region: z
+    .number()
+    .int("Debes seleccionar una región válida")
+    .positive("Debes seleccionar una región"),
+  municipality: z
+    .number()
+    .int("Debes seleccionar una comuna válida")
+    .positive("Debes seleccionar una comuna"),
 });
 
 // ETAPA 2: Datos Académicos

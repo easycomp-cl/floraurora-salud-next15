@@ -19,6 +19,9 @@ export interface ProfessionalRequest {
   id_copy_url: string | null;
   professional_certificate_url: string | null;
   additional_certificates_urls: string | null; // JSON array de URLs
+  region_id?: number | null;
+  municipality_id?: number | null;
+  plan_type?: "commission" | "monthly" | null;
   status: "pending" | "approved" | "rejected" | "resubmitted";
   rejection_reason: string | null;
   reviewed_by: number | null;
@@ -178,7 +181,7 @@ export const professionalRequestsService = {
       userId = signUpData.user.id;
 
       // Crear registro en public.users con role=3 (profesional) y estado activo
-      const { data: userRecord, error: userInsertError } = await admin.from("users").insert({
+      const userInsertPayload: Record<string, unknown> = {
         user_id: userId,
         email: request.email,
         name: first_name,
@@ -187,7 +190,11 @@ export const professionalRequestsService = {
         is_active: true, // Activo desde la aprobación
         phone_number: request.phone_number,
         rut: request.rut,
-      }).select("id").single();
+      };
+      if (request.region_id) userInsertPayload.region = request.region_id;
+      if (request.municipality_id) userInsertPayload.municipality = request.municipality_id;
+
+      const { data: userRecord, error: userInsertError } = await admin.from("users").insert(userInsertPayload).select("id").single();
 
       if (userInsertError || !userRecord) {
         console.error("Error al crear usuario en public.users:", userInsertError);
@@ -216,14 +223,16 @@ export const professionalRequestsService = {
       }
 
       // Crear registro en public.professionals con is_active=false
-      // El id debe ser el mismo que el id numérico de users
+      // Usar plan_type de la solicitud si está definido (commission o monthly)
+      const requestPlanType = request.plan_type ?? null;
+
       const { error: professionalInsertError } = await admin.from("professionals").insert({
         id: userNumericId, // Mismo id que users.id (no user_id que es UUID)
         title_id: titleId,
         profile_description: null,
         resume_url: null,
         is_active: false, // Inactivo hasta que se configure el plan y se realice el pago
-        plan_type: null,
+        plan_type: requestPlanType, // Usar el plan seleccionado en el registro
         last_monthly_payment_date: null,
         monthly_plan_expires_at: null,
       });
@@ -237,11 +246,13 @@ export const professionalRequestsService = {
         } else {
           console.log("Registro en professionals ya existe, actualizando...");
           // Si ya existe, actualizar con los nuevos valores
+          const requestPlanType = request.plan_type ?? null;
           const { error: updateError } = await admin
             .from("professionals")
             .update({
               title_id: titleId,
               is_active: false, // Asegurar que esté inactivo
+              plan_type: requestPlanType, // Usar el plan de la solicitud
             })
             .eq("id", userNumericId);
           
@@ -288,12 +299,16 @@ export const professionalRequestsService = {
         user_id: updatedRequest.user_id,
       });
     } else {
-      // Si el usuario ya existe, solo activarlo
+      // Si el usuario ya existe, activarlo y actualizar región/comuna si vienen en la solicitud
+      const userUpdatePayload: { is_active: boolean; region?: number; municipality?: number } = {
+        is_active: true,
+      };
+      if (request.region_id) userUpdatePayload.region = request.region_id;
+      if (request.municipality_id) userUpdatePayload.municipality = request.municipality_id;
+
       const { error: userUpdateError } = await supabase
         .from("users")
-        .update({
-          is_active: true,
-        })
+        .update(userUpdatePayload)
         .eq("user_id", userId);
 
       if (userUpdateError) {
@@ -334,14 +349,15 @@ export const professionalRequestsService = {
             }
           }
 
-          // Crear registro en professionals si no existe
+          // Crear registro en professionals si no existe (usar plan_type de la solicitud)
+          const requestPlanType = request.plan_type ?? null;
           const { error: professionalInsertError } = await supabase.from("professionals").insert({
             id: userNumericId,
             title_id: titleId,
             profile_description: null,
             resume_url: null,
             is_active: false, // Inactivo hasta que se configure el plan y se realice el pago
-            plan_type: null,
+            plan_type: requestPlanType,
             last_monthly_payment_date: null,
             monthly_plan_expires_at: null,
           });
@@ -356,10 +372,11 @@ export const professionalRequestsService = {
             });
           }
         } else {
-          // Si ya existe, asegurar que is_active sea false y actualizar title_id si es necesario
-          const updateData: { is_active: boolean; title_id?: number | null } = {
+          // Si ya existe, asegurar que is_active sea false y actualizar title_id y plan_type si es necesario
+          const updateData: { is_active: boolean; title_id?: number | null; plan_type?: "commission" | "monthly" | null } = {
             is_active: false, // Asegurar que esté inactivo hasta el pago
           };
+          if (request.plan_type) updateData.plan_type = request.plan_type;
 
           // Actualizar title_id si tenemos el profession en la solicitud
           if (request.profession) {

@@ -36,6 +36,8 @@ const initialStepData: StepData = {
     birth_date: "",
     email: "",
     phone_number: "",
+    region: 0,
+    municipality: 0,
   },
   academicData: {
     university: "",

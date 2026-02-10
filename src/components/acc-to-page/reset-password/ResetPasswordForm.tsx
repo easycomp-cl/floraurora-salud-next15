@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // Removed unused import: resetPassword
 import { createClient } from "@/utils/supabase/browser";
+import { Eye, EyeOff } from "lucide-react";
 
 type ResetState = {
   success: boolean;
@@ -33,6 +34,8 @@ export function ResetPasswordForm() {
 
   const [tokenValid, setTokenValid] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const router = useRouter();
   const processedRef = useRef(false);
 
@@ -335,28 +338,60 @@ export function ResetPasswordForm() {
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="password">Nueva Contraseña</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Min. 6 caracteres"
-                required
-                disabled={state.loading}
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Min. 6 caracteres"
+                  required
+                  disabled={state.loading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  disabled={state.loading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               <p className="text-xs text-gray-500">
                 Debe contener al menos una mayúscula, una minúscula y un número
               </p>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="confirmPassword">Confirmar Contraseña</Label>
-              <Input
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                placeholder="Confirma tu contraseña"
-                required
-                disabled={state.loading}
-              />
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirma tu contraseña"
+                  required
+                  disabled={state.loading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  aria-label={showConfirmPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  disabled={state.loading}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <Button type="submit" className="w-full" disabled={state.loading}>
               {state.loading ? "Actualizando..." : "Actualizar Contraseña"}

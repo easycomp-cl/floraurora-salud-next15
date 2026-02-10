@@ -1,27 +1,19 @@
 /**
  * Función helper para obtener la URL correcta según el ambiente
  * Detecta si estamos en staging (Vercel preview) o production
- * 
+ *
  * Prioridad:
  * 1. NEXT_PUBLIC_STAGING_URL (si existe, para staging explícito)
- * 2. VERCEL_URL (si estamos en Vercel preview)
- * 3. NEXT_PUBLIC_SITE_URL (URL del sitio configurada)
- * 4. NEXT_PUBLIC_APP_URL (URL de la app)
- * 5. localhost (fallback)
+ * 2. NEXT_PUBLIC_SITE_URL (URL del sitio configurada)
+ * 3. NEXT_PUBLIC_APP_URL (URL de la app)
+ * 4. VERCEL_URL (automático en Vercel - preview y production)
+ * 5. Dominio producción floraurorasalud.cl (fallback para emails)
+ * 6. localhost (solo desarrollo local)
  */
 export function getSiteUrl(): string {
   // Si hay una variable de entorno específica para staging, usarla
   if (process.env.NEXT_PUBLIC_STAGING_URL) {
     return process.env.NEXT_PUBLIC_STAGING_URL;
-  }
-
-  // Si estamos en Vercel y es un preview deployment, usar VERCEL_URL
-  // VERCEL_URL ya incluye el protocolo https://
-  if (process.env.VERCEL_URL && process.env.VERCEL_ENV !== "production") {
-    const vercelUrl = process.env.VERCEL_URL.startsWith("http") 
-      ? process.env.VERCEL_URL 
-      : `https://${process.env.VERCEL_URL}`;
-    return vercelUrl;
   }
 
   // Si hay una variable de entorno específica para el sitio, usarla
@@ -34,7 +26,19 @@ export function getSiteUrl(): string {
     return process.env.NEXT_PUBLIC_APP_URL;
   }
 
-  // Fallback por defecto
+  // VERCEL_URL está disponible en todos los deployments de Vercel (preview y production)
+  if (process.env.VERCEL_URL) {
+    const vercelUrl = process.env.VERCEL_URL.startsWith("http")
+      ? process.env.VERCEL_URL
+      : `https://${process.env.VERCEL_URL}`;
+    return vercelUrl;
+  }
+
+  // Fallback producción: evitar localhost en emails enviados desde servidor
+  if (process.env.NODE_ENV === "production") {
+    return "https://www.floraurorasalud.cl";
+  }
+
   return "http://localhost:3000";
 }
 

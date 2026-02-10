@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
     const rut = searchParams.get("rut");
     const email = searchParams.get("email");
 
-    if (!rut) {
+    if (!rut && !email) {
       return NextResponse.json(
-        { error: "RUT es requerido" },
+        { error: "Se requiere RUT o email" },
         { status: 400 }
       );
     }
@@ -41,61 +41,61 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 2. SEGUNDO: Verificar si existe una solicitud pendiente o rechazada con este RUT
-    const { data: pendingRequest, error: requestError } = await admin
-      .from("professional_requests")
-      .select("id, status, email, full_name, created_at")
-      .eq("rut", rut)
-      .in("status", ["pending", "resubmitted", "rejected"])
-      .maybeSingle();
+    // 2. SEGUNDO (si hay RUT): Verificar si existe una solicitud pendiente o rechazada con este RUT
+    if (rut) {
+      const { data: pendingRequest, error: requestError } = await admin
+        .from("professional_requests")
+        .select("id, status, email, full_name, created_at")
+        .eq("rut", rut)
+        .in("status", ["pending", "resubmitted", "rejected"])
+        .maybeSingle();
 
-    if (requestError) {
-      console.error("Error al verificar solicitud:", requestError);
-      return NextResponse.json(
-        { error: "Error al verificar solicitud" },
-        { status: 500 }
-      );
-    }
+      if (requestError) {
+        console.error("Error al verificar solicitud:", requestError);
+        return NextResponse.json(
+          { error: "Error al verificar solicitud" },
+          { status: 500 }
+        );
+      }
 
-    // Si hay solicitud pendiente o reenviada por RUT, retornar eso
-    if (pendingRequest && (pendingRequest.status === "pending" || pendingRequest.status === "resubmitted")) {
-      return NextResponse.json({
-        type: "pending_request",
-        exists: true,
-        request: {
-          id: pendingRequest.id,
-          status: pendingRequest.status,
-          email: pendingRequest.email,
-          full_name: pendingRequest.full_name,
-          created_at: pendingRequest.created_at,
-        },
-      });
-    }
+      if (pendingRequest && (pendingRequest.status === "pending" || pendingRequest.status === "resubmitted")) {
+        return NextResponse.json({
+          type: "pending_request",
+          exists: true,
+          request: {
+            id: pendingRequest.id,
+            status: pendingRequest.status,
+            email: pendingRequest.email,
+            full_name: pendingRequest.full_name,
+            created_at: pendingRequest.created_at,
+          },
+        });
+      }
 
-    // 3. TERCERO: Verificar si existe un usuario con este RUT en la tabla users
-    const { data: userByRut, error: userRutError } = await admin
-      .from("users")
-      .select("id, email, name, last_name, role")
-      .eq("rut", rut)
-      .maybeSingle();
+      // 3. TERCERO: Verificar si existe un usuario con este RUT en la tabla users
+      const { data: userByRut, error: userRutError } = await admin
+        .from("users")
+        .select("id, email, name, last_name, role")
+        .eq("rut", rut)
+        .maybeSingle();
 
-    if (userRutError) {
-      console.error("Error al verificar usuario por RUT:", userRutError);
-      // Continuar con otras validaciones
-    }
+      if (userRutError) {
+        console.error("Error al verificar usuario por RUT:", userRutError);
+      }
 
-    if (userByRut) {
-      return NextResponse.json({
-        type: "existing_user_rut",
-        exists: true,
-        user: {
-          id: userByRut.id,
-          email: userByRut.email,
-          name: userByRut.name,
-          last_name: userByRut.last_name,
-          role: userByRut.role,
-        },
-      });
+      if (userByRut) {
+        return NextResponse.json({
+          type: "existing_user_rut",
+          exists: true,
+          user: {
+            id: userByRut.id,
+            email: userByRut.email,
+            name: userByRut.name,
+            last_name: userByRut.last_name,
+            role: userByRut.role,
+          },
+        });
+      }
     }
 
     // 4. CUARTO: Si se proporciona email, verificar si existe un usuario con ese email

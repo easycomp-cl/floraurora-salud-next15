@@ -120,8 +120,6 @@ export default function ProfessionalDetailDialog({
           {/* Formación Académica */}
           {(professional.university ||
             professional.profession ||
-            professional.study_year_start ||
-            professional.study_year_end ||
             professional.extra_studies) && (
             <div className="space-y-3">
               <h3 className="text-xl font-bold text-gray-900">
@@ -148,18 +146,6 @@ export default function ProfessionalDetailDialog({
                     </span>
                   </div>
                 )}
-                {(professional.study_year_start ||
-                  professional.study_year_end) && (
-                  <div className="pb-3 border-b border-gray-200">
-                    <span className="font-semibold text-gray-900">
-                      Años de estudio:{" "}
-                    </span>
-                    <span className="text-gray-700">
-                      {professional.study_year_start || "N/A"} -{" "}
-                      {professional.study_year_end || "N/A"}
-                    </span>
-                  </div>
-                )}
                 {professional.extra_studies && (
                   <div className="pt-2">
                     <div className="mb-2">
@@ -174,59 +160,6 @@ export default function ProfessionalDetailDialog({
                     </div>
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {/* Certificados */}
-          {(professional.degree_copy_url ||
-            professional.professional_certificate_url ||
-            (professional.additional_certificates_urls &&
-              professional.additional_certificates_urls.length > 0)) && (
-            <div className="space-y-3">
-              <h3 className="text-xl font-bold text-gray-900">Certificados</h3>
-              <div className="space-y-2">
-                {professional.degree_copy_url && (
-                  <a
-                    href={professional.degree_copy_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 text-teal-600 hover:text-teal-700 font-semibold transition-colors bg-teal-50 p-3 rounded-lg hover:bg-teal-100"
-                  >
-                    <FileText className="w-5 h-5" />
-                    <span>Título Universitario</span>
-                  </a>
-                )}
-                {professional.professional_certificate_url && (
-                  <a
-                    href={professional.professional_certificate_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 text-teal-600 hover:text-teal-700 font-semibold transition-colors bg-teal-50 p-3 rounded-lg hover:bg-teal-100"
-                  >
-                    <FileText className="w-5 h-5" />
-                    <span>Certificado Profesional</span>
-                  </a>
-                )}
-                {professional.additional_certificates_urls &&
-                  professional.additional_certificates_urls.length > 0 && (
-                    <div className="space-y-2">
-                      {professional.additional_certificates_urls.map(
-                        (certUrl, idx) => (
-                          <a
-                            key={idx}
-                            href={certUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-3 text-teal-600 hover:text-teal-700 font-semibold transition-colors bg-teal-50 p-3 rounded-lg hover:bg-teal-100"
-                          >
-                            <FileText className="w-5 h-5" />
-                            <span>Certificado Adicional {idx + 1}</span>
-                          </a>
-                        )
-                      )}
-                    </div>
-                  )}
               </div>
             </div>
           )}

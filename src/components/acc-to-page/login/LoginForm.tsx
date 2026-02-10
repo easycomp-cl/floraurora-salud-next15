@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { clientLogin } from "@/lib/client-auth";
 import SignInWithGoogleButton from "@/components/google/SignInWithGoogleButton";
+import { Eye, EyeOff } from "lucide-react";
 
 // Tipo para el estado del formulario
 type LoginState = {
@@ -31,6 +32,7 @@ export function LoginForm() {
   });
   const [showResetSuccess, setShowResetSuccess] = useState(false);
   const [showRegistrationSuccess, setShowRegistrationSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -246,16 +248,30 @@ export function LoginForm() {
               />
             </div>
             <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  disabled={state.loading}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                  aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                  disabled={state.loading}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
               </div>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                disabled={state.loading}
-              />
             </div>
             <Button type="submit" className="w-full" disabled={state.loading}>
               {state.loading ? "Iniciando sesión..." : "Iniciar Sesión"}
