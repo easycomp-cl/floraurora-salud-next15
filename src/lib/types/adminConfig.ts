@@ -67,3 +67,26 @@ export interface UpsertCarouselItemInput {
   is_active?: boolean;
 }
 
+export type TutorialVisibility = "professionals" | "patients" | "both";
+
+export interface TutorialVideo {
+  id: number;
+  title: string;
+  description: string | null;
+  youtube_url: string;
+  visibility: TutorialVisibility;
+  display_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpsertTutorialVideoInput {
+  title: string;
+  description?: string | null;
+  youtube_url: string;
+  visibility?: TutorialVisibility;
+  display_order?: number;
+  is_active?: boolean;
+}
+

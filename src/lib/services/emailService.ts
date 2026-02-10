@@ -81,31 +81,11 @@ export async function sendEmail({
   cc,
   bcc,
 }: SendEmailParams) {
-  // 🔍 LOGS TEMPORALES PARA DEPURACIÓN
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('📧 [DEBUG] CONFIGURACIÓN DE ENVÍO DE EMAIL');
-  console.log('═══════════════════════════════════════════════════════');
-  console.log('📤 FROM (remitente):', from);
-  console.log('📥 TO (destinatario):', to);
-  console.log('📋 SUBJECT (asunto):', subject);
-  console.log('↩️  REPLY-TO:', replyTo || '(no configurado)');
-  console.log('📎 CC:', cc || '(no configurado)');
-  console.log('📎 BCC:', bcc || '(no configurado)');
-  console.log('🔑 SENDGRID_API_KEY configurada:', process.env.SENDGRID_API_KEY ? '✅ SÍ' : '❌ NO');
-  console.log('🔑 SENDGRID_API_KEY (primeros 10 chars):', process.env.SENDGRID_API_KEY ? `${process.env.SENDGRID_API_KEY.substring(0, 10)}...` : 'N/A');
-  console.log('📧 FROM_EMAIL (env var):', process.env.FROM_EMAIL || '(no configurado, usando default)');
-  console.log('📧 CONTACT_EMAIL (env var):', process.env.CONTACT_EMAIL || '(no configurado)');
-  console.log('📏 Tamaño del HTML:', `${(html.length / 1024).toFixed(2)} KB`);
-  
-  // ⚠️ Validación de dominio común
+  // Validación de dominio común
   const domainTypoCheck = from.includes('floraaurorasalud');
   if (domainTypoCheck) {
-    console.log('⚠️  [ADVERTENCIA] Posible typo detectado: "floraaurorasalud" (doble "a")');
-    console.log('⚠️  [ADVERTENCIA] El dominio correcto debería ser: "floraurorasalud.cl" (una sola "a")');
-    console.log('⚠️  [ADVERTENCIA] Verifica la variable de entorno FROM_EMAIL');
+    console.warn('[emailService] Posible typo en FROM_EMAIL: "floraaurorasalud" (doble "a"). Debería ser "floraurorasalud.cl"');
   }
-  
-  console.log('═══════════════════════════════════════════════════════');
   
   try {
     const msg = {
@@ -118,32 +98,11 @@ export async function sendEmail({
       bcc,
     };
 
-    console.log('📤 [DEBUG] Enviando email con SendGrid...');
     const response = await sgMail.send(msg);
-    const [sendGridResponse] = response;
-    const headers =
-      (sendGridResponse?.headers as Record<string, unknown>) ?? {};
-    const statusCode = sendGridResponse?.statusCode;
-    const messageId =
-      (headers["x-message-id"] as string | undefined) ??
-      (headers["X-Message-Id"] as string | undefined);
-
-    console.log('✅ [DEBUG] Email enviado exitosamente');
-    console.log('📊 [DEBUG] Status Code:', statusCode ?? "desconocido");
-    console.log('🆔 [DEBUG] Message ID:', messageId || "N/A");
-    console.log('═══════════════════════════════════════════════════════');
-    
-    console.log(
-      `[emailService] Email enviado | to=${to} | subject="${subject}" | status=${statusCode ?? "desconocido"}${
-        messageId ? ` | messageId=${messageId}` : ""
-      }`
-    );
 
     return { success: true, response };
   } catch (error: unknown) {
-    console.error('❌ [DEBUG] Error al enviar email');
-    console.error('═══════════════════════════════════════════════════════');
-    console.error('Error completo:', error);
+    console.error('[emailService] Error al enviar email:', error);
     
     // Detectar errores específicos de SendGrid
     if (error && typeof error === 'object' && 'response' in error) {
@@ -155,8 +114,6 @@ export async function sendEmail({
           };
         };
       };
-      
-      console.error('Error response:', sendGridError.response?.body);
       
       // Detectar errores específicos de SendGrid
       const errors = sendGridError.response?.body?.errors;
@@ -192,7 +149,6 @@ export async function sendEmail({
       }
     }
     
-    console.error('═══════════════════════════════════════════════════════');
     const errorMessage = error instanceof Error ? error.message : 'Error al enviar el email';
     return { 
       success: false, 
@@ -571,3 +527,107 @@ export async function sendProfessionalRegistrationNotification(
   });
 }
 
+/**
+ * Envía notificación cuando un profesional realiza un pago mensual.
+ * Envía correo al profesional y a contacto@floraurorasalud.cl
+ */
+interface ProfessionalMonthlyPaymentNotificationParams {
+  professionalEmail: string;
+  professionalName: string;
+  amount: number;
+  currency?: string;
+  paymentDate?: Date;
+  expirationDate?: Date;
+}
+
+export async function sendProfessionalMonthlyPaymentNotification(
+  data: ProfessionalMonthlyPaymentNotificationParams
+) {
+  const contactEmail = process.env.CONTACT_EMAIL || 'contacto@floraurorasalud.cl';
+  const formattedAmount = data.currency === 'CLP' || !data.currency
+    ? `$${Number(data.amount).toLocaleString('es-CL')}`
+    : `${data.amount} ${data.currency}`;
+  const paymentDateStr = (data.paymentDate || new Date()).toLocaleString('es-CL', {
+    timeZone: 'America/Santiago',
+    dateStyle: 'long',
+    timeStyle: 'short',
+  });
+  const expirationDateStr = data.expirationDate
+    ? data.expirationDate.toLocaleDateString('es-CL', {
+        timeZone: 'America/Santiago',
+        dateStyle: 'long',
+      })
+    : null;
+
+  // Email al profesional
+  const professionalSubject = 'FlorAurora Salud | Confirmación de pago mensual';
+  const professionalMessage = `
+Se ha registrado exitosamente tu pago mensual en FlorAurora Salud.
+
+Detalles del pago:
+- Monto: ${formattedAmount}
+- Fecha: ${paymentDateStr}
+${expirationDateStr ? `- Plan vigente hasta: ${expirationDateStr}` : ''}
+
+Gracias por ser parte de nuestra plataforma.
+  `.trim();
+
+  const professionalHtml = await render(
+    createElement(NotificationEmail, {
+      subject: professionalSubject,
+      message: professionalMessage,
+      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/dashboard/my-plan`,
+      actionText: 'Ver mi plan',
+    })
+  );
+
+  // Email a contacto (notificación interna)
+  const contactSubject = `Pago mensual registrado - ${data.professionalName}`;
+  const contactMessage = `
+Se ha efectuado un pago mensual de plan premium:
+
+Profesional: ${data.professionalName}
+Email: ${data.professionalEmail}
+Monto: ${formattedAmount}
+Fecha: ${paymentDateStr}
+${expirationDateStr ? `Plan vigente hasta: ${expirationDateStr}` : ''}
+  `.trim();
+
+  const contactHtml = await render(
+    createElement(NotificationEmail, {
+      subject: contactSubject,
+      message: contactMessage,
+      actionUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/admin/users`,
+      actionText: 'Ver administración',
+    })
+  );
+
+  // Enviar ambos correos en paralelo
+  const [professionalResult, contactResult] = await Promise.allSettled([
+    sendEmail({
+      to: data.professionalEmail,
+      from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
+      subject: professionalSubject,
+      html: professionalHtml,
+    }),
+    sendEmail({
+      to: contactEmail,
+      from: process.env.FROM_EMAIL || 'noreply@floraurorasalud.cl',
+      subject: contactSubject,
+      html: contactHtml,
+      replyTo: data.professionalEmail,
+    }),
+  ]);
+
+  if (professionalResult.status === 'rejected') {
+    console.error('[emailService] Error enviando correo de pago al profesional:', professionalResult.reason);
+  }
+  if (contactResult.status === 'rejected') {
+    console.error('[emailService] Error enviando correo de pago a contacto:', contactResult.reason);
+  }
+
+  return {
+    professionalSent: professionalResult.status === 'fulfilled',
+    contactSent: contactResult.status === 'fulfilled',
+  };
+}

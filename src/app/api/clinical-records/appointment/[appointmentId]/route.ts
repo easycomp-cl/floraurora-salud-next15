@@ -147,17 +147,6 @@ export async function POST(
     }
     const body = await request.json();
     
-    // Debug: Verificar cookies disponibles
-    const requestCookies = request.cookies.getAll();
-    const hasSupabaseCookies = requestCookies.some(c => 
-      c.name.includes('supabase') || c.name.includes('sb-') || c.name.includes('auth-token')
-    );
-    console.log("[clinical-appointment POST] Cookies disponibles:", {
-      totalCookies: requestCookies.length,
-      hasSupabaseCookies,
-      appointmentId,
-    });
-    
     let supabase;
     try {
       supabase = await createClient(request);

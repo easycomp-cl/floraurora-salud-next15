@@ -30,6 +30,9 @@ import {
   Tag,
   CreditCard,
   Calendar,
+  Receipt,
+  Gift,
+  XCircle,
 } from "lucide-react";
 import ProfessionalRequestsManagement from "./ProfessionalRequestsManagement";
 
@@ -40,6 +43,26 @@ interface ProfessionalsResponse {
 interface ServicesResponse {
   data: AdminService[];
   total: number;
+}
+
+interface PlanPayment {
+  id: number;
+  amount: number;
+  currency: string;
+  payment_date: string;
+  provider_payment_status: string;
+  expires_at: string;
+}
+
+interface ProfessionalPlanData {
+  plan_type: "commission" | "monthly" | null;
+  monthly_plan_expires_at: string | null;
+  last_monthly_payment_date: string | null;
+  use_promotional_price: boolean;
+  admin_granted_plan: boolean;
+  can_revoke: boolean;
+  payments: PlanPayment[];
+  config: { premiumNormalPrice: number; premiumPromotionPrice: number };
 }
 
 function formatServicesList(services: AdminServiceSummary[]) {
@@ -67,6 +90,11 @@ export default function ProfessionalsManagement() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+
+  const [isPlanDialogOpen, setIsPlanDialogOpen] = useState(false);
+  const [planData, setPlanData] = useState<ProfessionalPlanData | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [planActionLoading, setPlanActionLoading] = useState(false);
 
   // Filtros y paginación
   const [page, setPage] = useState(1);
@@ -231,57 +259,131 @@ export default function ProfessionalsManagement() {
     }
   };
 
-  const handleTogglePromotionalPrice = async (
-    professional: AdminProfessional
-  ) => {
-    try {
-      setActionLoadingId(professional.id);
-      setMessage(null);
-      setError(null);
-
-      const newValue = !professional.use_promotional_price;
-      const response = await fetch(
-        `/api/admin/professionals/${professional.id}/promotional-price`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ use_promotional_price: newValue }),
-        }
-      );
-
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throw new Error(
-          payload?.error ??
-            "No se pudo actualizar el precio promocional del profesional"
-        );
-      }
-
-      const result = await response.json();
-      setMessage(
-        result.message ||
-          (newValue
-            ? "Precio promocional activado correctamente."
-            : "Precio promocional desactivado correctamente.")
-      );
-      await loadProfessionals();
-    } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : "Error inesperado al actualizar el precio promocional.";
-      setError(message);
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
   const handleOpenAssignServices = (professional: AdminProfessional) => {
     setSelectedProfessional(professional);
     setSelectedServiceIds(professional.services.map((service) => service.id));
     setIsAssignDialogOpen(true);
     setMessage(null);
     setError(null);
+  };
+
+  const handleOpenPlanDialog = async (professional: AdminProfessional) => {
+    setSelectedProfessional(professional);
+    setIsPlanDialogOpen(true);
+    setPlanData(null);
+    setMessage(null);
+    setError(null);
+    setPlanLoading(true);
+    try {
+      const res = await fetch(`/api/admin/professionals/${professional.id}/plan`);
+      if (res.ok) {
+        const data = (await res.json()) as ProfessionalPlanData;
+        setPlanData({
+          ...data,
+          can_revoke: data.can_revoke ?? (data.admin_granted_plan && data.plan_type === "monthly"),
+        });
+      } else {
+        setError("No se pudo cargar el plan");
+      }
+    } catch {
+      setError("Error al cargar el plan");
+    } finally {
+      setPlanLoading(false);
+    }
+  };
+
+  const handleTogglePromoInPlan = async () => {
+    if (!selectedProfessional || !planData) return;
+    setPlanActionLoading(true);
+    setError(null);
+    try {
+      const newValue = !planData.use_promotional_price;
+      const res = await fetch(
+        `/api/admin/professionals/${selectedProfessional.id}/promotional-price`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ use_promotional_price: newValue }),
+        }
+      );
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Error al actualizar promoción");
+      }
+      setPlanData((prev) => prev ? { ...prev, use_promotional_price: newValue } : null);
+      setMessage(newValue ? "Promoción activada" : "Promoción desactivada");
+      await loadProfessionals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al actualizar promoción");
+    } finally {
+      setPlanActionLoading(false);
+    }
+  };
+
+  const handleGrantRenewal = async () => {
+    if (!selectedProfessional) return;
+    setPlanActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/professionals/${selectedProfessional.id}/grant-renewal`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Error al conceder renovación");
+      }
+      const result = await res.json();
+      setMessage(result.message ?? "Se concedió el mes gratis correctamente.");
+      await loadProfessionals();
+      if (planData) {
+        setPlanData({
+          ...planData,
+          plan_type: "monthly",
+          monthly_plan_expires_at: result.expires_at ?? planData.monthly_plan_expires_at,
+          last_monthly_payment_date: new Date().toISOString(),
+          admin_granted_plan: true,
+          can_revoke: true,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al conceder renovación");
+    } finally {
+      setPlanActionLoading(false);
+    }
+  };
+
+  const handleRevokeRenewal = async () => {
+    if (!selectedProfessional) return;
+    setPlanActionLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/professionals/${selectedProfessional.id}/revoke-renewal`,
+        { method: "POST" }
+      );
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error ?? "Error al revocar");
+      }
+      const result = await res.json();
+      setMessage(result.message ?? "Mes gratis revocado. El profesional pasó a Plan Light.");
+      await loadProfessionals();
+      if (planData) {
+        setPlanData({
+          ...planData,
+          plan_type: "commission",
+          monthly_plan_expires_at: null,
+          last_monthly_payment_date: null,
+          admin_granted_plan: false,
+          can_revoke: false,
+        });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al revocar");
+    } finally {
+      setPlanActionLoading(false);
+    }
   };
 
   const handleAssignServices = async () => {
@@ -610,33 +712,13 @@ export default function ProfessionalsManagement() {
                                     : "Activar"}
                               </Button>
                               <Button
-                                variant={
-                                  professional.use_promotional_price
-                                    ? "default"
-                                    : "outline"
-                                }
+                                variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                  handleTogglePromotionalPrice(professional)
-                                }
-                                disabled={actionLoadingId === professional.id}
-                                className={`flex items-center gap-1 ${
-                                  professional.use_promotional_price
-                                    ? "bg-orange-500 hover:bg-orange-600 text-white"
-                                    : ""
-                                }`}
-                                title={
-                                  professional.use_promotional_price
-                                    ? "Desactivar precio promocional"
-                                    : "Activar precio promocional"
-                                }
+                                onClick={() => handleOpenPlanDialog(professional)}
+                                title="Ver detalle del plan y gestionar promoción"
                               >
-                                <Tag className="h-3 w-3" />
-                                {actionLoadingId === professional.id
-                                  ? "Procesando..."
-                                  : professional.use_promotional_price
-                                    ? "Precio Promo"
-                                    : "Sin Promo"}
+                                <CreditCard className="h-3 w-3" />
+                                Ver plan
                               </Button>
 
                               {services.length > 0 && (
@@ -729,27 +811,12 @@ export default function ProfessionalsManagement() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="servicesSelect">
-                      Servicios disponibles
-                    </Label>
-                    <select
-                      id="servicesSelect"
-                      multiple
-                      className="h-48 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                      value={selectedServiceIds.map(String)}
-                      onChange={(event) => {
-                        const options = Array.from(
-                          event.target.selectedOptions
-                        );
-                        setSelectedServiceIds(
-                          options.map((option) => Number(option.value))
-                        );
-                      }}
-                    >
+                    <Label>Servicios disponibles</Label>
+                    <div className="max-h-64 overflow-y-auto rounded-md border border-gray-300 bg-white p-3 space-y-2">
                       {activeServices.length === 0 ? (
-                        <option value="" disabled>
+                        <p className="text-sm text-gray-500 py-4 text-center">
                           No hay servicios activos configurados
-                        </option>
+                        </p>
                       ) : (
                         activeServices.map((service) => {
                           const formatPrice = () => {
@@ -773,15 +840,37 @@ export default function ProfessionalsManagement() {
                             }
                             return "Precio no definido";
                           };
+                          const isChecked = selectedServiceIds.includes(service.id);
                           return (
-                            <option key={service.id} value={service.id}>
-                              {service.name} · {service.duration_minutes} min ·{" "}
-                              {formatPrice()}
-                            </option>
+                            <label
+                              key={service.id}
+                              className="flex items-center gap-3 p-2 rounded-md hover:bg-gray-50 cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedServiceIds((prev) =>
+                                      [...prev, service.id].sort((a, b) => a - b)
+                                    );
+                                  } else {
+                                    setSelectedServiceIds((prev) =>
+                                      prev.filter((id) => id !== service.id)
+                                    );
+                                  }
+                                }}
+                                className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                              />
+                              <span className="flex-1 text-sm text-gray-700">
+                                {service.name} · {service.duration_minutes} min ·{" "}
+                                {formatPrice()}
+                              </span>
+                            </label>
                           );
                         })
                       )}
-                    </select>
+                    </div>
                   </div>
 
                   <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
@@ -844,6 +933,268 @@ export default function ProfessionalsManagement() {
                       {isSubmitting ? "Guardando..." : "Guardar cambios"}
                     </Button>
                   </div>
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          {/* Dialog Ver plan */}
+          <Dialog
+            open={isPlanDialogOpen}
+            onOpenChange={(open) => {
+              if (!open) {
+                setIsPlanDialogOpen(false);
+                setSelectedProfessional(null);
+                setPlanData(null);
+              }
+            }}
+          >
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Plan del profesional</DialogTitle>
+                <DialogDescription>
+                  Detalle del plan actual, historial de pagos y acciones de
+                  administración
+                </DialogDescription>
+              </DialogHeader>
+
+              {selectedProfessional && (
+                <div className="space-y-6">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {selectedProfessional.name}{" "}
+                      {selectedProfessional.last_name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ID #{selectedProfessional.id} ·{" "}
+                      {selectedProfessional.email ?? "-"}
+                    </p>
+                  </div>
+
+                  {planLoading ? (
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      Cargando plan...
+                    </p>
+                  ) : planData ? (
+                    <>
+                      {/* Detalle del plan */}
+                      <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+                        <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-primary" />
+                          Plan actual
+                        </h4>
+                        <div className="grid gap-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Tipo:</span>
+                            <span className="font-medium">
+                              {planData.plan_type === "commission"
+                                ? "Plan Comisión"
+                                : planData.plan_type === "monthly"
+                                  ? "Plan Premium (Mensual)"
+                                  : "Sin plan asignado"}
+                            </span>
+                          </div>
+                          {planData.plan_type === "monthly" && (
+                            <>
+                              {(planData.admin_granted_plan || planData.can_revoke) && (
+                                <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                                  Mes gratis concedido por admin. Puedes revocarlo para que pase a Plan Light.
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">
+                                  Expira:
+                                </span>
+                                <span
+                                  className={
+                                    planData.monthly_plan_expires_at &&
+                                    new Date(
+                                      planData.monthly_plan_expires_at
+                                    ) > new Date()
+                                      ? "text-green-600 font-medium"
+                                      : "text-red-600 font-medium"
+                                  }
+                                >
+                                  {planData.monthly_plan_expires_at
+                                    ? new Date(
+                                        planData.monthly_plan_expires_at
+                                      ).toLocaleDateString("es-CL", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      })
+                                    : "Sin fecha"}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-600">
+                                  Último pago:
+                                </span>
+                                <span>
+                                  {planData.last_monthly_payment_date
+                                    ? new Date(
+                                        planData.last_monthly_payment_date
+                                      ).toLocaleDateString("es-CL", {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      })
+                                    : "-"}
+                                </span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Precios de referencia */}
+                      <div className="rounded-lg border border-gray-200 p-4 space-y-2">
+                        <h4 className="font-medium text-gray-900">
+                          Precios de referencia
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Normal: $
+                          {planData.config.premiumNormalPrice.toLocaleString(
+                            "es-CL"
+                          )}{" "}
+                          · Promocional: $
+                          {planData.config.premiumPromotionPrice.toLocaleString(
+                            "es-CL"
+                          )}
+                        </p>
+                      </div>
+
+                      {/* Historial de pagos */}
+                      <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                        <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                          <Receipt className="h-4 w-4 text-primary" />
+                          Registro de pagos
+                        </h4>
+                        {planData.payments.length === 0 ? (
+                          <p className="text-sm text-gray-500">
+                            No hay pagos registrados
+                          </p>
+                        ) : (
+                          <div className="max-h-40 overflow-y-auto space-y-2">
+                            {planData.payments.map((p) => (
+                              <div
+                                key={p.id}
+                                className="flex justify-between items-center text-sm py-2 border-b border-gray-100 last:border-0"
+                              >
+                                <div>
+                                  <span className="font-medium">
+                                    $
+                                    {Number(p.amount).toLocaleString("es-CL")}{" "}
+                                    {p.currency}
+                                  </span>
+                                  <span className="text-gray-500 ml-2">
+                                    {p.payment_date
+                                      ? new Date(
+                                          p.payment_date
+                                        ).toLocaleDateString("es-CL", {
+                                          day: "2-digit",
+                                          month: "2-digit",
+                                          year: "numeric",
+                                        })
+                                      : "-"}
+                                  </span>
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                  Vigente hasta:{" "}
+                                  {p.expires_at
+                                    ? new Date(p.expires_at).toLocaleDateString(
+                                        "es-CL",
+                                        {
+                                          day: "2-digit",
+                                          month: "2-digit",
+                                          year: "numeric",
+                                        }
+                                      )
+                                    : "-"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Acciones de admin */}
+                      <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
+                        <h4 className="font-medium text-gray-900">
+                          Acciones de administración
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            variant={
+                              planData.use_promotional_price
+                                ? "default"
+                                : "outline"
+                            }
+                            size="sm"
+                            onClick={handleTogglePromoInPlan}
+                            disabled={planActionLoading}
+                            className={
+                              planData.use_promotional_price
+                                ? "bg-orange-500 hover:bg-orange-600 text-white"
+                                : ""
+                            }
+                          >
+                            <Tag className="h-3 w-3 mr-1" />
+                            {planActionLoading
+                              ? "Procesando..."
+                              : planData.use_promotional_price
+                                ? "Promoción activa (clic para desactivar)"
+                                : "Asignar promoción"}
+                          </Button>
+                          {(() => {
+                            const planActive = Boolean(
+                              planData.plan_type === "monthly" &&
+                              planData.monthly_plan_expires_at &&
+                              new Date(planData.monthly_plan_expires_at) > new Date()
+                            );
+                            return (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleGrantRenewal}
+                                disabled={planActionLoading || planActive}
+                                title={
+                                  planActive
+                                    ? "El plan mensual ya está activo. Solo se puede conceder cuando esté vencido."
+                                    : undefined
+                                }
+                              >
+                                <Gift className="h-3 w-3 mr-1" />
+                                {planActionLoading
+                                  ? "Procesando..."
+                                  : planActive
+                                    ? "Plan activo (no se puede regalar)"
+                                    : planData.plan_type === "monthly"
+                                      ? "Conceder 1 mes gratis (renovación)"
+                                      : "Conceder 1 mes Premium gratis"}
+                              </Button>
+                            );
+                          })()}
+                          {planData.can_revoke && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={handleRevokeRenewal}
+                              disabled={planActionLoading}
+                              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                            >
+                              <XCircle className="h-3 w-3 mr-1" />
+                              Quitar mes gratis → Plan Light
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-500 py-4 text-center">
+                      No se pudieron cargar los datos del plan
+                    </p>
+                  )}
                 </div>
               )}
             </DialogContent>

@@ -935,8 +935,6 @@ export const adminService = {
             code: specialtiesError.code,
           });
         } else if (specialtiesData) {
-          console.log("[adminService.listProfessionals] Especialidades obtenidas:", specialtiesData.length);
-          
           // Crear un mapa de professional_id -> array de objetos de especialidades completos
           const specialtiesMap = new Map<number, Array<Record<string, unknown>>>();
           
@@ -958,8 +956,6 @@ export const adminService = {
             }
           });
 
-          console.log("[adminService.listProfessionals] Mapa de especialidades:", Array.from(specialtiesMap.entries()));
-
           // Asignar especialidades a cada profesional con la estructura completa
           professionalsData.forEach((row) => {
             const professionalId = Number(row.id);
@@ -967,10 +963,6 @@ export const adminService = {
             row.professional_specialties = specialties.map((specialty) => ({
               specialties: specialty
             }));
-            
-            if (specialties.length > 0) {
-              console.log(`[adminService.listProfessionals] Profesional ${professionalId} tiene ${specialties.length} especialidades:`, specialties.map(s => s.name));
-            }
           });
         } else {
           console.warn("[adminService.listProfessionals] No se obtuvieron datos de especialidades");
@@ -1011,12 +1003,6 @@ export const adminService = {
   async assignServicesToProfessional(payload: AssignProfessionalPayload): Promise<void> {
     const supabase = createAdminServer();
     
-    console.log("[adminService.assignServicesToProfessional] Iniciando asignación:", {
-      professionalId: payload.professionalId,
-      serviceIds: payload.serviceIds,
-      serviceCount: payload.serviceIds.length,
-    });
-    
     // Verificar que el profesional existe
     const { data: professional, error: professionalError } = await supabase
       .from("professionals")
@@ -1029,119 +1015,116 @@ export const adminService = {
       throw new Error(`No se encontró el profesional con ID ${payload.professionalId}: ${professionalError?.message ?? "sin detalles"}`);
     }
 
-    console.log("[adminService.assignServicesToProfessional] Profesional encontrado:", professional.id);
+    // Detectar qué esquema usa la BD: services+service_professionals o specialties+professional_specialties
+    // listServices devuelve datos de specialties, así que los IDs pueden ser de specialties
+    const { data: existingServices, error: servicesError } = await supabase
+      .from("services")
+      .select("id")
+      .limit(1);
 
-    // Verificar que los servicios existen si se están asignando
+    const useServicesTable = !servicesError && existingServices !== null;
+    const useSpecialtiesSchema = servicesError?.message?.includes("Could not find the table") || servicesError?.code === "PGRST205";
+
     if (payload.serviceIds.length > 0) {
-      const { data: existingServices, error: servicesError } = await supabase
-        .from("services")
-        .select("id")
-        .in("id", payload.serviceIds);
+      if (useServicesTable) {
+        // Esquema con tabla services
+        const { data: existing, error: verifyError } = await supabase
+          .from("services")
+          .select("id")
+          .in("id", payload.serviceIds);
 
-      if (servicesError) {
-        console.error("[adminService.assignServicesToProfessional] Error verificando servicios:", servicesError);
-        throw new Error(`Error al verificar servicios: ${servicesError.message}`);
-      }
-
-      const existingServiceIds = existingServices?.map(s => s.id) || [];
-      const invalidServiceIds = payload.serviceIds.filter(id => !existingServiceIds.includes(id));
-      
-      if (invalidServiceIds.length > 0) {
-        console.error("[adminService.assignServicesToProfessional] Servicios inválidos:", invalidServiceIds);
-        throw new Error(`Los siguientes servicios no existen: ${invalidServiceIds.join(", ")}`);
-      }
-
-      console.log("[adminService.assignServicesToProfessional] Servicios válidos:", existingServiceIds);
-    }
-
-    // Eliminar servicios previos
-    console.log("[adminService.assignServicesToProfessional] Eliminando servicios previos...");
-    const { error: deleteError } = await supabase
-      .from("service_professionals")
-      .delete()
-      .eq("professional_id", payload.professionalId)
-      .select();
-
-    if (deleteError) {
-      // Si la tabla no existe, es un error crítico
-      if (deleteError.message.includes("relation") && deleteError.message.includes("does not exist")) {
-        console.error("[adminService.assignServicesToProfessional] Tabla service_professionals no existe");
-        throw new Error(`La tabla service_professionals no existe. Por favor, ejecuta las migraciones necesarias.`);
-      }
-      
-      // Si el error es de permisos RLS, también es crítico
-      if (deleteError.message.includes("permission denied") || deleteError.message.includes("policy")) {
-        console.error("[adminService.assignServicesToProfessional] Error de permisos RLS:", deleteError);
-        throw new Error(`Error de permisos al eliminar servicios previos: ${deleteError.message}. Verifica las políticas RLS.`);
-      }
-      
-      // Otros errores pueden ser aceptables (ej: no hay registros para eliminar)
-      console.warn("[adminService.assignServicesToProfessional] Advertencia al eliminar servicios previos:", deleteError.message);
-    } else {
-      console.log(`[adminService.assignServicesToProfessional] Servicios previos eliminados exitosamente`);
-    }
-
-    // Si no hay servicios para asignar, solo limpiar y retornar
-    if (payload.serviceIds.length === 0) {
-      console.log("[adminService.assignServicesToProfessional] No hay servicios para asignar, finalizando");
-      return;
-    }
-
-    // Insertar nuevos servicios
-    const rows = payload.serviceIds.map((serviceId) => ({
-      professional_id: payload.professionalId,
-      service_id: serviceId,
-    }));
-
-    console.log("[adminService.assignServicesToProfessional] Insertando servicios:", rows);
-    const { error: insertError, data: insertedData } = await supabase
-      .from("service_professionals")
-      .insert(rows)
-      .select();
-
-    if (insertError) {
-      console.error("[adminService.assignServicesToProfessional] Error al insertar servicios:", {
-        error: insertError,
-        code: insertError.code,
-        message: insertError.message,
-        details: insertError.details,
-        hint: insertError.hint,
-      });
-
-      // Si el error es de duplicado, intentar eliminar e insertar de nuevo
-      if (insertError.code === "23505" || insertError.message.includes("duplicate") || insertError.message.includes("unique")) {
-        console.log("[adminService.assignServicesToProfessional] Error de duplicado detectado, reintentando...");
-        
-        // Eliminar todos los servicios del profesional
-        const { error: retryDeleteError } = await supabase
-          .from("service_professionals")
-          .delete()
-          .eq("professional_id", payload.professionalId);
-        
-        if (retryDeleteError && !retryDeleteError.message.includes("does not exist")) {
-          console.error("[adminService.assignServicesToProfessional] Error al limpiar en reintento:", retryDeleteError);
-          throw new Error(`Error al limpiar servicios duplicados: ${retryDeleteError.message}`);
+        if (verifyError) {
+          console.error("[adminService.assignServicesToProfessional] Error verificando servicios:", verifyError);
+          throw new Error(`Error al verificar servicios: ${verifyError.message}`);
         }
-
-        // Reintentar inserción
-        const { error: retryInsertError, data: retryInsertedData } = await supabase
-          .from("service_professionals")
-          .insert(rows)
-          .select();
-          
-        if (retryInsertError) {
-          console.error("[adminService.assignServicesToProfessional] Error en reintento de inserción:", retryInsertError);
-          throw new Error(`No se pudieron asignar los servicios después del reintento: ${retryInsertError.message}`);
+        const validIds = existing?.map((s) => s.id) || [];
+        const invalidIds = payload.serviceIds.filter((id) => !validIds.includes(id));
+        if (invalidIds.length > 0) {
+          throw new Error(`Los siguientes servicios no existen: ${invalidIds.join(", ")}`);
         }
-        
-        console.log("[adminService.assignServicesToProfessional] Servicios insertados exitosamente en reintento:", retryInsertedData?.length);
-      } else if (insertError.message.includes("permission denied") || insertError.message.includes("policy")) {
-        throw new Error(`Error de permisos al asignar servicios: ${insertError.message}. Verifica las políticas RLS para service_professionals.`);
+      } else if (useSpecialtiesSchema) {
+        // Esquema con tabla specialties (listServices usa specialties)
+        const { data: existingSpecs, error: specsError } = await supabase
+          .from("specialties")
+          .select("id")
+          .in("id", payload.serviceIds);
+
+        if (specsError) {
+          console.error("[adminService.assignServicesToProfessional] Error verificando especialidades:", specsError);
+          throw new Error(`Error al verificar especialidades: ${specsError.message}`);
+        }
+        const validIds = existingSpecs?.map((s) => s.id) || [];
+        const invalidIds = payload.serviceIds.filter((id) => !validIds.includes(id));
+        if (invalidIds.length > 0) {
+          throw new Error(`Los siguientes servicios/especialidades no existen: ${invalidIds.join(", ")}`);
+        }
       } else {
-        throw new Error(`No se pudieron asignar los servicios: ${insertError.message}${insertError.details ? ` - ${insertError.details}` : ""}${insertError.hint ? ` - ${insertError.hint}` : ""}`);
+        console.warn("[adminService.assignServicesToProfessional] No se pudo determinar esquema, continuando sin verificación previa");
+      }
+    }
+
+    if (useServicesTable) {
+      // Usar service_professionals
+      const { error: deleteError } = await supabase
+        .from("service_professionals")
+        .delete()
+        .eq("professional_id", payload.professionalId);
+
+      if (deleteError && !deleteError.message.includes("does not exist")) {
+        console.warn("[adminService.assignServicesToProfessional] Advertencia al eliminar servicios previos:", deleteError.message);
+      }
+
+      if (payload.serviceIds.length === 0) return;
+
+      const rows = payload.serviceIds.map((serviceId) => ({
+        professional_id: payload.professionalId,
+        service_id: serviceId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("service_professionals")
+        .insert(rows)
+        .select();
+
+      if (insertError) {
+        if (insertError.code === "23505" || insertError.message.includes("duplicate") || insertError.message.includes("unique")) {
+          await supabase.from("service_professionals").delete().eq("professional_id", payload.professionalId);
+          const { error: retryError } = await supabase.from("service_professionals").insert(rows).select();
+          if (retryError) throw new Error(`No se pudieron asignar los servicios: ${retryError.message}`);
+        } else {
+          throw new Error(`No se pudieron asignar los servicios: ${insertError.message}`);
+        }
+      }
+    } else if (useSpecialtiesSchema) {
+      // Usar professional_specialties
+      const { error: deleteError } = await supabase
+        .from("professional_specialties")
+        .delete()
+        .eq("professional_id", payload.professionalId);
+
+      if (deleteError) {
+        console.error("[adminService.assignServicesToProfessional] Error eliminando especialidades previas:", deleteError);
+        throw new Error(`Error al eliminar especialidades previas: ${deleteError.message}`);
+      }
+
+      if (payload.serviceIds.length === 0) return;
+
+      const rows = payload.serviceIds.map((specialtyId) => ({
+        professional_id: payload.professionalId,
+        specialty_id: specialtyId,
+      }));
+
+      const { error: insertError } = await supabase
+        .from("professional_specialties")
+        .insert(rows)
+        .select();
+
+      if (insertError) {
+        console.error("[adminService.assignServicesToProfessional] Error insertando especialidades:", insertError);
+        throw new Error(`No se pudieron asignar los servicios: ${insertError.message}`);
       }
     } else {
-      console.log("[adminService.assignServicesToProfessional] Servicios asignados exitosamente:", insertedData?.length);
+      throw new Error("No se encontró la tabla services ni specialties. Ejecuta las migraciones necesarias.");
     }
   },
 

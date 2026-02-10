@@ -188,11 +188,8 @@ export async function login(prevState: { message?: string; error?: string } | nu
   //console.log("🔍 Email:", parsed.data.email);
   const emailUser = parsed.data.email;
   const result = await logAccountProvider(emailUser);
-  //[TEST]const result = await logAccountProvider("irraxdgonz7@gmail.com");
-  console.log("🔍 Resultado de logAccountProvider:", JSON.stringify(result, null, 2));
 
   if (!result.exists) {
-    console.log("🔍 No se encontró ningún usuario con este correo electrónico");
     return {
       success: false,
       error: "Credenciales incorrectas",
@@ -217,7 +214,6 @@ export async function login(prevState: { message?: string; error?: string } | nu
   if (lu.error) return { success: false, error: "Auth service unavailable" };
 
   const authUser = lu.data?.users?.find(u => (u.email || "").toLowerCase() === emailUser) ?? null;
-  console.log("🔍 authUser:", JSON.stringify(authUser, null, 2));
   if (!authUser) {
     return { success: false, error: "No account found with this email" };
   }
@@ -243,7 +239,6 @@ export async function login(prevState: { message?: string; error?: string } | nu
   // Filtrar usuarios por email manualmente
   const user = listed?.users?.find(u => (u.email || "").toLowerCase() === emailUser);
   if (!user) {
-    console.log("🔍 No se encontró ningún usuario con este correo electrónico");
     return { success: false, error: "No se encontró cuenta con este correo electrónico" };
   }
 
@@ -277,26 +272,11 @@ export async function login(prevState: { message?: string; error?: string } | nu
     };
   }
 
-  console.log("✅ Inicio de sesión exitoso, sesión creada:", {
-    userId: signInData.user?.id,
-    userEmail: signInData.user?.email,
-    hasSession: !!signInData.session,
-    hasAccessToken: !!signInData.session.access_token
-  });
-
-  // 4) Redirect (303) — now the session cookie exists, so /dashboard won't bounce to /auth/login
   revalidatePath("/");
   redirect("/dashboard");
 }
 
 export async function signup(formData: FormData) {
-  // Validar variables de entorno críticas
-  console.log("🔍 Validando configuración de Supabase:", {
-    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    hasServiceRoleKey: !!process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY,
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-  });
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
     console.error("❌ Variables de entorno de Supabase no configuradas");
@@ -305,12 +285,6 @@ export async function signup(formData: FormData) {
 
   const supabase = await createClient();
   const admin = createAdminServer();
-  console.log("🔍 formData recibido:", {
-    hasFirstName: !!formData.get("first-name"),
-    hasLastName: !!formData.get("last-name"),
-    hasEmail: !!formData.get("email"),
-    hasPassword: !!formData.get("password")
-  });
   const firstName = formData.get("first-name") as string;
   const lastName = formData.get("last-name") as string;
   const email = (formData.get("email") as string)?.toLowerCase().trim() || "";
@@ -325,11 +299,22 @@ export async function signup(formData: FormData) {
   });
 
   if (!parsed.success) {
-    console.log("❌ Error de validación Zod en signup:", parsed.error.flatten());
     redirect("/signup?error=invalid-data");
   }
 
-  // 2. Verificar si el usuario ya existe en Supabase Auth
+  // 2. Verificar si el email tiene una solicitud de profesional en proceso (pending/resubmitted)
+  const { data: pendingProfessionalRequest } = await admin
+    .from("professional_requests")
+    .select("id")
+    .eq("email", email)
+    .in("status", ["pending", "resubmitted"])
+    .maybeSingle();
+
+  if (pendingProfessionalRequest) {
+    redirect("/signup?error=professional-request-pending");
+  }
+
+  // 3. Verificar si el usuario ya existe en Supabase Auth
   const { data: existingUsers, error: listUsersError } = await admin.auth.admin.listUsers();
 
   if (listUsersError) {
@@ -340,21 +325,14 @@ export async function signup(formData: FormData) {
   if (existingUsers?.users) {
     const userExists = existingUsers.users.some((user) => user.email?.toLowerCase() === email);
     if (userExists) {
-      console.log("🔍 Usuario ya existe:", email);
       redirect("/signup?error=user-exists");
     }
   }
 
   // 3. Registrar el usuario en Supabase Auth
-  console.log("🔍 Iniciando registro en Supabase Auth:", {
-    email,
-    firstName,
-    lastName,
-    hasPassword: !!password
-  });
-  
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-  console.log("🔍 URL de redirección configurada:", `${baseUrl}/confirmation`);
+  // Usar getSiteUrl() para detectar correctamente local, preview y producción
+  const { getSiteUrl } = await import("@/lib/utils/url");
+  const baseUrl = getSiteUrl();
   
   const { error: signUpError, data: signUpData } = await supabase.auth.signUp({
     email: email,
@@ -367,34 +345,6 @@ export async function signup(formData: FormData) {
       },
     },
   });
-  
-  console.log("🔍 Resultado del registro Supabase:", {
-    hasError: !!signUpError,
-    error: signUpError,
-    hasUser: !!signUpData?.user,
-    user: signUpData?.user,
-    hasSession: !!signUpData?.session,
-    emailSent: signUpData?.user ? !signUpData.user.email_confirmed_at : false,
-    emailConfirmed: signUpData?.user?.email_confirmed_at,
-    needsConfirmation: signUpData?.user ? !signUpData.user.email_confirmed_at : false
-  });
-
-  // Logging específico para debugging de correos
-  if (signUpData?.user && !signUpData.user.email_confirmed_at) {
-    console.log("📧 CORREO DEBE HABERSE ENVIADO:", {
-      userId: signUpData.user.id,
-      email: signUpData.user.email,
-      emailConfirmed: signUpData.user.email_confirmed_at,
-      redirectUrl: `${baseUrl}/confirmation`,
-      userMetadata: signUpData.user.user_metadata
-    });
-  } else if (signUpData?.user && signUpData.user.email_confirmed_at) {
-    console.log("⚠️ CORREO YA CONFIRMADO (caso inesperado):", {
-      userId: signUpData.user.id,
-      email: signUpData.user.email,
-      emailConfirmed: signUpData.user.email_confirmed_at
-    });
-  }
 
   if (signUpError) {
     // Verificar primero si es un error de correo (caso esperado con fallback)
@@ -405,15 +355,9 @@ export async function signup(formData: FormData) {
     // Manejar error de envío de correo - este es un caso esperado que se maneja con fallback
     // NO es un error crítico, es parte del flujo normal cuando Supabase no puede enviar correos
     if (isEmailError) {
-      console.log("ℹ️ Supabase no pudo enviar correo de confirmación (esperado), usando fallback manual...");
-      
       // Si hay un usuario en signUpData, usarlo directamente
       if (signUpData?.user) {
         const user = signUpData.user as { id: string; email?: string | null; email_confirmed_at?: string | null; user_metadata?: Record<string, unknown> | null };
-        console.log("✅ Usuario creado a pesar del error de correo:", {
-          userId: user.id,
-          emailConfirmed: !!user.email_confirmed_at
-        });
         
         // Crear el registro en la tabla users si no existe usando el cliente Admin
         try {
@@ -444,8 +388,6 @@ export async function signup(formData: FormData) {
 
             if (userInsertError && userInsertError.code !== '23505') {
               console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
-            } else {
-              console.log("✅ Usuario creado en tabla users después del error de correo");
             }
           }
         } catch (createErr) {
@@ -454,11 +396,9 @@ export async function signup(formData: FormData) {
         }
         
         // Redirigir a página de confirmación con mensaje
-        console.log("⚠️ Usuario creado pero el correo no se pudo enviar");
         redirect("/confirmation?email-sent=false");
       } else {
         // No hay usuario en signUpData, verificar usando listUsers
-        console.log("⚠️ No hay usuario en signUpData, verificando con listUsers...");
         try {
           const { data: listedUsers, error: listError } = await admin.auth.admin.listUsers({
             page: 1,
@@ -469,59 +409,76 @@ export async function signup(formData: FormData) {
             const checkUser = listedUsers.users.find((u) => (u.email || "").toLowerCase() === email.toLowerCase());
             
             if (checkUser) {
-              console.log("✅ Usuario encontrado en listUsers:", {
-                userId: checkUser.id,
-                emailConfirmed: !!checkUser.email_confirmed_at
-              });
-              
-              // Crear el registro en la tabla users si no existe usando el cliente Admin
+              // Usuario encontrado en auth. Crear users/patients si falta, enviar correo si no confirmado.
               try {
-                const { data: existingUser } = await admin
+                let { data: userRecord } = await admin
                   .from("users")
                   .select("id")
                   .eq("user_id", checkUser.id)
                   .maybeSingle();
-                
-                if (!existingUser) {
+                if (!userRecord) {
                   const fullName = checkUser.user_metadata?.full_name || `${firstName} ${lastName}`;
                   const nameParts = fullName.split(" ");
-                  const firstNameFromMeta = nameParts[0] || firstName;
-                  const lastNameFromMeta = nameParts.slice(1).join(" ") || lastName;
-                  
-                  const { error: userInsertError } = await admin
-                    .from("users")
-                    .insert({
-                      user_id: checkUser.id,
-                      email: checkUser.email || email,
-                      name: firstNameFromMeta,
-                      last_name: lastNameFromMeta,
-                      role: 2,
-                      is_active: true,
-                      created_at: new Date().toISOString()
+                  const { data: inserted } = await admin.from("users").insert({
+                    user_id: checkUser.id,
+                    email: checkUser.email || email,
+                    name: nameParts[0] || firstName,
+                    last_name: nameParts.slice(1).join(" ") || lastName,
+                    role: 2,
+                    is_active: true,
+                    created_at: new Date().toISOString()
+                  }).select("id").maybeSingle();
+                  if (inserted) userRecord = inserted;
+                }
+                if (userRecord?.id) {
+                  const { data: existingPatient } = await admin
+                    .from("patients")
+                    .select("id")
+                    .eq("id", userRecord.id)
+                    .maybeSingle();
+                  if (!existingPatient) {
+                    await admin.from("patients").insert({
+                      id: userRecord.id,
+                      emergency_contact_name: "",
+                      emergency_contact_phone: "",
+                      health_insurances_id: 1,
                     });
-
-                  if (userInsertError && userInsertError.code !== '23505') {
-                    console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
-                  } else {
-                    console.log("✅ Usuario creado en tabla users");
                   }
                 }
               } catch (createErr) {
                 console.error("⚠️ Error al crear usuario en tabla users:", createErr);
               }
               
-              // Redirigir según el estado de confirmación
               if (checkUser.email_confirmed_at) {
-                console.log("✅ Email ya confirmado, redirigiendo al login...");
                 redirect("/login?registered=true");
               } else {
-                console.log("⚠️ Usuario creado pero necesita confirmar email");
-                redirect("/confirmation?email-sent=false");
+                // Enviar correo de confirmación manualmente
+                try {
+                  const { data: linkData } = await admin.auth.admin.generateLink({
+                    type: "signup",
+                    email: email,
+                    password: password,
+                    options: { redirectTo: `${baseUrl}/confirmation` },
+                  });
+                  const link = linkData?.properties?.action_link;
+                  if (link) {
+                    const { sendNotificationEmail } = await import("@/lib/services/emailService");
+                    await sendNotificationEmail({
+                      to: email,
+                      subject: "Confirma tu correo electrónico - FlorAurora Salud",
+                      message: `Hola ${firstName},\n\nGracias por registrarte en FlorAurora Salud. Por favor, confirma tu correo electrónico haciendo clic en el botón a continuación para activar tu cuenta.`,
+                      actionUrl: link,
+                      actionText: "Confirmar correo electrónico",
+                    });
+                  }
+                } catch (e) {
+                  console.error("⚠️ Error enviando correo:", e);
+                }
+                redirect("/confirmation?email-sent=true&registered=true");
               }
             } else {
-              console.log("❌ Usuario NO se creó debido al error de correo");
-              // Intentar crear el usuario usando la API de Admin como fallback
-              console.log("🔄 Intentando crear usuario usando API de Admin como fallback...");
+              // Usuario no encontrado en listUsers (puede ser delay de propagación)
+              // Crear con API de Admin y enviar correo manualmente
               try {
                 // Verificar una vez más si el usuario existe (por si se creó entre verificaciones)
                 const { data: doubleCheckUsers } = await admin.auth.admin.listUsers({
@@ -534,56 +491,75 @@ export async function signup(formData: FormData) {
                 );
                 
                 if (doubleCheckUser) {
-                  console.log("✅ Usuario encontrado en segunda verificación:", {
-                    userId: doubleCheckUser.id,
-                    emailConfirmed: !!doubleCheckUser.email_confirmed_at
-                  });
-                  
-                  // Crear el registro en la tabla users si no existe usando el cliente Admin
+                  // Usuario creado por signUp (Supabase lo creó antes de fallar el email)
+                  // Crear en users/patients si falta y redirigir a confirmación
                   try {
-                    const { data: existingUser } = await admin
+                    let { data: userRecord } = await admin
                       .from("users")
                       .select("id")
                       .eq("user_id", doubleCheckUser.id)
                       .maybeSingle();
-                    
-                    if (!existingUser) {
+                    if (!userRecord) {
                       const fullName = doubleCheckUser.user_metadata?.full_name || `${firstName} ${lastName}`;
                       const nameParts = fullName.split(" ");
-                      const firstNameFromMeta = nameParts[0] || firstName;
-                      const lastNameFromMeta = nameParts.slice(1).join(" ") || lastName;
-                      
-                      const { error: userInsertError } = await admin
-                        .from("users")
-                        .insert({
-                          user_id: doubleCheckUser.id,
-                          email: doubleCheckUser.email || email,
-                          name: firstNameFromMeta,
-                          last_name: lastNameFromMeta,
-                          role: 2,
-                          is_active: true,
-                          created_at: new Date().toISOString()
+                      const { data: inserted } = await admin.from("users").insert({
+                        user_id: doubleCheckUser.id,
+                        email: doubleCheckUser.email || email,
+                        name: nameParts[0] || firstName,
+                        last_name: nameParts.slice(1).join(" ") || lastName,
+                        role: 2,
+                        is_active: true,
+                        created_at: new Date().toISOString()
+                      }).select("id").maybeSingle();
+                      if (inserted) userRecord = inserted;
+                    }
+                    if (userRecord?.id) {
+                      const { data: existingPatient } = await admin
+                        .from("patients")
+                        .select("id")
+                        .eq("id", userRecord.id)
+                        .maybeSingle();
+                      if (!existingPatient) {
+                        await admin.from("patients").insert({
+                          id: userRecord.id,
+                          emergency_contact_name: "",
+                          emergency_contact_phone: "",
+                          health_insurances_id: 1,
                         });
-
-                      if (userInsertError && userInsertError.code !== '23505') {
-                        console.error("⚠️ Error al crear usuario en tabla users:", userInsertError);
-                      } else {
-                        console.log("✅ Usuario creado en tabla users");
                       }
                     }
                   } catch (createErr) {
                     console.error("⚠️ Error al crear usuario en tabla users:", createErr);
                   }
                   
-                  // Redirigir según el estado de confirmación
                   if (doubleCheckUser.email_confirmed_at) {
-                    console.log("✅ Email ya confirmado, redirigiendo al login...");
                     redirect("/login?registered=true");
                   } else {
-                    console.log("⚠️ Usuario creado pero necesita confirmar email");
-                    redirect("/confirmation?email-sent=false");
+                    // Generar enlace y enviar correo manualmente (mismo flujo que admin.createUser)
+                    try {
+                      const { data: linkData } = await admin.auth.admin.generateLink({
+                        type: "signup",
+                        email: email,
+                        password: password,
+                        options: { redirectTo: `${baseUrl}/confirmation` },
+                      });
+                      const link = linkData?.properties?.action_link;
+                      if (link) {
+                        const { sendNotificationEmail } = await import("@/lib/services/emailService");
+                        await sendNotificationEmail({
+                          to: email,
+                          subject: "Confirma tu correo electrónico - FlorAurora Salud",
+                          message: `Hola ${firstName},\n\nGracias por registrarte en FlorAurora Salud. Por favor, confirma tu correo electrónico haciendo clic en el botón a continuación para activar tu cuenta.`,
+                          actionUrl: link,
+                          actionText: "Confirmar correo electrónico",
+                        });
+                      }
+                    } catch (e) {
+                      console.error("⚠️ Error enviando correo de confirmación:", e);
+                    }
+                    redirect("/confirmation?email-sent=true&registered=true");
                   }
-                  return; // Salir de la función
+                  return;
                 }
                 
                 // Si no existe, crear el usuario usando la API de Admin
@@ -599,37 +575,87 @@ export async function signup(formData: FormData) {
                 });
 
                 if (adminCreateError || !adminUserData?.user) {
-                  console.error("❌ Error al crear usuario con API de Admin:", adminCreateError);
-                  
-                  // Si el error es que el usuario ya existe, verificar y continuar
+                  // Usuario ya existe (creado por signUp antes de fallar el email)
                   if (adminCreateError?.message?.includes("already registered") || 
                       adminCreateError?.message?.toLowerCase().includes("already exists")) {
-                    console.log("⚠️ Usuario ya existe según API de Admin, verificando...");
                     const { data: finalCheckUsers } = await admin.auth.admin.listUsers({
                       page: 1,
                       perPage: 1000
                     });
-                    
                     const finalCheckUser = finalCheckUsers?.users?.find(
                       (u) => (u.email || "").toLowerCase() === email.toLowerCase()
                     );
-                    
                     if (finalCheckUser) {
-                      console.log("✅ Usuario encontrado después del error 'already exists'");
-                      redirect("/signup?error=user-exists");
-                    } else {
-                      redirect("/signup?error=email-service-error");
+                      // Usuario creado por signUp antes de fallar email. Crear users/patients si falta.
+                      try {
+                        let { data: userRecord } = await admin
+                          .from("users")
+                          .select("id")
+                          .eq("user_id", finalCheckUser.id)
+                          .maybeSingle();
+                        if (!userRecord) {
+                          const fullName = finalCheckUser.user_metadata?.full_name || `${firstName} ${lastName}`;
+                          const nameParts = fullName.split(" ");
+                          const { data: inserted } = await admin.from("users").insert({
+                            user_id: finalCheckUser.id,
+                            email: finalCheckUser.email || email,
+                            name: nameParts[0] || firstName,
+                            last_name: nameParts.slice(1).join(" ") || lastName,
+                            role: 2,
+                            is_active: true,
+                            created_at: new Date().toISOString()
+                          }).select("id").maybeSingle();
+                          if (inserted) userRecord = inserted;
+                        }
+                        if (userRecord?.id) {
+                          const { data: existingPatient } = await admin
+                            .from("patients")
+                            .select("id")
+                            .eq("id", userRecord.id)
+                            .maybeSingle();
+                          if (!existingPatient) {
+                            await admin.from("patients").insert({
+                              id: userRecord.id,
+                              emergency_contact_name: "",
+                              emergency_contact_phone: "",
+                              health_insurances_id: 1,
+                            });
+                          }
+                        }
+                      } catch (e) {
+                        console.error("⚠️ Error creando usuario/paciente:", e);
+                      }
+                      if (!finalCheckUser.email_confirmed_at) {
+                        try {
+                          const { data: linkData } = await admin.auth.admin.generateLink({
+                            type: "signup",
+                            email: email,
+                            password: password,
+                            options: { redirectTo: `${baseUrl}/confirmation` },
+                          });
+                          const link = linkData?.properties?.action_link;
+                          if (link) {
+                            const { sendNotificationEmail } = await import("@/lib/services/emailService");
+                            await sendNotificationEmail({
+                              to: email,
+                              subject: "Confirma tu correo electrónico - FlorAurora Salud",
+                              message: `Hola ${firstName},\n\nGracias por registrarte en FlorAurora Salud. Por favor, confirma tu correo electrónico haciendo clic en el botón a continuación para activar tu cuenta.`,
+                              actionUrl: link,
+                              actionText: "Confirmar correo electrónico",
+                            });
+                          }
+                        } catch (e) {
+                          console.error("⚠️ Error enviando correo:", e);
+                        }
+                      }
+                      redirect(finalCheckUser.email_confirmed_at ? "/login?registered=true" : "/confirmation?email-sent=true&registered=true");
+                      return;
                     }
-                  } else {
-                    redirect("/signup?error=email-service-error");
                   }
+                  console.error("❌ Error al crear usuario:", adminCreateError);
+                  redirect("/signup?error=email-service-error");
                   return;
                 }
-
-                console.log("✅ Usuario creado exitosamente con API de Admin:", {
-                  userId: adminUserData.user.id,
-                  emailConfirmed: !!adminUserData.user.email_confirmed_at
-                });
 
                 // Generar enlace de confirmación y enviarlo manualmente
                 let confirmationLink: string | null = null;
@@ -647,22 +673,6 @@ export async function signup(formData: FormData) {
                     console.error("⚠️ Error al generar enlace de confirmación:", linkError);
                   } else {
                     confirmationLink = linkData.properties.action_link;
-                    console.log("✅ Enlace de confirmación generado exitosamente");
-                    console.log("🔗 Enlace generado (primeros 100 chars):", confirmationLink.substring(0, 100) + "...");
-                    console.log("🔗 URL completa del enlace:", confirmationLink);
-                    
-                    // Verificar que el enlace tenga el formato correcto
-                    try {
-                      const linkUrl = new URL(confirmationLink);
-                      console.log("🔗 Parámetros del enlace:", {
-                        hostname: linkUrl.hostname,
-                        pathname: linkUrl.pathname,
-                        searchParams: Object.fromEntries(linkUrl.searchParams)
-                      });
-                    } catch (urlError) {
-                      console.warn("⚠️ Error al parsear URL del enlace:", urlError);
-                    }
-                    
                     // Enviar el correo manualmente usando SendGrid
                     try {
                       const { sendNotificationEmail } = await import("@/lib/services/emailService");
@@ -673,7 +683,6 @@ export async function signup(formData: FormData) {
                         actionUrl: confirmationLink,
                         actionText: "Confirmar correo electrónico",
                       });
-                      console.log("✅ Correo de confirmación enviado manualmente");
                     } catch (emailError) {
                       console.error("⚠️ Error al enviar correo de confirmación manualmente:", emailError);
                       // Continuar aunque falle el correo - el usuario puede solicitar reenvío
@@ -709,8 +718,6 @@ export async function signup(formData: FormData) {
                       // Salir del try antes de hacer redirect
                       throw new Error("Error al crear usuario en tabla users");
                     }
-                  } else if (userRecord) {
-                    console.log("✅ Usuario creado en tabla users:", userRecord.id);
                   }
                   
                   // Crear perfil de paciente básico usando el cliente Admin
@@ -747,15 +754,11 @@ export async function signup(formData: FormData) {
 
                         if (patientInsertError) {
                           // Si es un error de duplicación, el perfil ya existe (race condition)
-                          if (patientInsertError.code === '23505') {
-                            console.log("⚠️ Perfil de paciente ya existe, continuando...");
-                          } else {
+                          if (patientInsertError.code !== '23505') {
                             console.error("⚠️ Error al crear perfil de paciente:", patientInsertError);
                             // No es crítico, el usuario puede completar su perfil después
                           }
                         } else {
-                          console.log("✅ Perfil de paciente creado");
-                          
                           // Enviar notificación al correo de contacto
                           try {
                             const { sendPatientRegistrationNotification } = await import("@/lib/services/emailService");
@@ -764,14 +767,11 @@ export async function signup(formData: FormData) {
                               patientEmail: email,
                               patientPhone: null,
                             });
-                            console.log("✅ Notificación de registro de paciente enviada al correo de contacto");
                           } catch (notificationError) {
                             console.error("⚠️ Error al enviar notificación de registro (no crítico):", notificationError);
                             // No es crítico, el registro ya se completó exitosamente
                           }
                         }
-                      } else {
-                        console.log("✅ Perfil de paciente ya existe");
                       }
                     } catch (profileErr) {
                       console.error("⚠️ Error al crear perfil de paciente:", profileErr);
@@ -788,8 +788,6 @@ export async function signup(formData: FormData) {
                   return; // No continuar después del redirect
                 }
 
-                  // Redirigir a la página de confirmación indicando que se envió el correo
-                  console.log("✅ Registro completado exitosamente, redirigiendo a confirmación...");
                   if (confirmationLink) {
                     redirect("/confirmation?email-sent=true&registered=true");
                   } else {
@@ -832,13 +830,11 @@ export async function signup(formData: FormData) {
     }
     
     if (signUpError.message.includes("Invalid email")) {
-      console.log("🔍 Email inválido");
       redirect("/signup?error=invalid-email");
       return;
     }
     
     if (signUpError.message.includes("Password should be at least")) {
-      console.log("🔍 Contraseña muy corta");
       redirect("/signup?error=weak-password");
       return;
     }
@@ -851,30 +847,16 @@ export async function signup(formData: FormData) {
       code: signUpError.code,
     });
     
-    console.log("🔍 Error genérico de registro, redirigiendo...");
     redirect("/signup?error=signup-failed");
   }
 
   // 4. Verificar que el registro fue exitoso
   if (signUpData?.user) {
-    console.log("✅ Usuario registrado exitosamente en Supabase Auth:", {
-      userId: signUpData.user.id,
-      email: signUpData.user.email,
-      emailConfirmed: signUpData.user.email_confirmed_at,
-      needsConfirmation: !signUpData.user.email_confirmed_at
-    });
-
-    if (!signUpData.user.email_confirmed_at) {
-      console.log("📧 Correo de confirmación enviado. Usuario necesita confirmar su email.");
-    } else {
-      console.log("✅ Email ya confirmado (caso inesperado en registro nuevo)");
-    }
   } else {
     console.error("❌ Error: signUpData.user es nulo después de un registro exitoso sin error.");
     redirect("/signup?error=unexpected-error");
   }
   
-  console.log("🔍 Redirigiendo a página de confirmación...");
   revalidatePath("/", "layout");
   redirect("/confirmation");
 }
@@ -915,7 +897,6 @@ export async function signupPro(formData: FormData) {
   // Esto puede pasar si el usuario hace doble clic o recarga la página después de enviar
   // IMPORTANTE: No lanzar error, solo redirigir silenciosamente
   if (existingRequest && existingRequest.status === "pending") {
-    console.log("Ya existe una solicitud pendiente para este email, redirigiendo a éxito:", email);
     // Usar redirect() que lanza una excepción especial que Next.js maneja
     // Esto evita que el componente cliente trate esto como un error
     redirect("/signup-pro/success?existing=true");
@@ -931,7 +912,6 @@ export async function signupPro(formData: FormData) {
   // Si es un reenvío y ya tiene un user_id, mantenerlo (pero no actualizar el usuario todavía)
   if (isResubmission && existingRequest?.user_id) {
     userId = existingRequest.user_id;
-    console.log("Reenvío de solicitud rechazada, manteniendo user_id existente:", userId);
     // NO actualizamos el usuario aquí, se hará cuando se apruebe
   } else {
     // Verificar si el usuario ya existe (no debería, pero verificamos por seguridad)
@@ -963,7 +943,6 @@ export async function signupPro(formData: FormData) {
     }
     
     // NO creamos el usuario aquí. Se creará cuando se apruebe la solicitud.
-    console.log("Solicitud profesional: NO se crea usuario hasta la aprobación del administrador");
   }
 
   // 3. Obtener URLs de archivos (ya subidos desde el cliente) o archivos directamente
@@ -1168,7 +1147,6 @@ export async function signupPro(formData: FormData) {
       professionalPhone: phone_number || null,
       rut: rut || null,
     });
-    console.log("✅ Notificación de solicitud profesional enviada al correo de contacto");
   } catch (notificationError) {
     console.error("⚠️ Error al enviar notificación al correo de contacto (no crítico):", notificationError);
     // No redirigir por error de notificación, solo loguear
@@ -1186,7 +1164,7 @@ export async function signout() {
   const supabase = await createClient();
   const { error } = await supabase.auth.signOut();
   if (error) {
-    console.log(error);
+    console.error("Error al cerrar sesión:", error);
     redirect("/error");
   }
 
@@ -1207,7 +1185,7 @@ export async function signInWithGoogle() {
   });
 
   if (error) {
-    console.log(error);
+    console.error("Error al iniciar sesión con Google:", error);
     redirect("/error");
   }
 
@@ -1244,7 +1222,6 @@ export async function requestPasswordReset(formData: FormData) {
       };
     }
 
-    console.log("✅ Email de reset de contraseña enviado a:", email);
     return {
       success: true,
       message: "Se ha enviado un email con instrucciones para resetear tu contraseña",
@@ -1294,8 +1271,6 @@ export async function resetPassword(formData: FormData) {
         error: error.message || "Error al actualizar la contraseña",
       };
     }
-
-    console.log("✅ Contraseña actualizada exitosamente");
     
     // Redirigir al login después de éxito
     revalidatePath("/", "layout");

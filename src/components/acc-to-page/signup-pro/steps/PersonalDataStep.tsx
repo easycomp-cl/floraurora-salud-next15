@@ -48,9 +48,11 @@ export default function PersonalDataStep({
   ) => {
     let formattedValue = value;
 
-    if (field === "rut") {
-      formattedValue = formatRUT(value);
-      // Limpiar mensaje de solicitud pendiente si el usuario cambia el RUT
+    if (field === "rut" || field === "email") {
+      if (field === "rut") {
+        formattedValue = formatRUT(value);
+      }
+      // Limpiar mensaje de solicitud pendiente si el usuario cambia RUT o email
       if (onDismissMessage && pendingRequestMessage.show) {
         onDismissMessage();
       }

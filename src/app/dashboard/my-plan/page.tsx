@@ -84,7 +84,6 @@ export default function MyPlanPage() {
         
         // Cargar configuraciones de precios desde la API
         let pricingData = null;
-        let isPromotional = false;
         
         try {
           const pricingResponse = await fetch("/api/plans/pricing", {
@@ -101,7 +100,6 @@ export default function MyPlanPage() {
             const pricingResult = await pricingResponse.json();
             if (pricingResult.success && pricingResult.pricing) {
               pricingData = pricingResult.pricing;
-              isPromotional = pricingData.isPromotional || false;
               
               // Siempre usar valores de la BD
               setPricingConfig({
@@ -112,15 +110,6 @@ export default function MyPlanPage() {
                 premiumExtraSessionCommissionPercentage: pricingData.premiumExtraSessionCommissionPercentage,
               });
               setCurrentPremiumPrice(pricingData.premiumCurrentPrice);
-              
-              console.log("[my-plan] Precios cargados desde BD:", {
-                normal: pricingData.premiumNormalPrice,
-                promocion: pricingData.premiumPromotionPrice,
-                meses: pricingData.premiumPromotionMonths,
-                comision: pricingData.lightCommissionPercentage,
-                precioActual: pricingData.premiumCurrentPrice,
-                esPromocional: isPromotional,
-              });
             } else {
               console.warn("[my-plan] Respuesta de API sin datos válidos:", pricingResult);
             }
@@ -218,22 +207,6 @@ export default function MyPlanPage() {
           : (config.premiumPromotionMonths > 0 && 
              config.premiumPromotionPrice < config.premiumNormalPrice);
         
-        // Log para debugging
-        if (pricingData) {
-          console.log("[my-plan] Configuración aplicada:", {
-            precioNormal: config.premiumNormalPrice,
-            precioPromocion: config.premiumPromotionPrice,
-            precioActual: premiumPrice,
-            mesesPromocion: config.premiumPromotionMonths,
-            comisionLight: config.lightCommissionPercentage,
-            mostrarPromocion: showPromotionalMessage,
-            isPromotionActive: pricingData.isPromotionActive,
-            isPromotional: isPromotional,
-            condicion1: config.premiumPromotionMonths > 0,
-            condicion2: config.premiumPromotionPrice < config.premiumNormalPrice,
-          });
-        }
-
         // Construir planes con valores parametrizados
         const plans: PlanInfo[] = [
           {
@@ -274,7 +247,7 @@ export default function MyPlanPage() {
             description: showPromotionalMessage
               ? `Precio promocional por ${config.premiumPromotionMonths} meses. Incluye todos los servicios de la aplicación`
               : "Incluye todos los servicios de la aplicación",
-            note: `Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
+            note: `Debes realizar el pago mensual de forma manual cada mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
             isPromotional: showPromotionalMessage,
             normalPrice: config.premiumNormalPrice,
           },
@@ -323,7 +296,6 @@ export default function MyPlanPage() {
             premiumExtraSessionCommissionPercentage: pricingData.premiumExtraSessionCommissionPercentage,
           });
           setCurrentPremiumPrice(pricingData.premiumCurrentPrice);
-          console.log("[my-plan] Precios recargados desde BD:", pricingData);
         }
       }
       
@@ -397,7 +369,6 @@ export default function MyPlanPage() {
 
       // Ya no necesitamos obtener el professionalId del cliente
       // El servidor lo determinará desde el usuario autenticado
-      console.log("Seleccionando plan:", { planType });
 
       // Si el plan es "commission", solo actualizar el plan_type
       if (planType === "commission") {

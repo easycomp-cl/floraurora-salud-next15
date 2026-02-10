@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { professionalRequestsService } from "@/lib/services/professionalRequestsService";
 import { getAdminActorId } from "@/lib/auth/getAdminActor";
 import { auditService } from "@/lib/services/auditService";
@@ -7,7 +7,7 @@ import {
 } from "@/lib/services/emailService";
 
 export async function POST(
-  request: Request,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -18,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const adminUserId = await getAdminActorId();
+    const adminUserId = await getAdminActorId(req);
     if (!adminUserId) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -27,8 +27,8 @@ export async function POST(
     }
 
     // Obtener la solicitud antes de aprobar para enviar el email
-    const request = await professionalRequestsService.getRequestById(requestId);
-    if (!request) {
+    const professionalRequest = await professionalRequestsService.getRequestById(requestId);
+    if (!professionalRequest) {
       return NextResponse.json(
         { error: "Solicitud no encontrada" },
         { status: 404 }
@@ -44,8 +44,8 @@ export async function POST(
     // Enviar correo de aprobación
     try {
       await sendProfessionalRequestApprovedEmail({
-        to: request.email,
-        professionalName: request.full_name,
+        to: professionalRequest.email,
+        professionalName: professionalRequest.full_name,
         verificationLink,
       });
     } catch (emailError) {

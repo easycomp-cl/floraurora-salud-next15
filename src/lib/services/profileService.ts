@@ -378,7 +378,6 @@ export const profileService = {
 
     // Primero obtener el usuario para conseguir su id
     const user = await this.getUserProfileByUuid(userId);
-    console.log("AWAIT user", user);
     if (!user) throw new Error('User not found');
 
     const { data, error } = await supabaseTyped
@@ -400,9 +399,6 @@ export const profileService = {
 
   async updatePatientProfile(userId: string, profileData: Partial<Patient>): Promise<Patient | null> {
     // Primero obtener el usuario para conseguir su id
-    console.log("=== INICIO updatePatientProfile ===");
-    console.log("userId recibido:", userId);
-    console.log("profileData recibido:", profileData);
     const user = await this.getUserProfileByUuid(userId);
     if (!user) throw new Error('User not found');
 
@@ -557,10 +553,7 @@ export const profileService = {
     });
     
     // Si no hay cambios reales, devolver los datos actuales sin hacer update
-    if (!hasChanges) {
-      console.log('No hay cambios reales en los datos, devolviendo datos actuales');
-      return currentUser;
-    }
+    if (!hasChanges) return currentUser;
     
     // Realizar la actualización solo si hay cambios reales
     // Usar .maybeSingle() para evitar error 406 cuando no hay filas afectadas
@@ -576,8 +569,6 @@ export const profileService = {
       // 1. La actualización no afectó ninguna fila (valores iguales)
       // 2. No existe el usuario con ese user_id
       if (error.code === 'PGRST116' && error.details?.includes('0 rows')) {
-        // Si llegamos aquí, devolver los datos actuales que ya obtuvimos
-        console.log('Actualización no afectó filas, devolviendo datos actuales');
         return currentUser;
       }
       
@@ -619,11 +610,7 @@ export const profileService = {
     }
     
     // Si data es null, significa que la actualización no afectó ninguna fila
-    // Devolver los datos actuales que ya obtuvimos
-    if (!data) {
-      console.log('Actualización completada pero no se devolvieron datos, usando datos actuales');
-      return currentUser;
-    }
+    if (!data) return currentUser;
     
     return data;
   },

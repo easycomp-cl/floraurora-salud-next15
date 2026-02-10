@@ -80,6 +80,14 @@ function SignUpFormContent() {
           icon: <AlertCircle className="h-5 w-5" />,
           variant: "destructive" as const,
         };
+      case "professional-request-pending":
+        return {
+          title: "Registro no disponible",
+          description: "Este correo electrónico tiene una solicitud de profesional en proceso de revisión.",
+          message: "No puedes registrarte como paciente mientras tu solicitud de profesional esté siendo evaluada. Espera a que se complete la revisión o contacta a soporte si tienes dudas.",
+          icon: <AlertCircle className="h-5 w-5" />,
+          variant: "destructive" as const,
+        };
       case "email-service-error":
         return {
           title: "Error al enviar correo de confirmación",

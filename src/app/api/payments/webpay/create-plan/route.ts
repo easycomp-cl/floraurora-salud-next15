@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const { amount } = body;
 
     // Validar autenticación primero para obtener el professionalId
-    console.log("🔍 [create-plan] Validando autenticación...");
     const authValidation = await validateAuth(request);
 
     if (!authValidation.isValid) {
@@ -84,12 +83,6 @@ export async function POST(request: NextRequest) {
         ? await getPremiumPlanPrice(professionalIdNum)
         : await getPremiumPlanPriceForNewProfessional();
     }
-
-    console.log("✅ [create-plan] Autenticación validada:", {
-      userRecordId: professionalIdNum,
-      userId: authValidation.userId,
-      amount: amountNumber,
-    });
 
     // Verificar que el profesional existe y pertenece al usuario autenticado
     const adminSupabase = createAdminServer();
@@ -162,16 +155,6 @@ export async function POST(request: NextRequest) {
     const commerceCodeTrimmed = commerceCode.trim();
     const apiKeyTrimmed = apiKey.trim();
 
-    console.log("🔐 [create-plan] Configuración de Transbank:", {
-      hasCommerceCode: !!commerceCodeTrimmed,
-      hasApiKey: !!apiKeyTrimmed,
-      commerceCodeLength: commerceCodeTrimmed.length,
-      apiKeyLength: apiKeyTrimmed.length,
-      environment: environment === "production" ? "Production" : "Integration",
-      isProduction,
-      detectedBy,
-    });
-
     // Importar dinámicamente el SDK de Transbank (solo en el servidor)
     const { WebpayPlus, Options, Environment } = await import("transbank-sdk");
 
@@ -212,10 +195,6 @@ export async function POST(request: NextRequest) {
         amountNumber,
         returnUrl
       );
-      console.log("✅ [create-plan] Transacción creada exitosamente:", {
-        hasToken: !!response.token,
-        hasUrl: !!response.url,
-      });
     } catch (createError) {
       console.error("❌ [create-plan] Error al crear transacción:", {
         error: createError instanceof Error ? createError.message : String(createError),

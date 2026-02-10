@@ -93,18 +93,6 @@ export async function getPlanPricingConfig(): Promise<PlanPricingConfig> {
     ? promotionMonthsConfig.value
     : 0; // Si la promoción no está activa, no hay meses de promoción
 
-  // Log para debugging
-  console.log("[planPricingService] Configuración de precios:", {
-    premiumNormalPrice,
-    premiumPromotionPrice,
-    premiumPromotionMonths,
-    promotionActive,
-    promotionPriceActive,
-    promotionMonthsActive,
-    promotionPriceValue: promotionPriceConfig?.value,
-    promotionMonthsValue: promotionMonthsConfig?.value,
-  });
-
   return {
     premiumNormalPrice,
     premiumPromotionPrice,
@@ -143,9 +131,6 @@ export async function getPremiumPlanPrice(
     );
   } else if (professional?.use_promotional_price === true) {
     // Si el admin activó manualmente el precio promocional, usarlo siempre
-    console.log(
-      `[planPricingService] Precio promocional activado manualmente para profesional ${professionalId}`
-    );
     return config.premiumPromotionPrice;
   }
 

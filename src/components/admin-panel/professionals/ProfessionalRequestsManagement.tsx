@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ProfessionalRequest } from "@/lib/services/professionalRequestsService";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ interface ProfessionalRequestsResponse {
 }
 
 export default function ProfessionalRequestsManagement() {
+  const { session } = useAuthState();
   const [allRequests, setAllRequests] = useState<ProfessionalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,11 +121,17 @@ export default function ProfessionalRequestsManagement() {
       setMessage(null);
       setError(null);
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(
         `/api/admin/professional-requests/${request.id}/approve`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
+          credentials: "include",
         }
       );
 
@@ -161,12 +169,18 @@ export default function ProfessionalRequestsManagement() {
       setMessage(null);
       setError(null);
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(
         `/api/admin/professional-requests/${selectedRequest.id}/reject`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ rejectionReason: rejectionReason.trim() }),
+          credentials: "include",
         }
       );
 
@@ -199,11 +213,17 @@ export default function ProfessionalRequestsManagement() {
       setMessage(null);
       setError(null);
 
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const response = await fetch(
         `/api/admin/professional-requests/${request.id}/resend-link`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
+          credentials: "include",
         }
       );
 

@@ -169,6 +169,12 @@ export const adminNavigationItems: NavItem[] = [
     icon: ShieldCheck,
     description: "Registro de acciones administrativas",
   },
+  {
+    label: "Tutoriales",
+    href: "/admin/tutorials",
+    icon: PlayCircle,
+    description: "Gestiona videos tutoriales para profesionales y pacientes",
+  },
 ];
 
 const adminMenuNavItem: NavItem = {

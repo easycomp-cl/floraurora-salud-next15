@@ -16,7 +16,32 @@ export async function GET(request: NextRequest) {
 
     const admin = createAdminServer();
 
-    // 1. PRIMERO: Verificar si existe una solicitud pendiente o rechazada con este RUT
+    // 1. PRIMERO (si hay email): Verificar si existe una solicitud pendiente con este EMAIL
+    // Evita que alguien intente registrarse de nuevo con otro RUT pero el mismo correo en evaluación
+    if (email) {
+      const { data: pendingByEmail, error: emailRequestError } = await admin
+        .from("professional_requests")
+        .select("id, status, email, full_name, created_at")
+        .eq("email", email.toLowerCase().trim())
+        .in("status", ["pending", "resubmitted"])
+        .maybeSingle();
+
+      if (!emailRequestError && pendingByEmail) {
+        return NextResponse.json({
+          type: "pending_request",
+          exists: true,
+          request: {
+            id: pendingByEmail.id,
+            status: pendingByEmail.status,
+            email: pendingByEmail.email,
+            full_name: pendingByEmail.full_name,
+            created_at: pendingByEmail.created_at,
+          },
+        });
+      }
+    }
+
+    // 2. SEGUNDO: Verificar si existe una solicitud pendiente o rechazada con este RUT
     const { data: pendingRequest, error: requestError } = await admin
       .from("professional_requests")
       .select("id, status, email, full_name, created_at")
@@ -32,7 +57,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Si hay solicitud pendiente o reenviada, retornar eso primero
+    // Si hay solicitud pendiente o reenviada por RUT, retornar eso
     if (pendingRequest && (pendingRequest.status === "pending" || pendingRequest.status === "resubmitted")) {
       return NextResponse.json({
         type: "pending_request",
@@ -47,7 +72,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 2. SEGUNDO: Verificar si existe un usuario con este RUT en la tabla users
+    // 3. TERCERO: Verificar si existe un usuario con este RUT en la tabla users
     const { data: userByRut, error: userRutError } = await admin
       .from("users")
       .select("id, email, name, last_name, role")
@@ -73,7 +98,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 3. TERCERO: Si se proporciona email, verificar si existe un usuario con ese email
+    // 4. CUARTO: Si se proporciona email, verificar si existe un usuario con ese email
     if (email) {
       const { data: userByEmail, error: userEmailError } = await admin
         .from("users")

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { professionalRequestsService } from "@/lib/services/professionalRequestsService";
 import { getAdminActorId } from "@/lib/auth/getAdminActor";
 import { auditService } from "@/lib/services/auditService";
@@ -7,7 +7,7 @@ import {
 } from "@/lib/services/emailService";
 
 export async function POST(
-  req: Request,
+  req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -28,7 +28,7 @@ export async function POST(
       );
     }
 
-    const adminUserId = await getAdminActorId();
+    const adminUserId = await getAdminActorId(req);
     if (!adminUserId) {
       return NextResponse.json(
         { error: "No autorizado" },

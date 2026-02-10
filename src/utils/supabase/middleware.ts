@@ -41,7 +41,7 @@ export async function updateSession(request: NextRequest) {
         if (!finalUser) {
             // Solo loggear errores que no sean de sesión faltante
             if (error && error.message !== 'Auth session missing!') {
-                console.log("Middleware auth error:", error);
+                console.error("Middleware auth error:", error);
             }
             
             // Si es una ruta protegida y no hay sesión válida, verificar qué hacer
@@ -117,15 +117,11 @@ export async function updateSession(request: NextRequest) {
                 return NextResponse.redirect(loginUrl);
             }
             
-            // Solo loggear en desarrollo
-            if (process.env.NODE_ENV === 'development') {
-                console.log("Middleware: User authenticated:", finalUser.id);
-            }
         }
     } catch (error) {
         // Solo loggear errores inesperados
         if (error instanceof Error && error.message !== 'Auth session missing!') {
-            console.log("Middleware unexpected error:", error);
+            console.error("Middleware unexpected error:", error);
         }
     }
 

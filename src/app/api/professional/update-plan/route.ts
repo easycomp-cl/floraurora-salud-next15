@@ -33,7 +33,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar autenticación usando la función de validación centralizada
-    console.log("🔍 [update-plan] Validando autenticación...");
     const authValidation = await validateAuth(request);
 
     if (!authValidation.isValid) {
@@ -83,11 +82,6 @@ export async function POST(request: NextRequest) {
     }
 
     const professionalIdNum = Number(authValidation.userRecordId);
-    
-    console.log("✅ [update-plan] Autenticación validada:", {
-      userRecordId: professionalIdNum,
-      userId: authValidation.userId,
-    });
 
     // Verificar que el profesional existe y pertenece al usuario autenticado
     const adminSupabase = createAdminServer();

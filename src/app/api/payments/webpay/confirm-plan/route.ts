@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminServer } from "@/utils/supabase/server";
 import { getTransbankConfig } from "@/lib/config";
+import { sendProfessionalMonthlyPaymentNotification } from "@/lib/services/emailService";
 
 /**
  * API Route para confirmar una transacción de Webpay Plus para pago de plan mensual
@@ -48,7 +49,7 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
 
     // Obtener configuración de Transbank usando función helper
     const transbankConfig = getTransbankConfig();
-    const { commerceCode, apiKey, isProduction, environment, detectedBy } = transbankConfig;
+    const { commerceCode, apiKey, isProduction } = transbankConfig;
 
     if (!commerceCode || !apiKey) {
       console.error("❌ [confirm-plan] Credenciales de Transbank no configuradas");
@@ -61,16 +62,6 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
     // Validar formato de credenciales (sin espacios al inicio/final)
     const commerceCodeTrimmed = commerceCode.trim();
     const apiKeyTrimmed = apiKey.trim();
-
-    console.log("🔐 [confirm-plan] Configuración de Transbank:", {
-      hasCommerceCode: !!commerceCodeTrimmed,
-      hasApiKey: !!apiKeyTrimmed,
-      commerceCodeLength: commerceCodeTrimmed.length,
-      apiKeyLength: apiKeyTrimmed.length,
-      environment: environment === "production" ? "Production" : "Integration",
-      isProduction,
-      detectedBy,
-    });
 
     // Importar dinámicamente el SDK de Transbank (solo en el servidor)
     const { WebpayPlus, Options, Environment } = await import("transbank-sdk");
@@ -133,16 +124,13 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
     const buyOrderMatch = buy_order?.match(/^plan(\d+)/);
     const professionalIdFromBuyOrder = buyOrderMatch ? parseInt(buyOrderMatch[1]) : null;
 
-    console.log("Buy_order recibido:", buy_order);
-    console.log("ProfessionalId extraído del buy_order:", professionalIdFromBuyOrder);
-
     // Usar cliente admin para evitar problemas de RLS cuando Webpay redirige
     const adminSupabase = createAdminServer();
 
     // Buscar el registro de pago por buy_order
     const { data: paymentRecord, error: paymentError } = await adminSupabase
       .from("monthly_subscription_payments")
-      .select("id, professional_id, provider_payment_status")
+      .select("id, professional_id, provider_payment_status, amount, currency")
       .eq("buy_order", buy_order)
       .single();
 
@@ -165,8 +153,6 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
       );
     }
 
-    console.log("Registrando pago para profesional con ID:", professionalId);
-
     // Obtener la fecha de expiración actual del profesional para calcular la nueva fecha correctamente
     // Esto se hace una sola vez y se usa tanto para el registro de pago como para actualizar el profesional
     const { data: currentProfessional } = await adminSupabase
@@ -184,7 +170,6 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
 
     // Verificar si el pago ya existe antes de actualizar
     if (paymentRecord && paymentRecord.provider_payment_status === "succeeded") {
-      console.log("El pago ya está registrado como exitoso:", paymentRecord);
       // El pago ya está registrado, continuar con el flujo normalmente
     } else {
       const updateData: Record<string, unknown> = {
@@ -213,8 +198,6 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
         console.error("Error actualizando registro de pago:", updateError);
         // Aunque falle el registro, la transacción fue exitosa en Webpay
         // Continuar con la actualización del plan del profesional
-      } else {
-        console.log("Pago registrado exitosamente");
       }
     }
 
@@ -225,6 +208,7 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
         plan_type: "monthly", // Asegurar que el plan_type sea "monthly"
         last_monthly_payment_date: new Date().toISOString(),
         monthly_plan_expires_at: newExpirationDate.toISOString(),
+        admin_granted_plan: false, // Pago real, no concedido por admin
         is_active: true,
       })
       .eq("id", professionalId);
@@ -238,7 +222,36 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
       );
     }
 
-    console.log("Plan del profesional actualizado exitosamente");
+    // Enviar correos de confirmación al profesional y a contacto@floraurorasalud.cl
+    try {
+      const { data: userData } = await adminSupabase
+        .from("users")
+        .select("email, name, last_name")
+        .eq("id", professionalId)
+        .single();
+
+      const professionalEmail = userData?.email as string | undefined;
+      const professionalName = [userData?.name, userData?.last_name].filter(Boolean).join(" ") || "Profesional";
+
+      if (professionalEmail) {
+        const amount = paymentRecord?.amount != null ? Number(paymentRecord.amount) : 0;
+        const currency = (paymentRecord?.currency as string) || "CLP";
+
+        await sendProfessionalMonthlyPaymentNotification({
+          professionalEmail,
+          professionalName,
+          amount,
+          currency,
+          paymentDate: new Date(),
+          expirationDate: newExpirationDate,
+        });
+      } else {
+        console.warn("No se encontró email del profesional, no se enviaron correos de pago");
+      }
+    } catch (emailError) {
+      console.error("Error enviando correos de pago (no crítico):", emailError);
+      // No fallar el flujo por error de email
+    }
 
     // Redirigir a página de éxito
     return NextResponse.redirect(

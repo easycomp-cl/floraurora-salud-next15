@@ -8,7 +8,7 @@ import type { User } from "@supabase/supabase-js";
 
 export default function AuthCallback() {
   const router = useRouter();
-  const { user, isAuthenticated } = useAuthState();
+  const { user, isAuthenticated, supabase } = useAuthState();
 
   useEffect(() => {
     let mounted = true;
@@ -20,10 +20,9 @@ export default function AuthCallback() {
     let savedRedirectOnMount: string | null = null;
     if (typeof window !== "undefined") {
       savedRedirectOnMount = localStorage.getItem("auth_redirect");
-      console.log("🔍 Callback montado: Redirect guardado al inicio:", savedRedirectOnMount);
     }
 
-    // Verificar si hay errores en la URL (usuario canceló el login)
+    // Verificar si hay errores en la URL (usuario cancelÃ³ el login)
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
       const error = urlParams.get("error");
@@ -38,19 +37,19 @@ export default function AuthCallback() {
     }
 
     const processUserProfile = async (user: User) => {
-      // Prevenir múltiples ejecuciones simultáneas
+      // Prevenir mÃºltiples ejecuciones simultÃ¡neas
       if (processingStarted) {
         return;
       }
 
       processingStarted = true;
 
-      // Verificar si el usuario está bloqueado
+      // Verificar si el usuario estÃ¡ bloqueado
       const isBlocked = (user.app_metadata as { blocked?: boolean } | null)?.blocked === true;
       if (isBlocked) {
-        console.warn("🚫 AuthCallback: Usuario bloqueado detectado, cerrando sesión...");
+        console.warn("ðŸš« AuthCallback: Usuario bloqueado detectado, cerrando sesiÃ³n...");
         
-        // Cerrar sesión inmediatamente
+        // Cerrar sesiÃ³n inmediatamente
         const { clientSignout } = await import("@/lib/client-auth");
         await clientSignout();
         
@@ -66,6 +65,33 @@ export default function AuthCallback() {
         const userExists = await UserService.userExists(user.id);
 
         if (!userExists) {
+          // Validar: si el email tiene una solicitud de profesional en proceso, no permitir registro como paciente
+          // El cliente usa localStorage para la sesiÃ³n, no cookies - enviamos el token en el body
+          const { data: { session } } = await supabase.auth.getSession();
+          const accessToken = session?.access_token;
+          const checkRes = await fetch("/api/auth/check-email-professional-pending", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ access_token: accessToken }),
+            credentials: "include",
+          });
+          const checkData = await checkRes.json().catch(() => ({}));
+          if (checkData.hasPendingRequest) {
+            await fetch("/api/auth/cleanup-orphan-patient", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ access_token: accessToken }),
+              credentials: "include",
+            });
+            const { clientSignout } = await import("@/lib/client-auth");
+            await clientSignout();
+            redirectAttempted = true;
+            // Usar location.href para forzar recarga completa y limpiar cualquier estado
+            // residual (evita que el navbar muestre datos de usuario fantasma)
+            window.location.href = "/login?error=professional-request-pending";
+            return;
+          }
+
           const fullName = (user.user_metadata as { full_name?: string } | null)?.full_name || "Usuario";
           const nameParts = fullName.split(" ");
           const firstName = nameParts[0] || "Usuario";
@@ -82,9 +108,9 @@ export default function AuthCallback() {
 
           const result = await UserService.createUser(userData);
 
-          // Verificar si la creación fue exitosa
+          // Verificar si la creaciÃ³n fue exitosa
           if (result && result.success) {
-            // Si es un nuevo usuario (rol 2 = paciente), crear perfil de paciente básico
+            // Si es un nuevo usuario (rol 2 = paciente), crear perfil de paciente bÃ¡sico
             if (userData.role === 2 && !result.isExisting) {
               try {
                 const { profileService } = await import(
@@ -97,21 +123,19 @@ export default function AuthCallback() {
                 });
               } catch (profileError) {
                 console.error(
-                  "⚠️ Error al crear perfil de paciente:",
+                  "âš ï¸ Error al crear perfil de paciente:",
                   profileError
                 );
-                // No es crítico, el usuario puede completar su perfil después
+                // No es crÃ­tico, el usuario puede completar su perfil despuÃ©s
               }
             }
           }
         }
 
-        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        // Usar el redirect que se leyÃ³ al montar el componente, o leerlo nuevamente si no se habÃ­a leÃ­do
         const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
           ? localStorage.getItem("auth_redirect") 
           : null);
-        
-        console.log("🔍 Callback: Redirect guardado en localStorage:", savedRedirect);
         
         // Limpiar el redirect guardado
         if (typeof window !== "undefined") {
@@ -125,38 +149,28 @@ export default function AuthCallback() {
           if (profile) {
             userRole = profile.role ?? null;
           } else {
-            // Si no hay perfil, usar el rol por defecto (paciente = 2)
-            console.log("⚠️ No se encontró perfil del usuario (error), usando rol por defecto (paciente)");
             userRole = 2;
           }
         } catch (roleError) {
-          console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+          console.error("âš ï¸ Error obteniendo rol del usuario:", roleError);
           // En caso de error, usar rol por defecto (paciente = 2)
           userRole = 2;
         }
 
-        // Determinar el destino según el rol del usuario
+        // Determinar el destino segÃºn el rol del usuario
         let redirectTo: string;
         
         // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
         if (savedRedirect) {
-          // Solo usar el redirect guardado si el usuario es paciente (role === 2)
           if (userRole === 2) {
-            console.log("✅ Usuario es paciente, usando redirect guardado:", savedRedirect);
             redirectTo = savedRedirect;
           } else {
-            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
-            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
             redirectTo = "/dashboard";
           }
         } else {
-          // Si no hay redirect guardado, determinar el destino según el rol
-          console.log("⚠️ No hay redirect guardado, determinando destino por rol");
           if (userRole === 2) {
-            // Si es paciente, redirigir a appointments
             redirectTo = "/dashboard/appointments";
           } else {
-            // Para profesionales y admins, ir al dashboard normal
             redirectTo = "/dashboard";
           }
         }
@@ -168,14 +182,12 @@ export default function AuthCallback() {
           }, 1000);
         }
       } catch (verifyError) {
-        console.error("⚠️ Error al verificar/crear usuario:", verifyError);
+        console.error("âš ï¸ Error al verificar/crear usuario:", verifyError);
         
-        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        // Usar el redirect que se leyÃ³ al montar el componente, o leerlo nuevamente si no se habÃ­a leÃ­do
         const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
           ? localStorage.getItem("auth_redirect") 
           : null);
-        
-        console.log("🔍 Callback (error): Redirect guardado en localStorage:", savedRedirect);
         
         // Limpiar el redirect guardado
         if (typeof window !== "undefined") {
@@ -189,33 +201,26 @@ export default function AuthCallback() {
           if (profile) {
             userRole = profile.role ?? null;
           } else {
-            // Si no hay perfil, usar el rol por defecto (paciente = 2)
-            console.log("⚠️ No se encontró perfil del usuario (error), usando rol por defecto (paciente)");
             userRole = 2;
           }
         } catch (roleError) {
-          console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+          console.error("âš ï¸ Error obteniendo rol del usuario:", roleError);
           // En caso de error, usar rol por defecto (paciente = 2)
           userRole = 2;
         }
 
-        // Determinar el destino según el rol del usuario
+        // Determinar el destino segÃºn el rol del usuario
         let redirectTo: string;
         
         // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
         if (savedRedirect) {
           // Solo usar el redirect guardado si el usuario es paciente (role === 2)
           if (userRole === 2) {
-            console.log("✅ Usuario es paciente (error), usando redirect guardado:", savedRedirect);
             redirectTo = savedRedirect;
           } else {
-            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
-            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
             redirectTo = "/dashboard";
           }
         } else {
-          // Si no hay redirect guardado, determinar el destino según el rol
-          console.log("⚠️ No hay redirect guardado (error), determinando destino por rol");
           if (userRole === 2) {
             redirectTo = "/dashboard/appointments";
           } else {
@@ -223,7 +228,7 @@ export default function AuthCallback() {
           }
         }
         
-        // Aún así intentar redirigir
+        // AÃºn asÃ­ intentar redirigir
         if (mounted && !redirectAttempted) {
           redirectAttempted = true;
           setTimeout(() => {
@@ -233,7 +238,7 @@ export default function AuthCallback() {
       }
     };
 
-    // Cuando se detecte la autenticación
+    // Cuando se detecte la autenticaciÃ³n
     if (isAuthenticated && user && !redirectAttempted && !processingStarted) {
       processUserProfile(user);
     }
@@ -242,12 +247,10 @@ export default function AuthCallback() {
     timeoutId = setTimeout(async () => {
       if (mounted && !redirectAttempted) {
         redirectAttempted = true;
-        // Usar el redirect que se leyó al montar el componente, o leerlo nuevamente si no se había leído
+        // Usar el redirect que se leyÃ³ al montar el componente, o leerlo nuevamente si no se habÃ­a leÃ­do
         const savedRedirect = savedRedirectOnMount || (typeof window !== "undefined" 
           ? localStorage.getItem("auth_redirect") 
           : null);
-        
-        console.log("🔍 Callback (timeout): Redirect guardado en localStorage:", savedRedirect);
         
         // Limpiar el redirect guardado
         if (typeof window !== "undefined") {
@@ -262,34 +265,27 @@ export default function AuthCallback() {
             if (profile) {
               userRole = profile.role ?? null;
             } else {
-              // Si no hay perfil, usar el rol por defecto (paciente = 2)
-              console.log("⚠️ No se encontró perfil del usuario (timeout), usando rol por defecto (paciente)");
               userRole = 2;
             }
           } catch (roleError) {
-            console.error("⚠️ Error obteniendo rol del usuario:", roleError);
+            console.error("âš ï¸ Error obteniendo rol del usuario:", roleError);
             // En caso de error, usar rol por defecto (paciente = 2)
             userRole = 2;
           }
         }
 
-        // Determinar el destino según el rol del usuario
+        // Determinar el destino segÃºn el rol del usuario
         let redirectTo: string;
         
         // Si hay redirect guardado, verificar si el usuario es paciente antes de usarlo
         if (savedRedirect && user) {
           // Solo usar el redirect guardado si el usuario es paciente (role === 2)
           if (userRole === 2) {
-            console.log("✅ Usuario es paciente (timeout), usando redirect guardado:", savedRedirect);
             redirectTo = savedRedirect;
           } else {
-            // Si no es paciente, ignorar el redirect guardado y redirigir al dashboard
-            console.log("⚠️ Usuario NO es paciente (rol:", userRole, "), ignorando redirect guardado y yendo al dashboard");
             redirectTo = "/dashboard";
           }
         } else if (user) {
-          // Si no hay redirect guardado, determinar el destino según el rol
-          console.log("⚠️ No hay redirect guardado (timeout), determinando destino por rol");
           if (userRole === 2) {
             redirectTo = "/dashboard/appointments";
           } else {
@@ -307,7 +303,7 @@ export default function AuthCallback() {
       mounted = false;
       if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, supabase.auth]);
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">

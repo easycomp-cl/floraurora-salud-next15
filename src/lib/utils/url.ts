@@ -38,3 +38,19 @@ export function getSiteUrl(): string {
   return "http://localhost:3000";
 }
 
+/**
+ * Extrae el ID del video de una URL de YouTube.
+ * Soporta: watch?v=, youtu.be/, embed/
+ */
+export function getYouTubeVideoId(url: string): string | null {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  // youtu.be/VIDEO_ID
+  const youtuBeMatch = trimmed.match(/(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  if (youtuBeMatch) return youtuBeMatch[1];
+  // youtube.com/watch?v=VIDEO_ID o embed/VIDEO_ID
+  const youtubeMatch = trimmed.match(/(?:youtube\.com\/(?:watch\?v=|embed\/))([a-zA-Z0-9_-]{11})/);
+  if (youtubeMatch) return youtubeMatch[1];
+  return null;
+}
+

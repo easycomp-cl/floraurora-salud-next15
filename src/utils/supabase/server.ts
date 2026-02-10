@@ -2,14 +2,37 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 
+/** Parsea el header Cookie y devuelve un store compatible con Supabase */
+function cookieStoreFromHeader(cookieHeader: string | null) {
+  const map = new Map<string, string>();
+  if (cookieHeader) {
+    for (const part of cookieHeader.split(";")) {
+      const [name, ...valParts] = part.trim().split("=");
+      if (name) {
+        map.set(name.trim(), valParts.join("=").trim());
+      }
+    }
+  }
+  return {
+    getAll() {
+      return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+    },
+    set(name: string, value: string) {
+      map.set(name, value);
+    },
+  };
+}
+
 export async function createClient(request?: NextRequest, response?: NextResponse) {
-  // Si tenemos un request, usar sus cookies directamente (más confiable)
-  // Si no, usar cookies() de Next.js
-  const cookieStore = request 
-    ? request.cookies 
-    : await cookies();
-  
-  // Log de cookies para debugging (comentado porque no se usa actualmente)
+  // En Route Handlers invocados por fetch(), cookies() puede no tener el contexto correcto.
+  // Priorizar el header Cookie del request cuando esté disponible.
+  const cookieHeader = request?.headers?.get?.("cookie");
+  const fromRequest = cookieHeader
+    ? cookieStoreFromHeader(cookieHeader)
+    : null;
+
+  const cookieStore = fromRequest ?? (request?.cookies ?? (await cookies()));
+
   // const allCookies = cookieStore.getAll();
   // const supabaseCookies = allCookies.filter(c => 
   //   c.name.includes('supabase') || 
@@ -66,7 +89,7 @@ export async function createClient(request?: NextRequest, response?: NextRespons
           } else if (!request) {
             // Solo establecer cookies si estamos usando cookies() de Next.js
             cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
+              (cookieStore as { set: (n: string, v: string, o?: object) => void }).set(name, value, options);
             });
           }
           // Si tenemos request pero no response, las cookies se establecerán en el middleware

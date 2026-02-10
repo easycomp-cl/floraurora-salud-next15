@@ -104,6 +104,17 @@ export function LoginForm() {
       // Remover el parámetro de la URL sin recargar
       router.replace("/login");
     }
+
+    // Verificar si viene por solicitud de profesional en proceso (intentó registrarse como paciente con Google)
+    if (searchParams.get("error") === "professional-request-pending") {
+      setState({
+        success: false,
+        error:
+          "Este correo tiene una solicitud de profesional en proceso de revisión. No puedes registrarte como paciente hasta que se complete la evaluación. Espera la respuesta o contacta a soporte.",
+        loading: false,
+      });
+      router.replace("/login");
+    }
   }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {

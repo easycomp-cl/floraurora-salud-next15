@@ -166,14 +166,6 @@ export function getTransbankEnvironment(): {
   const transbankEnvRaw = process.env.TRANSBANK_ENVIRONMENT;
   const transbankEnv = transbankEnvRaw?.trim().toUpperCase();
   
-  // Log para debugging (sin exponer el valor completo por seguridad)
-  console.log("🔍 [Transbank Config] Verificando ambiente:", {
-    hasTransbankEnv: !!transbankEnvRaw,
-    transbankEnvLength: transbankEnvRaw?.length || 0,
-    transbankEnvTrimmed: transbankEnv,
-    nodeEnv: process.env.NODE_ENV,
-  });
-  
   if (transbankEnv === "PROD" || transbankEnv === "PRODUCTION") {
     return {
       isProduction: true,

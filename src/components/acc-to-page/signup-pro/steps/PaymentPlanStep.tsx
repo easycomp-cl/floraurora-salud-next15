@@ -115,7 +115,7 @@ export default function PaymentPlanStep({
               isPromotional && config.premiumPromotionMonths > 0 && premiumPrice < config.premiumNormalPrice
                 ? `Precio promocional por ${config.premiumPromotionMonths} meses. Incluye todos los servicios de la aplicación`
                 : "Incluye todos los servicios de la aplicación",
-            note: `Renovación automática mes a mes si no se avisa retiro hasta el último día del mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
+            note: `Debes realizar el pago mensual de forma manual cada mes. Además, se aplica un ${config.premiumExtraSessionCommissionPercentage.toLocaleString("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 1 })}% de comisión por cada sesión extra realizada.`,
             isPromotional: isPromotional && config.premiumPromotionMonths > 0 && premiumPrice < config.premiumNormalPrice,
             normalPrice: config.premiumNormalPrice,
           },

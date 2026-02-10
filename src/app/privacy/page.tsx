@@ -182,11 +182,9 @@ export default function PrivacyPage() {
               </p>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p className="text-gray-700">
-                  <strong>Email:</strong> privacidad@floraurorasalud.cl
+                  <strong>Email:</strong> contacto@floraurorasalud.cl
                   <br />
-                  <strong>Teléfono:</strong> +1 (555) 123-4567
-                  <br />
-                  <strong>Dirección:</strong> [Dirección de la empresa]
+                  <strong>Teléfono:</strong> +56 9 5868 5129
                 </p>
               </div>
             </section>
