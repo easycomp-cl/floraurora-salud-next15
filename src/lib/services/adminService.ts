@@ -729,23 +729,11 @@ export const adminService = {
       throw new Error(`No se pudo generar el enlace de recuperación: ${error?.message ?? "sin detalles"}`);
     }
 
-    // Reemplazar la URL del link generado si es necesario
-    // Supabase puede usar la URL del dashboard, así que la reemplazamos con la correcta
-    let recoveryLink = data.properties.action_link;
-    try {
-      const linkUrl = new URL(recoveryLink);
-      const targetUrl = new URL(baseUrl);
-      
-      // Si el hostname no coincide con el que queremos, reemplazarlo
-      if (linkUrl.hostname !== targetUrl.hostname) {
-        linkUrl.hostname = targetUrl.hostname;
-        linkUrl.protocol = targetUrl.protocol;
-        recoveryLink = linkUrl.toString();
-      }
-    } catch (urlError) {
-      // Si hay error al parsear la URL, usar la original
-      console.warn("Error al procesar URL de recuperación:", urlError);
-    }
+    // Usar el enlace original de Supabase. NO reemplazar el host: el link debe apuntar
+    // a Supabase (ej. https://xxx.supabase.co/auth/v1/verify) para que verifique el token
+    // y luego redirija a redirect_to (nuestro /reset-password). Si cambiamos el host
+    // por el del sitio, el usuario termina en /auth/v1/verify en nuestra app → 404.
+    const recoveryLink = data.properties.action_link;
 
     await sendNotificationEmail({
       to: user.email,

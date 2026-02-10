@@ -528,7 +528,7 @@ export default function UsersManagement() {
                             disabled={actionLoadingId === user.id}
                           >
                             <LockKeyhole className="mr-2 h-4 w-4" />
-                            Reset clave
+                            Resetear clave
                           </Button>
 
                           <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">
