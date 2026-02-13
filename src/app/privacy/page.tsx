@@ -24,7 +24,8 @@ export default function PrivacyPage() {
                 En FlorAurora Salud, valoramos y protegemos su privacidad. Esta
                 política describe cómo recopilamos, utilizamos, almacenamos y
                 protegemos su información personal cuando utiliza nuestra
-                plataforma de servicios de salud mental.
+                plataforma de servicios de salud mental en conformidad a lo
+                establecido en la Ley Nº 19.628.
               </p>
             </section>
 

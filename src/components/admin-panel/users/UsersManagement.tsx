@@ -263,10 +263,8 @@ export default function UsersManagement() {
         throw new Error(payload?.error ?? "No se pudo enviar el correo de recuperación");
       }
 
-      const payload = await response.json();
-      setActionMessage(
-        `Enlace de recuperación enviado. (${payload.recoveryLink ?? "sin enlace"})`,
-      );
+      await response.json();
+      setActionMessage("Enlace de recuperación enviado.");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Error inesperado al enviar el enlace.";
