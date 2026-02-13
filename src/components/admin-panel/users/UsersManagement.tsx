@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AdminRole, AdminUser, AdminUserStatus } from "@/lib/types/admin";
-import UserForm, { buildUserFormDefaults, type UserFormValues } from "./UserForm";
+import UserForm, {
+  buildUserFormDefaults,
+  type UserFormValues,
+} from "./UserForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +20,13 @@ import {
 } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ShieldCheck, ShieldOff, ShieldQuestion, UserCog, LockKeyhole } from "lucide-react";
+import {
+  ShieldCheck,
+  ShieldOff,
+  ShieldQuestion,
+  UserCog,
+  LockKeyhole,
+} from "lucide-react";
 
 interface UsersResponse {
   data: AdminUser[];
@@ -55,7 +64,9 @@ export default function UsersManagement() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [roleFilter, setRoleFilter] = useState<AdminRole | "all">("all");
-  const [statusFilter, setStatusFilter] = useState<AdminUserStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<AdminUserStatus | "all">(
+    "all",
+  );
   const [searchTerm, setSearchTerm] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -104,7 +115,9 @@ export default function UsersManagement() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error ?? "No se pudo obtener la lista de usuarios");
+        throw new Error(
+          payload?.error ?? "No se pudo obtener la lista de usuarios",
+        );
       }
 
       const payload = (await response.json()) as UsersResponse;
@@ -113,7 +126,9 @@ export default function UsersManagement() {
       setTotal(payload.total);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Ocurrió un error al cargar los usuarios.";
+        err instanceof Error
+          ? err.message
+          : "Ocurrió un error al cargar los usuarios.";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -163,7 +178,10 @@ export default function UsersManagement() {
       setIsCreateOpen(false);
       await loadUsers();
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Error inesperado al crear el usuario.";
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al crear el usuario.";
       setDialogError(message);
     } finally {
       setIsSubmitting(false);
@@ -194,15 +212,20 @@ export default function UsersManagement() {
       }
 
       if (selectedUser.role !== values.role) {
-        const roleResponse = await fetch(`/api/admin/users/${selectedUser.id}/role`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ role: values.role }),
-        });
+        const roleResponse = await fetch(
+          `/api/admin/users/${selectedUser.id}/role`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ role: values.role }),
+          },
+        );
 
         if (!roleResponse.ok) {
           const payload = await roleResponse.json().catch(() => ({}));
-          throw new Error(payload?.error ?? "No se pudo actualizar el rol del usuario");
+          throw new Error(
+            payload?.error ?? "No se pudo actualizar el rol del usuario",
+          );
         }
       }
 
@@ -212,7 +235,9 @@ export default function UsersManagement() {
       await loadUsers();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Error inesperado al actualizar el usuario.";
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al actualizar el usuario.";
       setDialogError(message);
     } finally {
       setIsSubmitting(false);
@@ -231,7 +256,9 @@ export default function UsersManagement() {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error ?? "No se pudo actualizar el estado del usuario");
+        throw new Error(
+          payload?.error ?? "No se pudo actualizar el estado del usuario",
+        );
       }
 
       setActionMessage(
@@ -243,7 +270,9 @@ export default function UsersManagement() {
       await loadUsers();
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Error inesperado al actualizar el estado.";
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al actualizar el estado.";
       setError(message);
     } finally {
       setActionLoadingId(null);
@@ -254,20 +283,27 @@ export default function UsersManagement() {
     try {
       resetMessages();
       setActionLoadingId(user.id);
-      const response = await fetch(`/api/admin/users/${user.id}/reset-password`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `/api/admin/users/${user.id}/reset-password`,
+        {
+          method: "POST",
+        },
+      );
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload?.error ?? "No se pudo enviar el correo de recuperación");
+        throw new Error(
+          payload?.error ?? "No se pudo enviar el correo de recuperación",
+        );
       }
 
       await response.json();
       setActionMessage("Enlace de recuperación enviado.");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Error inesperado al enviar el enlace.";
+        err instanceof Error
+          ? err.message
+          : "Error inesperado al enviar el enlace.";
       setError(message);
     } finally {
       setActionLoadingId(null);
@@ -283,21 +319,27 @@ export default function UsersManagement() {
               Gestión de usuarios
             </CardTitle>
             <p className="text-sm text-gray-500">
-              Administra cuentas, roles y estados de pacientes, profesionales y administradores.
+              Administra cuentas, roles y estados de pacientes, profesionales y
+              administradores.
             </p>
           </div>
 
-          <Dialog open={isCreateOpen} onOpenChange={(open) => {
-            setIsCreateOpen(open);
-            if (!open) {
-              setDialogError(null);
-            }
-          }}>
+          <Dialog
+            open={isCreateOpen}
+            onOpenChange={(open) => {
+              setIsCreateOpen(open);
+              if (!open) {
+                setDialogError(null);
+              }
+            }}
+          >
             <DialogTrigger asChild>
-              <Button onClick={() => {
-                resetMessages();
-                setIsCreateOpen(true);
-              }}>
+              <Button
+                onClick={() => {
+                  resetMessages();
+                  setIsCreateOpen(true);
+                }}
+              >
                 Crear usuario
               </Button>
             </DialogTrigger>
@@ -305,7 +347,8 @@ export default function UsersManagement() {
               <DialogHeader>
                 <DialogTitle>Crear nuevo usuario</DialogTitle>
                 <DialogDescription>
-                  Ingresa los datos básicos y define un rol inicial para el usuario.
+                  Ingresa los datos básicos y define un rol inicial para el
+                  usuario.
                 </DialogDescription>
               </DialogHeader>
               <UserForm
@@ -347,7 +390,9 @@ export default function UsersManagement() {
                 id="roleFilter"
                 className="block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
                 value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value as AdminRole | "all")}
+                onChange={(event) =>
+                  setRoleFilter(event.target.value as AdminRole | "all")
+                }
               >
                 <option value="all">Todos</option>
                 <option value="admin">Administradores</option>
@@ -391,24 +436,42 @@ export default function UsersManagement() {
             <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Usuario</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Contacto</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Rol</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Estado</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Creación</th>
-                  <th className="px-4 py-3 text-left font-semibold text-gray-600">Acciones</th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Usuario
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Contacto
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Rol
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Estado
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Creación
+                  </th>
+                  <th className="px-4 py-3 text-left font-semibold text-gray-600">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                    <td
+                      colSpan={6}
+                      className="px-4 py-6 text-center text-gray-500"
+                    >
                       Cargando usuarios...
                     </td>
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                    <td
+                      colSpan={6}
+                      className="px-4 py-6 text-center text-gray-500"
+                    >
                       No se encontraron usuarios con los filtros seleccionados.
                     </td>
                   </tr>
@@ -420,13 +483,19 @@ export default function UsersManagement() {
                           <span className="font-medium text-gray-900">
                             {user.name} {user.last_name}
                           </span>
-                          <span className="text-xs text-gray-500">ID #{user.id}</span>
+                          <span className="text-xs text-gray-500">
+                            ID #{user.id}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col space-y-0.5">
-                          <span className="text-sm text-gray-700">{user.email ?? "-"}</span>
-                          <span className="text-xs text-gray-500">{user.phone_number ?? "-"}</span>
+                          <span className="text-sm text-gray-700">
+                            {user.email ?? "-"}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {user.phone_number ?? "-"}
+                          </span>
                         </div>
                       </td>
                       <td className="px-4 py-3">
@@ -442,11 +511,14 @@ export default function UsersManagement() {
                           {user.status === "blocked" && (
                             <ShieldOff className="h-4 w-4 text-red-500" />
                           )}
-                          {user.status !== "active" && user.status !== "blocked" && (
-                            <ShieldQuestion className="h-4 w-4 text-yellow-500" />
-                          )}
+                          {user.status !== "active" &&
+                            user.status !== "blocked" && (
+                              <ShieldQuestion className="h-4 w-4 text-yellow-500" />
+                            )}
                           <div className="flex flex-col text-xs">
-                            <span className="font-medium text-gray-700">{statusLabels[user.status]}</span>
+                            <span className="font-medium text-gray-700">
+                              {statusLabels[user.status]}
+                            </span>
                             {user.blocked_until && (
                               <span className="text-gray-500">
                                 hasta {formatDate(user.blocked_until)}
@@ -492,7 +564,9 @@ export default function UsersManagement() {
                               </DialogHeader>
                               <UserForm
                                 mode="edit"
-                                defaultValues={buildUserFormDefaults(selectedUser ?? undefined)}
+                                defaultValues={buildUserFormDefaults(
+                                  selectedUser ?? undefined,
+                                )}
                                 onSubmit={handleEditSubmit}
                                 onCancel={() => {
                                   setIsEditOpen(false);
@@ -510,13 +584,11 @@ export default function UsersManagement() {
                             onClick={() => handleBlockToggle(user)}
                             disabled={actionLoadingId === user.id}
                           >
-                            {actionLoadingId === user.id ? (
-                              "Procesando..."
-                            ) : user.status === "blocked" ? (
-                              "Desbloquear"
-                            ) : (
-                              "Bloquear"
-                            )}
+                            {actionLoadingId === user.id
+                              ? "Procesando..."
+                              : user.status === "blocked"
+                                ? "Desbloquear"
+                                : "Bloquear"}
                           </Button>
 
                           <Button
@@ -561,7 +633,9 @@ export default function UsersManagement() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+                onClick={() =>
+                  setPage((prev) => Math.min(prev + 1, totalPages))
+                }
                 disabled={page >= totalPages || isLoading}
               >
                 Siguiente
@@ -573,4 +647,3 @@ export default function UsersManagement() {
     </section>
   );
 }
-

@@ -170,10 +170,52 @@ const MobileNav = () => {
         )}
       </button>
 
-      {/* Menú móvil - scroll interno para poder llegar a Cerrar Sesión en pantallas pequeñas */}
+      {/* Menú móvil - sección usuario arriba para acceso rápido a Cerrar Sesión */}
       {isOpen && (
         <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg z-50 max-h-[calc(100vh-4rem)] overflow-hidden">
           <div className="py-2 overflow-y-auto overscroll-contain max-h-[calc(100vh-4rem)]">
+            {/* Sección de usuario y Cerrar Sesión al inicio (arriba) para acceso fácil */}
+            {isAuthenticated && (
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50/50">
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-3 px-2 py-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+                      {userProfile?.avatar_url ? (
+                        <Image
+                          src={userProfile.avatar_url}
+                          alt={`${userProfile.name || "Usuario"} avatar`}
+                          width={32}
+                          height={32}
+                          className="w-full h-full object-cover"
+                          unoptimized
+                        />
+                      ) : (
+                        <span className="text-white text-sm font-medium">
+                          {user?.user_metadata?.name?.[0] ||
+                            user?.email?.[0] ||
+                            "U"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user?.user_metadata?.name || user?.email || "Usuario"}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleSignOut}
+                    className="w-full px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300"
+                  >
+                    Cerrar Sesión
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Navegación de marketing para todos los usuarios */}
             {navItems.map(renderNavItem)}
 
@@ -217,46 +259,9 @@ const MobileNav = () => {
               </>
             )}
 
-            {/* Botones de autenticación */}
+            {/* Botones de autenticación (solo para no autenticados) */}
+            {!isAuthenticated && (
             <div className="px-4 py-3 border-t border-gray-200">
-              {isAuthenticated ? (
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 px-2 py-2">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
-                      {userProfile?.avatar_url ? (
-                        <Image
-                          src={userProfile.avatar_url}
-                          alt={`${userProfile.name || "Usuario"} avatar`}
-                          width={32}
-                          height={32}
-                          className="w-full h-full object-cover"
-                          unoptimized
-                        />
-                      ) : (
-                        <span className="text-white text-sm font-medium">
-                          {user?.user_metadata?.name?.[0] ||
-                            user?.email?.[0] ||
-                            "U"}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {user?.user_metadata?.name || user?.email || "Usuario"}
-                      </p>
-                      <p className="text-xs text-gray-500 truncate">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="w-full px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-md hover:bg-red-100 hover:border-red-300"
-                  >
-                    Cerrar Sesión
-                  </button>
-                </div>
-              ) : (
                 <div className="space-y-3">
                   {/* Botón simple de Iniciar Sesión */}
                   <Link
@@ -309,8 +314,8 @@ const MobileNav = () => {
                     )}
                   </div>
                 </div>
-              )}
             </div>
+            )}
           </div>
         </div>
       )}
