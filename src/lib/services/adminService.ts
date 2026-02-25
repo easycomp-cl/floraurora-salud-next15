@@ -737,11 +737,11 @@ export const adminService = {
 
     await sendNotificationEmail({
       to: user.email,
-      subject: "Crear tu contraseña - FlorAurora Salud",
+      subject: "Recuperación de contraseña - FlorAurora Salud",
       message:
-        "Tu cuenta ha sido autorizada. Haz clic en el botón para crear tu contraseña y acceder a la plataforma.",
+        "Desde la administración de FlorAurora Salud te hemos enviado un enlace para recuperar tu contraseña. Haz clic en el botón para restablecerla.",
       actionUrl: recoveryLink,
-      actionText: "Crear contraseña",
+      actionText: "Restablecer contraseña",
     });
 
     return { recoveryLink };

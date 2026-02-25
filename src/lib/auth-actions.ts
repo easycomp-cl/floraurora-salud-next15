@@ -911,7 +911,9 @@ export async function signInWithGoogle() {
 }
 
 /**
- * Solicita un email de reset de contraseña
+ * Solicita un email de reset de contraseña.
+ * Usa admin.generateLink + sendNotificationEmail (igual que el admin) para evitar
+ * depender del SMTP de Supabase que puede fallar con "Error sending recovery email".
  */
 export async function requestPasswordReset(formData: FormData) {
   const email = (formData.get("email") as string)?.trim() || "";
@@ -923,22 +925,39 @@ export async function requestPasswordReset(formData: FormData) {
     };
   }
 
-  const supabase = await createClient();
+  const admin = createAdminServer();
   const { getSiteUrl } = await import("@/lib/utils/url");
   const baseUrl = getSiteUrl();
 
   try {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${baseUrl}/reset-password`,
+    const { data, error } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${baseUrl}/reset-password`,
+      },
     });
 
-    if (error) {
-      console.error("❌ Error solicitando reset de contraseña:", error);
+    if (error || !data?.properties?.action_link) {
+      // Por seguridad: no revelar si el email existe (evitar email enumeration).
+      // Siempre devolvemos el mismo mensaje de éxito.
+      console.warn("⚠️ No se pudo generar enlace de recuperación para:", email, error?.message ?? "");
       return {
-        success: false,
-        error: error.message || "Error al solicitar el reset de contraseña",
+        success: true,
+        message: "Si existe una cuenta con ese correo, recibirás un email con instrucciones para resetear tu contraseña",
       };
     }
+
+    const recoveryLink = data.properties.action_link;
+    const { sendNotificationEmail } = await import("@/lib/services/emailService");
+
+    await sendNotificationEmail({
+      to: email,
+      subject: "Restablecer contraseña - FlorAurora Salud",
+      message: "Solicitaste restablecer tu contraseña. Haz clic en el botón para crear una nueva.",
+      actionUrl: recoveryLink,
+      actionText: "Restablecer contraseña",
+    });
 
     return {
       success: true,
@@ -948,7 +967,7 @@ export async function requestPasswordReset(formData: FormData) {
     console.error("💥 Error inesperado solicitando reset de contraseña:", error);
     return {
       success: false,
-      error: "Error inesperado al solicitar el reset de contraseña",
+      error: "Error al enviar el email. Por favor, intenta de nuevo más tarde.",
     };
   }
 }
