@@ -95,6 +95,7 @@ function mapSpecialtyToService(specialty: Record<string, unknown>): AdminService
     maximum_amount: specialty.maximum_amount !== undefined && specialty.maximum_amount !== null ? Number(specialty.maximum_amount) : null,
     duration_minutes: Number(specialty.duration_minutes ?? 50),
     is_active: Boolean(specialty.is_active ?? true),
+    professional_amount: specialty.professional_amount !== undefined && specialty.professional_amount !== null ? Number(specialty.professional_amount) : null,
   };
 }
 
@@ -119,14 +120,14 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
       .map((specialtyRelation) => {
         const specialty = specialtyRelation.specialties as Record<string, unknown> | null | undefined;
         if (!specialty || !specialty.name || !specialty.id) return null;
-        // Mapear especialidad a servicio con valores por defecto
         return mapSpecialtyToService({
           id: Number(specialty.id),
           name: String(specialty.name),
-          price: 0, // Las especialidades no tienen precio por defecto
-          currency: "CLP",
-          duration_minutes: 50, // Duración por defecto
-          is_active: true,
+          minimum_amount: specialty.minimum_amount,
+          maximum_amount: specialty.maximum_amount,
+          duration_minutes: specialty.duration_minutes ?? 50,
+          is_active: specialty.is_active ?? true,
+          professional_amount: specialty.professional_amount ?? specialtyRelation.professional_amount,
         });
       })
       .filter((service): service is AdminServiceSummary => Boolean(service));
@@ -906,11 +907,16 @@ export const adminService = {
           .from("professional_specialties")
           .select(`
             professional_id,
+            professional_amount,
             specialties(
               id,
               name,
               title_id,
-              created_at
+              created_at,
+              minimum_amount,
+              maximum_amount,
+              duration_minutes,
+              is_active
             )
           `)
           .in("professional_id", professionalIds);
@@ -929,6 +935,7 @@ export const adminService = {
           specialtiesData.forEach((item: Record<string, unknown>) => {
             const professionalId = Number(item.professional_id);
             const specialty = item.specialties as Record<string, unknown> | null | undefined;
+            const professionalAmount = item.professional_amount;
             
             if (specialty && specialty.name && specialty.id) {
               const currentSpecialties = specialtiesMap.get(professionalId) || [];
@@ -937,6 +944,11 @@ export const adminService = {
                 name: specialty.name,
                 title_id: specialty.title_id ?? null,
                 created_at: specialty.created_at ?? new Date().toISOString(),
+                minimum_amount: specialty.minimum_amount,
+                maximum_amount: specialty.maximum_amount,
+                duration_minutes: specialty.duration_minutes,
+                is_active: specialty.is_active,
+                professional_amount: professionalAmount,
               });
               specialtiesMap.set(professionalId, currentSpecialties);
             } else {

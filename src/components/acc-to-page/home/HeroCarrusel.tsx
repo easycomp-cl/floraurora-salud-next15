@@ -28,6 +28,9 @@ type Banner = {
   botonUrl?: string;
   imagen: string | StaticImageData; // URL o import de imagen
   isQuote?: boolean; // Indica si es una diapositiva de frase
+  hide_title?: boolean; // Oculta el contenedor de título/texto superpuesto
+  no_opacity?: boolean; // Muestra la imagen sin overlay oscuro
+  adjust_image?: boolean; // Imagen centrada y visible según resolución
 };
 
 type RemoteCarouselItem = {
@@ -37,6 +40,9 @@ type RemoteCarouselItem = {
   image_url: string | null;
   cta_label: string | null;
   cta_link: string | null;
+  hide_title?: boolean;
+  no_opacity?: boolean;
+  adjust_image?: boolean;
 };
 
 type CarouselResponse = {
@@ -190,6 +196,9 @@ export default function HeroCarrusel() {
           botonTexto: item.cta_label ?? undefined,
           botonUrl: item.cta_link ?? undefined,
           imagen: item.image_url ?? trabajoImg,
+          hide_title: item.hide_title ?? false,
+          no_opacity: item.no_opacity ?? false,
+          adjust_image: item.adjust_image ?? false,
         }));
         setRemoteBanners(mapped);
       } catch (error) {
@@ -386,7 +395,7 @@ export default function HeroCarrusel() {
                 banner.isQuote
                   ? "quote-slide"
                   : isDynamicBanner
-                    ? "dynamic-banner-slide"
+                    ? `dynamic-banner-slide${banner.adjust_image ? " carousel-adjust-image-slide" : ""}`
                     : ""
               }
             >
@@ -449,69 +458,74 @@ export default function HeroCarrusel() {
                     /* Para banners dinámicos de la API: usar el mismo formato que las frases de bienestar */
                     <>
                       <div
-                        className="hero-carrusel-img-side"
+                        className={`hero-carrusel-img-side ${banner.no_opacity ? "carousel-no-opacity" : ""} ${banner.adjust_image ? "carousel-adjust-image" : ""}`}
                         style={{ gridColumn: "1 / -1", position: "relative" }}
                       >
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 0,
-                            left: 0,
-                            width: "100%",
-                            height: "100%",
-                            backgroundColor: "rgba(0, 0, 0, 0.1)",
-                            zIndex: 1,
-                            pointerEvents: "none",
-                          }}
-                        />
+                        {!banner.no_opacity && !banner.adjust_image && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              width: "100%",
+                              height: "100%",
+                              backgroundColor: "rgba(0, 0, 0, 0.1)",
+                              zIndex: 1,
+                              pointerEvents: "none",
+                            }}
+                          />
+                        )}
                         <Image
                           src={banner.imagen}
                           alt={banner.titulo || "Banner FlorAurora"}
                           fill
                           sizes="(max-width: 900px) 100vw, 80vw"
                           style={{
-                            objectFit: "cover",
-                            filter: "brightness(0.6)",
+                            objectFit: banner.adjust_image ? "contain" : "cover",
+                            objectPosition: banner.adjust_image ? "center" : "center",
+                            filter: banner.no_opacity ? "none" : "brightness(0.6)",
                           }}
                           className="hero-carrusel-img"
                           priority={index === 0}
                         />
                       </div>
-                      <div className="quote-slide">
-                        <div className="quote-container">
-                          {banner.titulo && (
-                            <h2 className="quote-text">{banner.titulo}</h2>
-                          )}
-                          {banner.descripcion && (
-                            <p className="quote-description">
-                              {banner.descripcion}
-                            </p>
-                          )}
-                          {banner.botonTexto && banner.botonUrl && (
-                            <a
-                              href={normalizeUrl(banner.botonUrl)}
-                              className="carrusel-btn quote-btn"
-                              target={
-                                banner.botonUrl?.startsWith("http")
-                                  ? "_blank"
-                                  : undefined
-                              }
-                              rel={
-                                banner.botonUrl?.startsWith("http")
-                                  ? "noopener noreferrer"
-                                  : undefined
-                              }
-                              onClick={
-                                banner.botonTexto === "Agenda una consulta" && !banner.botonUrl?.startsWith("http")
-                                  ? handleBookAppointmentClick
-                                  : undefined
-                              }
-                            >
-                              {banner.botonTexto}
-                            </a>
-                          )}
+                      {!banner.hide_title && (
+                        <div className="quote-slide">
+                          <div className="quote-container">
+                            {banner.titulo && (
+                              <h2 className="quote-text">{banner.titulo}</h2>
+                            )}
+                            {banner.descripcion && (
+                              <p className="quote-description">
+                                {banner.descripcion}
+                              </p>
+                            )}
+                            {banner.botonTexto && banner.botonUrl && (
+                              <a
+                                href={normalizeUrl(banner.botonUrl)}
+                                className="carrusel-btn quote-btn"
+                                target={
+                                  banner.botonUrl?.startsWith("http")
+                                    ? "_blank"
+                                    : undefined
+                                }
+                                rel={
+                                  banner.botonUrl?.startsWith("http")
+                                    ? "noopener noreferrer"
+                                    : undefined
+                                }
+                                onClick={
+                                  banner.botonTexto === "Agenda una consulta" && !banner.botonUrl?.startsWith("http")
+                                    ? handleBookAppointmentClick
+                                    : undefined
+                                }
+                              >
+                                {banner.botonTexto}
+                              </a>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </>
                   )}
                 </>
@@ -660,6 +674,10 @@ export default function HeroCarrusel() {
           display: block !important;
           grid-template-columns: none !important;
         }
+        /* Fondo degradado en el slide cuando "Ajustar imagen" está activo */
+        .hero-carrusel-adapt :global(.swiper-slide.carousel-adjust-image-slide) {
+          background: linear-gradient(165deg, #00796b 0%, #00695c 35%, #004d40 70%, #003d33 100%) !important;
+        }
         .hero-carrusel-img-side {
           position: relative;
           width: 100%;
@@ -687,6 +705,26 @@ export default function HeroCarrusel() {
           background: rgba(0, 0, 0, 0.7);
           z-index: 1;
           pointer-events: none;
+        }
+        /* Sin opacidad: quitar overlay para imagen clara */
+        .dynamic-banner-slide .hero-carrusel-img-side.carousel-no-opacity::after {
+          display: none;
+        }
+        /* Ajustar imagen: centrada y visible según resolución */
+        .dynamic-banner-slide .hero-carrusel-img-side.carousel-adjust-image {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(165deg, #00796b 0%, #00695c 35%, #004d40 70%, #003d33 100%) !important;
+          overflow: visible;
+        }
+        /* Ocultar overlay oscuro para que el fondo degradado sea visible */
+        .dynamic-banner-slide .hero-carrusel-img-side.carousel-adjust-image::after {
+          display: none !important;
+        }
+        .dynamic-banner-slide .hero-carrusel-img-side.carousel-adjust-image :global(img) {
+          object-fit: contain !important;
+          object-position: center !important;
         }
         .hero-carrusel-img :global(img) {
           object-fit: cover;

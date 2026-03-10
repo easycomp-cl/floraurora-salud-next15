@@ -33,6 +33,8 @@ import {
   Receipt,
   Gift,
   XCircle,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import ProfessionalRequestsManagement from "./ProfessionalRequestsManagement";
 
@@ -71,6 +73,17 @@ function formatServicesList(services: AdminServiceSummary[]) {
   }
 
   return services.map((service) => service.name).join(", ");
+}
+
+function formatProfessionalPrice(service: AdminServiceSummary): string {
+  if (
+    service.professional_amount !== null &&
+    service.professional_amount !== undefined &&
+    !Number.isNaN(service.professional_amount)
+  ) {
+    return `$${Number(service.professional_amount).toLocaleString("es-CL")}`;
+  }
+  return "Sin precio fijado";
 }
 
 export default function ProfessionalsManagement() {
@@ -705,11 +718,19 @@ export default function ProfessionalsManagement() {
                                 onClick={() => handleToggleActive(professional)}
                                 disabled={actionLoadingId === professional.id}
                               >
-                                {actionLoadingId === professional.id
-                                  ? "Procesando..."
-                                  : professional.is_active
-                                    ? "Desactivar"
-                                    : "Activar"}
+                                {actionLoadingId === professional.id ? (
+                                  "Procesando..."
+                                ) : professional.is_active ? (
+                                  <>
+                                    <PowerOff className="h-3 w-3 mr-1" />
+                                    Desactivar
+                                  </>
+                                ) : (
+                                  <>
+                                    <Power className="h-3 w-3 mr-1" />
+                                    Activar
+                                  </>
+                                )}
                               </Button>
                               <Button
                                 variant="outline"
@@ -729,6 +750,7 @@ export default function ProfessionalsManagement() {
                                     handleOpenAssignServices(professional)
                                   }
                                 >
+                                  <Receipt className="h-3 w-3 mr-1" />
                                   Servicios
                                 </Button>
                               )}
@@ -809,6 +831,34 @@ export default function ProfessionalsManagement() {
                       {formatServicesList(selectedProfessional.services)}
                     </p>
                   </div>
+
+                  {selectedProfessional.services.length > 0 && (
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                      <p className="text-sm font-medium text-gray-900 mb-2 flex items-center gap-1">
+                        <DollarSign className="h-4 w-4 text-primary" />
+                        Precios fijados por el profesional
+                      </p>
+                      <ul className="space-y-1.5 text-sm">
+                        {selectedProfessional.services.map((svc) => (
+                          <li
+                            key={svc.id}
+                            className="flex items-center justify-between gap-4 py-1.5 border-b border-gray-100 last:border-0"
+                          >
+                            <span className="text-gray-700">{svc.name}</span>
+                            <span
+                              className={
+                                svc.professional_amount != null
+                                  ? "font-medium text-primary"
+                                  : "text-gray-400 italic"
+                              }
+                            >
+                              {formatProfessionalPrice(svc)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Servicios disponibles</Label>

@@ -83,6 +83,8 @@ export interface AdminServiceSummary {
   maximum_amount: number | null;
   duration_minutes: number;
   is_active: boolean;
+  /** Precio que fijó el profesional para este servicio/especialidad */
+  professional_amount?: number | null;
 }
 
 export interface AdminServicePayload {

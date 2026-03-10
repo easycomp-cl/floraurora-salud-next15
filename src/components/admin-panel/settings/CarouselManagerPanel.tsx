@@ -34,6 +34,9 @@ interface CarouselFormState {
   end_date: string;
   display_order: number;
   is_active: boolean;
+  hide_title: boolean;
+  no_opacity: boolean;
+  adjust_image: boolean;
 }
 
 const defaultFormState: CarouselFormState = {
@@ -46,6 +49,9 @@ const defaultFormState: CarouselFormState = {
   end_date: "",
   display_order: 0,
   is_active: true,
+  hide_title: false,
+  no_opacity: false,
+  adjust_image: false,
 };
 
 export default function CarouselManagerPanel() {
@@ -117,6 +123,9 @@ export default function CarouselManagerPanel() {
         end_date: item.end_date ?? "",
         display_order: item.display_order,
         is_active: item.is_active,
+        hide_title: item.hide_title ?? false,
+        no_opacity: item.no_opacity ?? false,
+        adjust_image: item.adjust_image ?? false,
       });
       if (item.image_url) {
         setImagePreview(item.image_url);
@@ -199,6 +208,9 @@ export default function CarouselManagerPanel() {
         message: formState.message || null,
         cta_label: formState.cta_label || null,
         cta_link: formState.cta_link || null,
+        hide_title: formState.hide_title,
+        no_opacity: formState.no_opacity,
+        adjust_image: formState.adjust_image,
       };
 
       const response = await fetch(
@@ -428,6 +440,54 @@ export default function CarouselManagerPanel() {
                   />
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="hide_title"
+                    type="checkbox"
+                    checked={formState.hide_title}
+                    onChange={(e) =>
+                      setFormState((prev) => ({ ...prev, hide_title: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="hide_title" className="cursor-pointer font-normal">
+                    Sin título
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="no_opacity"
+                    type="checkbox"
+                    checked={formState.no_opacity}
+                    onChange={(e) =>
+                      setFormState((prev) => ({ ...prev, no_opacity: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="no_opacity" className="cursor-pointer font-normal">
+                    Sin opacidad
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="adjust_image"
+                    type="checkbox"
+                    checked={formState.adjust_image}
+                    onChange={(e) =>
+                      setFormState((prev) => ({ ...prev, adjust_image: e.target.checked }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <Label htmlFor="adjust_image" className="cursor-pointer font-normal">
+                    Ajustar imagen
+                  </Label>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                Sin título: oculta el texto superpuesto. Sin opacidad: muestra la imagen clara. Ajustar imagen: centra la imagen y la muestra completa según la resolución.
+              </p>
 
               <div className="space-y-1">
                 <Label htmlFor="is_active">Estado</Label>

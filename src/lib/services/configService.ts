@@ -48,6 +48,9 @@ const mapCarouselItem = (row: Record<string, unknown>): CarouselItem => ({
   end_date: row.end_date ? String(row.end_date) : null,
   display_order: Number(row.display_order ?? 0),
   is_active: Boolean(row.is_active ?? true),
+  hide_title: Boolean(row.hide_title ?? false),
+  no_opacity: Boolean(row.no_opacity ?? false),
+  adjust_image: Boolean(row.adjust_image ?? false),
   updated_at: row.updated_at ? String(row.updated_at) : new Date().toISOString(),
 });
 
@@ -208,6 +211,9 @@ export const configService = {
         end_date,
         display_order,
         is_active,
+        hide_title,
+        no_opacity,
+        adjust_image,
         updated_at
       `,
       )
@@ -236,6 +242,9 @@ export const configService = {
       end_date: input.end_date ?? null,
       display_order: input.display_order ?? 0,
       is_active: input.is_active ?? true,
+      hide_title: input.hide_title ?? false,
+      no_opacity: input.no_opacity ?? false,
+      adjust_image: input.adjust_image ?? false,
       updated_by: actorId ?? null,
     };
 
@@ -256,7 +265,10 @@ export const configService = {
             end_date,
             display_order,
             is_active,
-            updated_at
+        hide_title,
+        no_opacity,
+        adjust_image,
+        updated_at
           `,
           )
           .single()
@@ -275,7 +287,10 @@ export const configService = {
             end_date,
             display_order,
             is_active,
-            updated_at
+        hide_title,
+        no_opacity,
+        adjust_image,
+        updated_at
           `,
           )
           .single();
@@ -318,6 +333,9 @@ export const configService = {
         end_date,
         display_order,
         is_active,
+        hide_title,
+        no_opacity,
+        adjust_image,
         updated_at
       `,
       )

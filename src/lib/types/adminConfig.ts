@@ -52,6 +52,9 @@ export interface CarouselItem {
   end_date: string | null;
   display_order: number;
   is_active: boolean;
+  hide_title: boolean;
+  no_opacity: boolean;
+  adjust_image: boolean;
   updated_at: string;
 }
 
@@ -65,6 +68,9 @@ export interface UpsertCarouselItemInput {
   end_date?: string | null;
   display_order?: number;
   is_active?: boolean;
+  hide_title?: boolean;
+  no_opacity?: boolean;
+  adjust_image?: boolean;
 }
 
 export type TutorialVisibility = "professionals" | "patients" | "both";
