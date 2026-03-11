@@ -302,8 +302,8 @@ export default function CarouselManagerPanel() {
           <DialogTrigger asChild>
             <Button onClick={() => openDialog()}>Agregar elemento</Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl max-h-[90vh] !flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>
                 {editingId ? "Editar elemento del carrusel" : "Nuevo elemento del carrusel"}
               </DialogTitle>
@@ -312,7 +312,7 @@ export default function CarouselManagerPanel() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-2 -mr-2">
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <Label htmlFor="title">Título</Label>
