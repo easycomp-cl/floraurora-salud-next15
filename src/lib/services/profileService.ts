@@ -85,6 +85,60 @@ export const profileService = {
     return data || null;
   },
 
+  /**
+   * Obtiene perfil por email. Útil cuando el usuario inicia sesión con otro proveedor
+   * (ej: Google) y tiene un registro previo con magic link/email.
+   */
+  async getUserProfileByEmail(email: string): Promise<User | null> {
+    if (!email?.trim()) return null;
+    const { data, error } = await supabaseTyped
+      .from('users')
+      .select('*')
+      .eq('email', email.toLowerCase().trim())
+      .maybeSingle();
+    
+    if (error) {
+      if (error.code !== 'PGRST116') {
+        console.error('Error fetching user profile by email:', error);
+      }
+      return null;
+    }
+    
+    return data || null;
+  },
+
+  /**
+   * Obtiene perfil por user_id o, si no existe, por email.
+   * Si encuentra por email y el user_id no coincide (login con otro proveedor),
+   * actualiza el user_id para vincular las identidades (account linking).
+   */
+  async getUserProfileByUuidOrEmail(userId: string, email?: string): Promise<User | null> {
+    // 1. Intentar por user_id primero
+    let user = await this.getUserProfileByUuid(userId);
+    if (user) return user;
+
+    // 2. Si no hay perfil y tenemos email, buscar por email (ej: registro como profesional + luego login con Google)
+    if (!email?.trim()) return null;
+    user = await this.getUserProfileByEmail(email);
+    if (!user) return null;
+
+    // 3. Vincular la nueva identidad: el user_id en BD es distinto al de la sesión actual.
+    // El cliente no puede hacer UPDATE por RLS; usamos API con service role.
+    if (user.user_id !== userId) {
+      try {
+        await fetch('/api/auth/link-identity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
+        // Ignorar errores: devolvemos el usuario de todas formas
+      } catch {
+        // No crítico
+      }
+    }
+    return user;
+  },
+
   // Obtener perfil de paciente desde la tabla patients
   async getPatientProfile(userId: number): Promise<Patient | null> {
     // Primero obtener el usuario para conseguir su id

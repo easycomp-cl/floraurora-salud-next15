@@ -64,12 +64,18 @@ export class UserService {
         .maybeSingle();
 
       if (error) {
-        // Si es un error de duplicación, considerarlo como éxito
-        if (error.code === '23505' && error.message.includes('duplicate key')) {
-          // Intentar obtener el usuario existente
+        // Duplicado en user_id: usuario ya existe con ese Auth ID
+        if (error.code === '23505' && error.message?.includes('duplicate key')) {
           const existingUser = await this.getUserById(userData.user_id);
           if (existingUser.success && existingUser.data) {
             return { success: true, data: existingUser.data, isExisting: true };
+          }
+        }
+        // Duplicado en email: usuario existe con otro Auth ID (ej: magic link → login con Google)
+        if (error.code === '23505' && (error.message?.includes('Users_email_key') || error.message?.includes('email'))) {
+          const linkResult = await this.linkAuthIdentity(userData.email, userData.user_id);
+          if (linkResult.success && linkResult.data) {
+            return { success: true, data: linkResult.data, isExisting: true };
           }
         }
         
@@ -89,6 +95,66 @@ export class UserService {
       return { success: true, data };
     } catch (error) {
       console.error("💥 Error inesperado al crear usuario:", error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * Obtiene información de un usuario por su email
+   */
+  static async getUserByEmail(email: string) {
+    try {
+      if (!email?.trim()) {
+        return { success: false, error: { message: "Email vacío" }, data: null };
+      }
+      const { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email.toLowerCase().trim())
+        .maybeSingle();
+
+      if (error) {
+        if (error.code !== "PGRST116") {
+          console.error("Error al obtener usuario por email:", error);
+        }
+        return { success: false, error, data: null };
+      }
+
+      if (!data) {
+        return { success: false, error: { code: "PGRST116", message: "Usuario no encontrado" }, data: null };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      console.error("Error inesperado al obtener usuario por email:", error);
+      return { success: false, error };
+    }
+  }
+
+  /**
+   * Vincula una identidad de Auth (nuevo user_id) a un usuario existente por email.
+   * Usado cuando alguien inicia sesión con Google pero ya tiene registro con magic link.
+   */
+  static async linkAuthIdentity(email: string, newUserId: string) {
+    try {
+      const existing = await this.getUserByEmail(email);
+      if (!existing.success || !existing.data) return { success: false, error: existing.error };
+
+      const { data, error } = await supabase
+        .from("users")
+        .update({ user_id: newUserId })
+        .eq("email", email.toLowerCase().trim())
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error vinculando identidad:", error);
+        return { success: false, error, data: null };
+      }
+
+      return { success: true, data: data ?? existing.data, isExisting: true };
+    } catch (error) {
+      console.error("Error inesperado al vincular identidad:", error);
       return { success: false, error };
     }
   }

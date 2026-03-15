@@ -145,7 +145,7 @@ export default function AuthCallback() {
         // Obtener el perfil del usuario para determinar su rol
         let userRole: number | null = null;
         try {
-          const profile = await profileService.getUserProfileByUuid(user.id);
+          const profile = await profileService.getUserProfileByUuidOrEmail(user.id, user.email ?? undefined);
           if (profile) {
             userRole = profile.role ?? null;
           } else {
@@ -197,7 +197,7 @@ export default function AuthCallback() {
         // Obtener el perfil del usuario para determinar su rol
         let userRole: number | null = null;
         try {
-          const profile = await profileService.getUserProfileByUuid(user.id);
+          const profile = await profileService.getUserProfileByUuidOrEmail(user.id, user.email ?? undefined);
           if (profile) {
             userRole = profile.role ?? null;
           } else {
@@ -261,7 +261,7 @@ export default function AuthCallback() {
         let userRole: number | null = null;
         if (user) {
           try {
-            const profile = await profileService.getUserProfileByUuid(user.id);
+            const profile = await profileService.getUserProfileByUuidOrEmail(user.id, user.email ?? undefined);
             if (profile) {
               userRole = profile.role ?? null;
             } else {

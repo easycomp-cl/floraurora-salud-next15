@@ -707,7 +707,12 @@ export const adminService = {
     return updatedUser;
   },
 
-  async sendPasswordReset(userId: number): Promise<{ recoveryLink: string }> {
+  async sendPasswordReset(
+    userId: number,
+  ): Promise<
+    | { success: true; recoveryLink: string }
+    | { success: false; error: string }
+  > {
     const supabase = createAdminServer();
     const user = await this.getUserById(userId);
 
@@ -736,7 +741,7 @@ export const adminService = {
     // por el del sitio, el usuario termina en /auth/v1/verify en nuestra app → 404.
     const recoveryLink = data.properties.action_link;
 
-    await sendNotificationEmail({
+    const emailResult = await sendNotificationEmail({
       to: user.email,
       subject: "Recuperación de contraseña - FlorAurora Salud",
       message:
@@ -745,7 +750,15 @@ export const adminService = {
       actionText: "Restablecer contraseña",
     });
 
-    return { recoveryLink };
+    if (!emailResult.success) {
+      return {
+        success: false,
+        error:
+          "No se pudo enviar el correo de recuperación. Por favor, inténtalo más tarde o contacta al administrador del sistema.",
+      };
+    }
+
+    return { success: true, recoveryLink };
   },
 
   async listProfessionals(): Promise<AdminProfessional[]> {

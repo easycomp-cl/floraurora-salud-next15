@@ -26,7 +26,7 @@ export default function DashboardPage() {
 
       setIsRoleLoading(true);
       try {
-        const profile = await profileService.getUserProfileByUuid(user.id);
+        const profile = await profileService.getUserProfileByUuidOrEmail(user.id, user.email ?? undefined);
         if (!isMounted) return;
         
         if (profile) {

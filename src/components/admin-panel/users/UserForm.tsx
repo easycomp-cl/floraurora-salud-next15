@@ -87,7 +87,16 @@ export default function UserForm({
   return (
     <form
       onSubmit={handleSubmit(async (values) => {
-        await onSubmit(values);
+        // En modo edición, correo y RUT son solo lectura y no vienen en values
+        const finalValues =
+          mode === "edit"
+            ? {
+                ...values,
+                email: formDefaults.email,
+                rut: formDefaults.rut ?? "",
+              }
+            : values;
+        await onSubmit(finalValues);
       })}
       className="space-y-4"
     >
@@ -116,18 +125,28 @@ export default function UserForm({
 
         <div className="space-y-2">
           <Label htmlFor="email">Correo</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="correo@ejemplo.cl"
-            {...register("email", {
-              required: "El correo es obligatorio",
-              pattern: {
-                value: /\S+@\S+\.\S+/,
-                message: "Correo inválido",
-              },
-            })}
-          />
+          {mode === "edit" ? (
+            <div
+              className="flex h-9 w-full items-center rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-600 select-none cursor-default pointer-events-none"
+              aria-label="Correo"
+              tabIndex={-1}
+            >
+              {formDefaults.email || "—"}
+            </div>
+          ) : (
+            <Input
+              id="email"
+              type="email"
+              placeholder="correo@ejemplo.cl"
+              {...register("email", {
+                required: "El correo es obligatorio",
+                pattern: {
+                  value: /\S+@\S+\.\S+/,
+                  message: "Correo inválido",
+                },
+              })}
+            />
+          )}
           {errors.email && <p className="text-sm text-red-600">{errors.email.message}</p>}
         </div>
 
@@ -137,8 +156,18 @@ export default function UserForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="rut">RUT (opcional)</Label>
-          <Input id="rut" placeholder="12.345.678-9" {...register("rut")} />
+          <Label htmlFor="rut">RUT</Label>
+          {mode === "edit" ? (
+            <div
+              className="flex h-9 w-full items-center rounded-md border border-input bg-gray-100 px-3 py-2 text-sm text-gray-600 select-none cursor-default pointer-events-none"
+              aria-label="RUT"
+              tabIndex={-1}
+            >
+              {formDefaults.rut || "—"}
+            </div>
+          ) : (
+            <Input id="rut" placeholder="12.345.678-9" {...register("rut")} />
+          )}
         </div>
 
         <div className="space-y-2">

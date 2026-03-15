@@ -17,6 +17,10 @@ export async function POST(
 
     const result = await adminService.sendPasswordReset(userId);
 
+    if (!result.success) {
+      return NextResponse.json({ error: result.error }, { status: 500 });
+    }
+
     const actorId = await getAdminActorId();
     await auditService.log({
       actorId,
@@ -25,7 +29,7 @@ export async function POST(
       entityId: userId,
       metadata: { link: result.recoveryLink },
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ recoveryLink: result.recoveryLink });
   } catch (error) {
     console.error("[POST /api/admin/users/:id/reset-password] Error", error);
     const message =
