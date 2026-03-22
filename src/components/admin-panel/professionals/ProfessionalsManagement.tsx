@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import type {
   AdminProfessional,
   AdminServiceSummary,
@@ -35,6 +36,7 @@ import {
   XCircle,
   Power,
   PowerOff,
+  Loader2,
 } from "lucide-react";
 import ProfessionalRequestsManagement from "./ProfessionalRequestsManagement";
 
@@ -87,6 +89,7 @@ function formatProfessionalPrice(service: AdminServiceSummary): string {
 }
 
 export default function ProfessionalsManagement() {
+  const { session } = useAuthState();
   const [activeTab, setActiveTab] = useState<"professionals" | "requests">(
     "professionals"
   );
@@ -108,6 +111,9 @@ export default function ProfessionalsManagement() {
   const [planData, setPlanData] = useState<ProfessionalPlanData | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [planActionLoading, setPlanActionLoading] = useState(false);
+  const [siiVerifyAnimating, setSiiVerifyAnimating] = useState<
+    "idle" | "verifying" | "verified"
+  >("idle");
 
   // Filtros y paginación
   const [page, setPage] = useState(1);
@@ -396,6 +402,49 @@ export default function ProfessionalsManagement() {
       setError(err instanceof Error ? err.message : "Error al revocar");
     } finally {
       setPlanActionLoading(false);
+    }
+  };
+
+  const handleVerifySiiClick = async () => {
+    if (!selectedProfessional || siiVerifyAnimating !== "idle") return;
+    setSiiVerifyAnimating("verifying");
+    setError(null);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch("/api/admin/rut-checker", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ professional_id: selectedProfessional.id }),
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? "Error al verificar RUT en SII");
+      }
+
+      if (data?.ok && data?.registered) {
+        setSiiVerifyAnimating("verified");
+        setMessage(data?.message ?? "RUT verificado en SII. El profesional puede emitir BHE.");
+        setSelectedProfessional((prev) =>
+          prev ? { ...prev, sii_bhe_verified: true } : null
+        );
+        await loadProfessionals();
+        setTimeout(() => setSiiVerifyAnimating("idle"), 2000);
+      } else {
+        setSiiVerifyAnimating("idle");
+        setMessage(
+          data?.registered === false
+            ? "El RUT no está registrado en el SII para emisión de BHE. El profesional debe registrarse primero."
+            : data?.message ?? "Verificación completada sin resultado esperado."
+        );
+      }
+    } catch (err) {
+      setSiiVerifyAnimating("idle");
+      setError(err instanceof Error ? err.message : "Error al verificar RUT en SII");
     }
   };
 
@@ -1168,6 +1217,80 @@ export default function ProfessionalsManagement() {
                         )}
                       </div>
 
+                      {/* Verificación SII para BHE */}
+                      <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                        <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-primary" />
+                          Emisión BHE (SII)
+                        </h4>
+                        <div className="flex items-center justify-between gap-4">
+                          <div>
+                            <p className="text-xs text-gray-500">
+                              Si está activo, se crearán boletas electrónicas automáticamente tras cada pago.
+                            </p>
+                          </div>
+                          {selectedProfessional.sii_bhe_verified ? (
+                            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-green-800">
+                              <BadgeCheck className="h-5 w-5 shrink-0" />
+                              <span className="text-sm font-medium">Verificado</span>
+                            </div>
+                          ) : siiVerifyAnimating === "verifying" ? (
+                            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-blue-800 animate-pulse">
+                              <Loader2 className="h-5 w-5 shrink-0 animate-spin" />
+                              <span className="text-sm font-medium">Verificando...</span>
+                            </div>
+                          ) : siiVerifyAnimating === "verified" ? (
+                            <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-green-800 animate-in fade-in zoom-in-95 duration-300">
+                              <BadgeCheck className="h-5 w-5 shrink-0" />
+                              <span className="text-sm font-medium">Verificado</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-red-800">
+                                <BadgeX className="h-5 w-5 shrink-0" />
+                                <span className="text-sm font-medium">No verificado</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                onClick={handleVerifySiiClick}
+                              >
+                                Verificar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Datos bancarios */}
+                      <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+                        <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-primary" />
+                          Datos bancarios
+                        </h4>
+                        <div className="grid gap-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Email:</span>
+                            <span>{selectedProfessional.email ?? "-"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">RUT:</span>
+                            <span>{selectedProfessional.rut ?? "-"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Banco:</span>
+                            <span>{selectedProfessional.bank ?? "-"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Tipo de cuenta:</span>
+                            <span>{selectedProfessional.account_type ?? "-"}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-600">Número de cuenta:</span>
+                            <span>{selectedProfessional.account_number ?? "-"}</span>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Acciones de admin */}
                       <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-4">
                         <h4 className="font-medium text-gray-900">
@@ -1239,6 +1362,7 @@ export default function ProfessionalsManagement() {
                           )}
                         </div>
                       </div>
+
                     </>
                   ) : (
                     <p className="text-sm text-gray-500 py-4 text-center">

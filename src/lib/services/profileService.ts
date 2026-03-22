@@ -1,5 +1,5 @@
 import { supabaseTyped } from '@/utils/supabase/client'; // Usar el cliente tipado con autenticación
-import { UserProfile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty, TherapeuticApproach } from '@/lib/types/profile';
+import { UserProfile, ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty, TherapeuticApproach, ProfessionalBankAccount } from '@/lib/types/profile';
 
 // Definir una interfaz para Patient basada en la tabla real
 export interface Patient {
@@ -682,5 +682,51 @@ export const profileService = {
       console.error('Error updating user details:', error);
       throw error;
     }
+  },
+
+  // Obtener información bancaria del profesional
+  async getProfessionalBankAccount(professionalId: number): Promise<ProfessionalBankAccount | null> {
+    const { data, error } = await supabaseTyped
+      .from('professional_bank_accounts')
+      .select('*')
+      .eq('professional_id', professionalId)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code !== 'PGRST116') {
+        console.error('Error fetching professional bank account:', error);
+      }
+      return null;
+    }
+    return data;
+  },
+
+  // Crear o actualizar información bancaria del profesional
+  async upsertProfessionalBankAccount(
+    professionalId: number,
+    bankData: { bank?: string | null; account_type?: string | null; account_number?: string | null }
+  ): Promise<ProfessionalBankAccount | null> {
+    const { data, error } = await supabaseTyped
+      .from('professional_bank_accounts')
+      .upsert(
+        {
+          professional_id: professionalId,
+          bank: bankData.bank ?? null,
+          account_type: bankData.account_type ?? null,
+          account_number: bankData.account_number ?? null,
+        },
+        {
+          onConflict: 'professional_id',
+          ignoreDuplicates: false,
+        }
+      )
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error upserting professional bank account:', error);
+      throw error;
+    }
+    return data;
   },
 };

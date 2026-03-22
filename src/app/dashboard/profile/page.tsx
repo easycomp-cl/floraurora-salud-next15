@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Pencil } from "lucide-react";
 import Image from "next/image";
 import AvatarEditor from "@/components/profile/AvatarEditor";
+import { ProfessionalProfileTabs } from "@/components/profile/ProfessionalProfileTabs";
 import {
   UserProfile,
   PatientProfile,
@@ -49,6 +50,7 @@ type FormDataState = Partial<{
   rut: string;
   patientProfile: Partial<PatientProfile>;
   professionalProfile: Partial<ProfessionalProfile>;
+  bankAccount: { bank: string; account_type: string; account_number: string };
 }>;
 
 type Region = {
@@ -104,8 +106,8 @@ export default function UserProfilePage() {
   const [isAvatarEditorOpen, setIsAvatarEditorOpen] = useState(false);
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPosition, setAvatarPosition] = useState<{ x: number; y: number } | null>(null);
+  const [lastLoadedBankAccount, setLastLoadedBankAccount] = useState<FormDataState["bankAccount"] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   // Mover fetchUserProfile fuera del useEffect para que sea accesible globalmente en el componente
   const fetchUserProfile = async () => {
     try {
@@ -192,6 +194,22 @@ export default function UserProfilePage() {
               ).specialties!.map((s) => s.id);
               setSelectedSpecialties(selectedIds);
             }
+          }
+
+          // Cargar información bancaria (todos los profesionales)
+          if (data.profile && (data.profile as ProfessionalProfile).id) {
+            const bankAccount = await profileService.getProfessionalBankAccount(
+              (data.profile as ProfessionalProfile).id
+            );
+            const bankData = bankAccount
+              ? {
+                  bank: bankAccount.bank ?? "",
+                  account_type: bankAccount.account_type ?? "",
+                  account_number: bankAccount.account_number ?? "",
+                }
+              : { bank: "", account_type: "", account_number: "" };
+            setFormData((prev) => ({ ...prev, bankAccount: bankData }));
+            setLastLoadedBankAccount(bankData);
           }
         }
         
@@ -397,6 +415,16 @@ export default function UserProfilePage() {
           [parent]: {
             ...(prev[parent] as object),
             [child]: formattedValue,
+          },
+        };
+      } else if (parent === "bankAccount") {
+        const current = prev.bankAccount || { bank: "", account_type: "", account_number: "" };
+        return {
+          ...prev,
+          bankAccount: {
+            bank: child === "bank" ? formattedValue : (current.bank ?? ""),
+            account_type: child === "account_type" ? formattedValue : (current.account_type ?? ""),
+            account_number: child === "account_number" ? formattedValue : (current.account_number ?? ""),
           },
         };
       } else {
@@ -787,6 +815,15 @@ export default function UserProfilePage() {
               selectedSpecialties
             );
           }
+
+          // Actualizar información bancaria
+          if (formData.bankAccount) {
+            await profileService.upsertProfessionalBankAccount(professionalId, {
+              bank: formData.bankAccount.bank || null,
+              account_type: formData.bankAccount.account_type || null,
+              account_number: formData.bankAccount.account_number || null,
+            });
+          }
         }
       }
       setIsEditing(false);
@@ -951,28 +988,73 @@ export default function UserProfilePage() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-1 gap-6">
-          <div>
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">
-                Información Personal
-                {isEditing && (
-                  <span className="text-sm text-gray-500 font-normal ml-2">
-                    (* Campos obligatorios)
-                  </span>
+        {profileData.user.role === "professional" ? (
+          <div className="grid md:grid-cols-1 gap-6">
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900">Datos del perfil</h3>
+                {!isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Editar Perfil
+                  </Button>
                 )}
-              </h3>
-              {!isEditing && (
-                <Button
-                  onClick={() => setIsEditing(true)}
-                  className="bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                >
-                  <Pencil className="w-4 h-4 mr-2" />
-                  Editar Perfil
-                </Button>
-              )}
+              </div>
+              <ProfessionalProfileTabs
+                profileData={{ user: profileData.user, profile: profileData.profile as ProfessionalProfile | null }}
+                formData={formData}
+                formErrors={formErrors}
+                isEditing={isEditing}
+                regions={regions}
+                municipalities={municipalities}
+                isLoadingRegions={isLoadingRegions}
+                isLoadingMunicipalities={isLoadingMunicipalities}
+                professionalTitles={professionalTitles}
+                therapeuticApproaches={therapeuticApproaches}
+                professionalSpecialties={professionalSpecialties}
+                selectedSpecialties={selectedSpecialties}
+                specialtyError={specialtyError}
+                onInputChange={handleInputChange}
+                onTitleChange={handleTitleChange}
+                onApproachChange={handleApproachChange}
+                onSpecialtyToggle={handleSpecialtyToggle}
+                onRegionChange={(regionId) => {
+                  setFormData((prev) => ({ ...prev, region: regionId, municipality: undefined }));
+                  if (formErrors.region) setFormErrors((prev) => { const n = { ...prev }; delete n.region; return n; });
+                }}
+                onMunicipalityChange={(munId) => {
+                  setFormData((prev) => ({ ...prev, municipality: munId }));
+                  if (formErrors.municipality) setFormErrors((prev) => { const n = { ...prev }; delete n.municipality; return n; });
+                }}
+              />
             </div>
-            <div className="grid md:grid-cols-2 gap-6 space-y-0">
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-1 gap-6">
+            <div>
+              <div className="flex items-center justify-between mb-4 pb-2 border-b border-gray-200">
+                <h3 className="text-xl font-semibold text-gray-900">
+                  Información Personal
+                  {isEditing && (
+                    <span className="text-sm text-gray-500 font-normal ml-2">
+                      (* Campos obligatorios)
+                    </span>
+                  )}
+                </h3>
+                {!isEditing && (
+                  <Button
+                    onClick={() => setIsEditing(true)}
+                    className="bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Editar Perfil
+                  </Button>
+                )}
+              </div>
+              <div className="grid md:grid-cols-2 gap-6 space-y-0">
               <div>
                 <Label htmlFor="name" className="text-sm font-medium text-gray-700 mb-1.5 block">Nombre *</Label>
                 {isEditing ? (
@@ -1395,7 +1477,7 @@ export default function UserProfilePage() {
                 </>
               )}
 
-              {profileData.user.role === "professional" &&
+              {(profileData.user as DetailedUserDataMappped).role === "professional" &&
                 profileData.profile && (
                   <>
                     <div>
@@ -1583,6 +1665,7 @@ export default function UserProfilePage() {
             </div>
           </div>
         </div>
+        )}
 
         <div className="mt-6 flex justify-end">
           {isEditing && (
@@ -1629,6 +1712,14 @@ export default function UserProfilePage() {
                               profile_description:
                                 (profileData.profile as ProfessionalProfile)
                                   .profile_description || "",
+                            }
+                          : undefined,
+                      bankAccount:
+                        profileData.user?.role === "professional"
+                          ? lastLoadedBankAccount ?? {
+                              bank: "",
+                              account_type: "",
+                              account_number: "",
                             }
                           : undefined,
                     }));

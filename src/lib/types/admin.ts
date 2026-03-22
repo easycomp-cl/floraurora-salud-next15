@@ -63,6 +63,7 @@ export interface AdminProfessional {
   last_name: string | null;
   email: string | null;
   phone_number: string | null;
+  rut?: string | null;
   is_active: boolean;
   title_id: number | null;
   title_name: string | null;
@@ -74,6 +75,12 @@ export interface AdminProfessional {
   plan_type?: "commission" | "monthly" | null; // Tipo de plan del profesional
   monthly_plan_expires_at?: string | null; // Fecha de expiración del plan mensual
   last_monthly_payment_date?: string | null; // Fecha del último pago mensual exitoso
+  /** Información bancaria (para transferencias) */
+  bank?: string | null;
+  account_type?: string | null;
+  account_number?: string | null;
+  /** Si true, el profesional está verificado en SII y autorizado para emisión de BHE por Rakidium */
+  sii_bhe_verified?: boolean;
 }
 
 export interface AdminServiceSummary {

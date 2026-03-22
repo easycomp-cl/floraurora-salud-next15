@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuthState } from "@/lib/hooks/useAuthState";
 import { BHEJob } from "@/lib/services/bheService";
 import { Card, CardContent } from "@/components/ui/card";
 import { 
@@ -53,7 +54,8 @@ const statusConfig = {
   },
 };
 
-export function BHEJobsList({ professionalId }: BHEJobsListProps) {
+export function BHEJobsList({ professionalId, isAdmin }: BHEJobsListProps) {
+  const { session } = useAuthState();
   const [jobs, setJobs] = useState<BHEJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,11 +67,18 @@ export function BHEJobsList({ professionalId }: BHEJobsListProps) {
       setIsLoading(true);
       setError(null);
       
-      const url = filterStatus === "all" 
+      let url = filterStatus === "all"
         ? "/api/bhe/jobs"
         : `/api/bhe/jobs?status=${filterStatus}`;
-      
-      const response = await fetch(url);
+      if (isAdmin && professionalId) {
+        url += url.includes("?") ? `&professional_id=${professionalId}` : `?professional_id=${professionalId}`;
+      }
+
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(url, { credentials: "include", headers });
       const data = await response.json();
       
       if (!response.ok) {
@@ -93,8 +102,14 @@ export function BHEJobsList({ professionalId }: BHEJobsListProps) {
   const handleDownload = async (jobId: string) => {
     try {
       setDownloadingId(jobId);
-      
-      const response = await fetch(`/api/bhe/jobs/${jobId}/download`);
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const response = await fetch(`/api/bhe/jobs/${jobId}/download`, {
+        credentials: "include",
+        headers,
+      });
       const data = await response.json();
       
       if (!response.ok) {

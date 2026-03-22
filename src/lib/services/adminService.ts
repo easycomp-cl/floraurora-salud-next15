@@ -142,6 +142,7 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
     .filter((name): name is string => Boolean(name));
 
   const title = (row.professional_titles as unknown as Record<string, unknown> | null | undefined) ?? null;
+  const bankAccount = (row.bank_account as Record<string, unknown> | null | undefined) ?? null;
 
   return {
     id: Number(row.id),
@@ -150,6 +151,7 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
     last_name: (userData.last_name as string) ?? null,
     email: (userData.email as string) ?? null,
     phone_number: (userData.phone_number as string) ?? null,
+    rut: (userData.rut as string) ?? null,
     is_active: Boolean(row.is_active ?? true),
     title_id: title?.id ? Number(title.id) : null,
     title_name: title?.title_name ? String(title.title_name) : null,
@@ -161,6 +163,10 @@ function mapProfessionalRow(row: Record<string, unknown>): AdminProfessional {
     plan_type: (row.plan_type as "commission" | "monthly" | null) ?? null,
     monthly_plan_expires_at: (row.monthly_plan_expires_at as string) ?? null,
     last_monthly_payment_date: (row.last_monthly_payment_date as string) ?? null,
+    sii_bhe_verified: Boolean(row.sii_bhe_verified ?? false),
+    bank: bankAccount?.bank ? String(bankAccount.bank) : null,
+    account_type: bankAccount?.account_type ? String(bankAccount.account_type) : null,
+    account_number: bankAccount?.account_number ? String(bankAccount.account_number) : null,
   };
 }
 
@@ -776,6 +782,7 @@ export const adminService = {
         plan_type,
         monthly_plan_expires_at,
         last_monthly_payment_date,
+        sii_bhe_verified,
         professional_titles(
           id,
           title_name
@@ -785,7 +792,8 @@ export const adminService = {
           name,
           last_name,
           email,
-          phone_number
+          phone_number,
+          rut
         ),
         service_professionals(
           services(
@@ -818,6 +826,7 @@ export const adminService = {
           plan_type,
           monthly_plan_expires_at,
           last_monthly_payment_date,
+          sii_bhe_verified,
           professional_titles(
             id,
             title_name
@@ -827,7 +836,8 @@ export const adminService = {
             name,
             last_name,
             email,
-            phone_number
+            phone_number,
+            rut
           )
         `;
         
@@ -853,6 +863,7 @@ export const adminService = {
             plan_type,
             monthly_plan_expires_at,
             last_monthly_payment_date,
+            sii_bhe_verified,
             professional_titles(
               id,
               title_name
@@ -891,7 +902,7 @@ export const adminService = {
         
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, user_id, name, last_name, email, phone_number")
+          .select("id, user_id, name, last_name, email, phone_number, rut")
           .in("id", professionalIds);
 
         if (!usersError && usersData) {
@@ -981,6 +992,33 @@ export const adminService = {
           console.warn("[adminService.listProfessionals] No se obtuvieron datos de especialidades");
         }
       }
+
+      // Obtener información bancaria de profesionales
+      const bankMap = new Map<number, { bank: string | null; account_type: string | null; account_number: string | null }>();
+      if (professionalIds.length > 0) {
+        const { data: bankData } = await supabase
+          .from("professional_bank_accounts")
+          .select("professional_id, bank, account_type, account_number")
+          .in("professional_id", professionalIds);
+
+        if (bankData && Array.isArray(bankData)) {
+          bankData.forEach((item: Record<string, unknown>) => {
+            const professionalId = Number(item.professional_id);
+            bankMap.set(professionalId, {
+              bank: (item.bank as string) ?? null,
+              account_type: (item.account_type as string) ?? null,
+              account_number: (item.account_number as string) ?? null,
+            });
+          });
+        }
+      }
+
+      // Asignar datos bancarios a cada profesional
+      professionalsData.forEach((row) => {
+        const professionalId = Number(row.id);
+        const bank = bankMap.get(professionalId);
+        row.bank_account = bank ?? null;
+      });
 
       return professionalsData.map((row) => mapProfessionalRow(row as Record<string, unknown>));
     } catch (error) {

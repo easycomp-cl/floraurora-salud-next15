@@ -84,9 +84,23 @@ export interface ProfessionalProfile {
   approach_id: number | null; // Enfoque terapéutico (relación 1:1)
   profile_description: string | null;
   resume_url: string | null;
+  /** Si true, el profesional está verificado en SII y autorizado para emisión de BHE por Rakidium */
+  sii_bhe_verified?: boolean;
   created_at: string;
   // Campos relacionados que se obtienen por JOIN
   title?: ProfessionalTitle;
   specialties?: ProfessionalSpecialty[];
   approach?: TherapeuticApproach;
+}
+
+// Información bancaria del profesional (tabla professional_bank_accounts)
+// Email y RUT se obtienen de users - no editables en este formulario
+export interface ProfessionalBankAccount {
+  id?: number;
+  professional_id: number;
+  bank: string | null;
+  account_type: string | null;
+  account_number: string | null;
+  created_at?: string;
+  updated_at?: string;
 }

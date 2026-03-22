@@ -685,6 +685,19 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
     
     if (shouldCreateBHEJob) {
       try {
+        // Solo crear BHE job si el profesional está verificado en SII
+        if (appointment.professional_id) {
+          const { data: professionalData } = await adminSupabase
+            .from("professionals")
+            .select("sii_bhe_verified")
+            .eq("id", appointment.professional_id)
+            .single();
+
+          if (!professionalData?.sii_bhe_verified) {
+            console.log(
+              "⏭️ [Webpay Confirm] Profesional no verificado en SII para emisión BHE. Job no creado."
+            );
+          } else {
         /**
          * Función helper para convertir región/comuna a ID numérico
          * Maneja el caso donde en la tabla users se guardaron nombres en lugar de IDs
@@ -947,6 +960,8 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
         });
 
         console.log("✅ [Webpay Confirm] Job de BHE encolado exitosamente");
+          }
+        }
       } catch (bheError) {
         // No bloquear el flujo si falla el encolado de BHE
         // El job puede ser creado manualmente después si es necesario

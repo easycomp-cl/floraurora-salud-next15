@@ -468,6 +468,11 @@ export default function PersonalDataStep({
                       <p className="text-sm text-red-800 mt-1">
                         Ya existe un usuario con este RUT. Si ya tienes cuenta, inicia sesión. Para registrarte con otro correo o RUT, modifica los datos y haz clic en Continuar.
                       </p>
+                      {pendingRequestMessage.userRut && (
+                        <p className="text-sm text-red-800 mt-2">
+                          <strong>RUT asociado:</strong> {maskRut(pendingRequestMessage.userRut)}
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-2 mt-3">
                         {onDismissMessage && (
                           <Button

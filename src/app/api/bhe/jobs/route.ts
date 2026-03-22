@@ -1,6 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/server";
 import { BHEService } from "@/lib/services/bheService";
+
+async function getAuthenticatedUser(request: NextRequest) {
+  const authHeader = request?.headers?.get?.("authorization");
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (bearerToken) {
+    const supabase = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+    const { data: { user }, error } = await supabase.auth.getUser(bearerToken);
+    if (!error && user) return user;
+  }
+  const supabase = await createClient(request);
+  const { data: { user } } = await supabase.auth.getUser();
+  return user ?? null;
+}
 
 /**
  * API Route: GET /api/bhe/jobs
@@ -11,22 +28,20 @@ import { BHEService } from "@/lib/services/bheService";
  * - status: Filtro opcional por estado (queued, processing, done, failed, retrying)
  * 
  * Requisitos:
- * - Usuario autenticado
+ * - Usuario autenticado (Bearer token o cookies)
  * - Debe ser un profesional
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient(request);
-    
-    // Verificar autenticación
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
+    const user = await getAuthenticatedUser(request);
+    if (!user) {
       return NextResponse.json(
         { error: "No autenticado" },
         { status: 401 }
       );
     }
+
+    const supabase = await createClient(request);
     
     // Obtener información del usuario
     const { data: userData, error: userError } = await supabase
@@ -42,9 +57,9 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    // Verificar si es profesional o admin
-    const isProfessional = userData.role === 2; // Asumiendo que role 2 = profesional
-    const isAdmin = userData.role === 1; // Asumiendo que role 1 = admin
+    // Verificar si es profesional o admin (role 1=admin, 2=paciente, 3=profesional)
+    const isProfessional = userData.role === 3;
+    const isAdmin = userData.role === 1;
     
     if (!isProfessional && !isAdmin) {
       return NextResponse.json(
