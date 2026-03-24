@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { chileanBanks, accountTypes } from "@/lib/data/banks";
 
 // Función para validar RUT chileno
 const validateRUT = (rut: string): boolean => {
@@ -224,6 +225,42 @@ export const professionalProfileSchema = z.object({
     .or(z.literal("")),
 });
 
+/** Datos bancarios obligatorios para profesionales (abonos / liquidaciones) */
+export const professionalBankAccountSchema = z.object({
+  bank: z
+    .string()
+    .trim()
+    .min(1, "Debes seleccionar un banco")
+    .refine(
+      (b) => (chileanBanks as readonly string[]).includes(b),
+      "Selecciona un banco de la lista"
+    ),
+  account_type: z
+    .string()
+    .trim()
+    .min(1, "Debes seleccionar el tipo de cuenta")
+    .refine(
+      (t) => accountTypes.some((at) => at.value === t),
+      "Selecciona un tipo de cuenta válido"
+    ),
+  account_number: z
+    .string()
+    .trim()
+    .min(1, "El número de cuenta es obligatorio")
+    .refine(
+      (s) => /^\d+$/.test(s.replace(/\s/g, "")),
+      "El número de cuenta solo debe contener dígitos"
+    )
+    .refine(
+      (s) => s.replace(/\s/g, "").length >= 6,
+      "El número de cuenta debe tener al menos 6 dígitos"
+    )
+    .refine(
+      (s) => s.replace(/\s/g, "").length <= 20,
+      "El número de cuenta no puede exceder 20 dígitos"
+    ),
+});
+
 // Esquema completo para validación del formulario
 export const profileFormSchema = z.object({
   // Campos base del usuario
@@ -241,12 +278,17 @@ export const profileFormSchema = z.object({
   // Perfil específico según el rol
   patientProfile: patientProfileSchema.optional(),
   professionalProfile: professionalProfileSchema.optional(),
+  /** Solo se valida cuando el rol es profesional y se envía en el payload */
+  bankAccount: professionalBankAccountSchema.optional(),
 });
 
 // Tipos TypeScript derivados de los esquemas
 export type UserProfileFormData = z.infer<typeof userProfileSchema>;
 export type PatientProfileFormData = z.infer<typeof patientProfileSchema>;
 export type ProfessionalProfileFormData = z.infer<typeof professionalProfileSchema>;
+export type ProfessionalBankAccountFormData = z.infer<
+  typeof professionalBankAccountSchema
+>;
 export type ProfileFormData = z.infer<typeof profileFormSchema>;
 
 // Función para formatear RUT mientras el usuario escribe

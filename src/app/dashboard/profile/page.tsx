@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { profileService } from "@/lib/services/profileService";
 import { useRouter } from "next/navigation";
 import { useAuthState } from "@/lib/hooks/useAuthState";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Loader2, Pencil } from "lucide-react";
 import Image from "next/image";
 import AvatarEditor from "@/components/profile/AvatarEditor";
 import { ProfessionalProfileTabs } from "@/components/profile/ProfessionalProfileTabs";
@@ -64,6 +64,9 @@ type Municipality = {
   region_id: number;
 };
 
+/** Tiempo mínimo que el botón muestra estado de carga (el guardado puede ser más rápido). */
+const MIN_PROFILE_SAVE_BUTTON_MS = 700;
+
 // Función para traducir el rol al español
 const translateRole = (role: string): string => {
   const roleMap: Record<string, string> = {
@@ -107,15 +110,44 @@ export default function UserProfilePage() {
   const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
   const [avatarPosition, setAvatarPosition] = useState<{ x: number; y: number } | null>(null);
   const [lastLoadedBankAccount, setLastLoadedBankAccount] = useState<FormDataState["bankAccount"] | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveSuccessVisible, setProfileSaveSuccessVisible] =
+    useState(false);
+  const profileSaveSuccessTimeoutRef = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const showProfileSaveSuccessMessage = useCallback(() => {
+    setProfileSaveSuccessVisible(true);
+    if (profileSaveSuccessTimeoutRef.current) {
+      clearTimeout(profileSaveSuccessTimeoutRef.current);
+    }
+    profileSaveSuccessTimeoutRef.current = setTimeout(() => {
+      setProfileSaveSuccessVisible(false);
+      profileSaveSuccessTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (profileSaveSuccessTimeoutRef.current) {
+        clearTimeout(profileSaveSuccessTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Mover fetchUserProfile fuera del useEffect para que sea accesible globalmente en el componente
-  const fetchUserProfile = async () => {
+  const fetchUserProfile = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     try {
-      setProfileData((prev: UserProfileData) => ({
-        ...prev,
-        loading: true,
-        error: null,
-      }));
+      if (!silent) {
+        setProfileData((prev: UserProfileData) => ({
+          ...prev,
+          loading: true,
+          error: null,
+        }));
+      }
       const data = await getFullUserProfileData();
       if (data) {
         setProfileData((prev: UserProfileData) => ({
@@ -424,7 +456,10 @@ export default function UserProfilePage() {
           bankAccount: {
             bank: child === "bank" ? formattedValue : (current.bank ?? ""),
             account_type: child === "account_type" ? formattedValue : (current.account_type ?? ""),
-            account_number: child === "account_number" ? formattedValue : (current.account_number ?? ""),
+            account_number:
+              child === "account_number"
+                ? value.replace(/\D/g, "")
+                : (current.account_number ?? ""),
           },
         };
       } else {
@@ -587,6 +622,17 @@ export default function UserProfilePage() {
     // Limpiar errores anteriores
     setFormErrors({});
     setSpecialtyError("");
+    setIsSavingProfile(true);
+    const saveUiStartedAt = performance.now();
+    const finishSaveButtonLoading = () => {
+      const elapsed = performance.now() - saveUiStartedAt;
+      const wait = Math.max(0, MIN_PROFILE_SAVE_BUTTON_MS - elapsed);
+      if (wait > 0) {
+        window.setTimeout(() => setIsSavingProfile(false), wait);
+      } else {
+        setIsSavingProfile(false);
+      }
+    };
 
     // Preparar datos para validación
     // Asegurar que region sea un número válido (el esquema lo requiere)
@@ -628,6 +674,14 @@ export default function UserProfilePage() {
                 formData.professionalProfile.profile_description || "",
             }
           : undefined,
+      bankAccount:
+        profileData.user.role === "professional"
+          ? {
+              bank: (formData.bankAccount?.bank ?? "").trim(),
+              account_type: (formData.bankAccount?.account_type ?? "").trim(),
+              account_number: (formData.bankAccount?.account_number ?? "").trim(),
+            }
+          : undefined,
     };
 
     // Validar especialidades si es un profesional
@@ -637,6 +691,7 @@ export default function UserProfilePage() {
     ) {
       if (selectedSpecialties.length === 0) {
         setSpecialtyError("Debes seleccionar al menos una especialidad");
+        setIsSavingProfile(false);
         return;
       }
     }
@@ -669,6 +724,9 @@ export default function UserProfilePage() {
               "professionalProfile.profile_description": "La descripción del perfil no es válida",
               "patientProfile.emergency_contact_name": "El nombre del contacto de emergencia no es válido",
               "patientProfile.emergency_contact_phone": "El teléfono de contacto de emergencia no es válido",
+              "bankAccount.bank": "El banco no es válido",
+              "bankAccount.account_type": "El tipo de cuenta no es válido",
+              "bankAccount.account_number": "El número de cuenta no es válido",
             };
             
             message = fieldMessages[fieldName] || `El campo ${fieldName} contiene un valor inválido`;
@@ -677,8 +735,11 @@ export default function UserProfilePage() {
           errors[fieldName] = message;
         });
         setFormErrors(errors);
+        setIsSavingProfile(false);
         return;
       }
+      setIsSavingProfile(false);
+      throw error;
     }
 
     try {
@@ -724,7 +785,11 @@ export default function UserProfilePage() {
       ) {
         userUpdateData.nationality = formData.nationality;
       }
-      if (formData.rut && formData.rut !== profileData.user.rut) {
+      if (
+        profileData.user.role !== "professional" &&
+        formData.rut &&
+        formData.rut !== profileData.user.rut
+      ) {
         userUpdateData.rut = formData.rut;
       }
 
@@ -816,19 +881,25 @@ export default function UserProfilePage() {
             );
           }
 
-          // Actualizar información bancaria
+          // Actualizar información bancaria (validada como obligatoria para profesionales)
           if (formData.bankAccount) {
+            const acctNum = formData.bankAccount.account_number.replace(
+              /\s/g,
+              ""
+            );
             await profileService.upsertProfessionalBankAccount(professionalId, {
-              bank: formData.bankAccount.bank || null,
-              account_type: formData.bankAccount.account_type || null,
-              account_number: formData.bankAccount.account_number || null,
+              bank: formData.bankAccount.bank.trim(),
+              account_type: formData.bankAccount.account_type.trim(),
+              account_number: acctNum,
             });
           }
         }
       }
       setIsEditing(false);
-      // Recargar los datos del perfil para asegurar que estén actualizados
-      await fetchUserProfile(); // Volvemos a cargar los datos después de guardar
+      // Recargar datos sin pantalla completa de carga (el overlay ya indica guardado)
+      await fetchUserProfile({ silent: true });
+      showProfileSaveSuccessMessage();
+      finishSaveButtonLoading();
     } catch (error: unknown) {
       // Función auxiliar para extraer información del error
       const getErrorInfo = (err: unknown) => {
@@ -863,7 +934,9 @@ export default function UserProfilePage() {
       if (errorObj?.code === 'PGRST116' && errorObj?.details?.includes('0 rows')) {
         console.log("Actualización no afectó filas (valores probablemente iguales), recargando perfil");
         setIsEditing(false);
-        await fetchUserProfile();
+        await fetchUserProfile({ silent: true });
+        showProfileSaveSuccessMessage();
+        finishSaveButtonLoading();
         return;
       }
       
@@ -872,7 +945,9 @@ export default function UserProfilePage() {
       if (errorObj?.message?.includes('0 rows') || errorObj?.details?.includes('0 rows')) {
         console.log("No se detectaron cambios en la actualización, recargando perfil");
         setIsEditing(false);
-        await fetchUserProfile();
+        await fetchUserProfile({ silent: true });
+        showProfileSaveSuccessMessage();
+        finishSaveButtonLoading();
         return;
       }
       
@@ -891,7 +966,9 @@ export default function UserProfilePage() {
       if (!hasErrorInfo) {
         console.warn("Error sin información útil, asumiendo que no hay cambios");
         setIsEditing(false);
-        await fetchUserProfile();
+        await fetchUserProfile({ silent: true });
+        showProfileSaveSuccessMessage();
+        finishSaveButtonLoading();
         return;
       }
       
@@ -902,6 +979,7 @@ export default function UserProfilePage() {
           ...prev,
           rut: "Este RUT ya está registrado en el sistema",
         }));
+        setIsSavingProfile(false);
         return;
       }
       
@@ -911,6 +989,7 @@ export default function UserProfilePage() {
           ...prev,
           rut: errorObj.message || "Error al actualizar el RUT",
         }));
+        setIsSavingProfile(false);
         return;
       }
       
@@ -918,12 +997,22 @@ export default function UserProfilePage() {
         ...prev,
         error: ('message' in errorInfo ? errorInfo.message : undefined) || errorObj?.message || "Error al guardar los cambios.",
       }));
+      setIsSavingProfile(false);
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-6">Mi Perfil</h1>
+      {profileSaveSuccessVisible && (
+        <div
+          className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900 text-sm font-medium"
+          role="status"
+          aria-live="polite"
+        >
+          Los datos se actualizaron correctamente.
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center space-x-4 mb-8">
@@ -1670,11 +1759,39 @@ export default function UserProfilePage() {
         <div className="mt-6 flex justify-end">
           {isEditing && (
             <>
-              <Button onClick={handleSave} className="mr-2 bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 text-white transition-all duration-200">
-                Guardar Cambios
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={isSavingProfile}
+                aria-busy={isSavingProfile}
+                className={`relative mr-2 min-w-[11.5rem] overflow-hidden text-white transition-all duration-200 disabled:opacity-100 ${
+                  isSavingProfile
+                    ? "cursor-wait bg-gradient-to-r from-teal-800 via-cyan-900 to-teal-900 ring-2 ring-cyan-400/70 ring-offset-2 ring-offset-white shadow-md"
+                    : "bg-gradient-to-r from-teal-700 via-cyan-800 to-teal-800 hover:from-teal-800 hover:via-cyan-900 hover:to-teal-900 shadow-lg hover:shadow-xl"
+                }`}
+              >
+                {isSavingProfile && (
+                  <span
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-pulse"
+                    aria-hidden
+                  />
+                )}
+                {isSavingProfile ? (
+                  <span className="relative inline-flex items-center justify-center gap-2 font-medium">
+                    <Loader2
+                      className="h-4 w-4 shrink-0 animate-spin"
+                      aria-hidden
+                    />
+                    Guardando…
+                  </span>
+                ) : (
+                  <span className="relative font-medium">Guardar cambios</span>
+                )}
               </Button>
               <Button
                 variant="outline"
+                type="button"
+                disabled={isSavingProfile}
                 onClick={() => {
                   setIsEditing(false);
                   setSpecialtyError(""); // Limpiar error de especialidades

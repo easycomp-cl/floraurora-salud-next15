@@ -3,11 +3,24 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { User, Briefcase, CreditCard } from "lucide-react";
+import { User, Briefcase, CreditCard, AlertCircle } from "lucide-react";
 import type { ProfessionalProfile, ProfessionalTitle, ProfessionalSpecialty, TherapeuticApproach } from "@/lib/types/profile";
 import type { DetailedUserDataMappped } from "@/lib/userdata/profile-data";
 import { countries, genderOptions } from "@/lib/data/countries";
 import { chileanBanks, accountTypes } from "@/lib/data/banks";
+
+/** Claves de `formErrors` que pertenecen al tab Información personal */
+const PERSONAL_TAB_ERROR_KEYS = new Set([
+  "name",
+  "last_name",
+  "phone_number",
+  "address",
+  "region",
+  "municipality",
+  "birth_date",
+  "gender",
+  "nationality",
+]);
 
 type Region = { id: number; name: string };
 type Municipality = { id: number; name: string; region_id: number };
@@ -74,20 +87,65 @@ export function ProfessionalProfileTabs({
   const userRegion = profileData.user?.region;
   const userMunicipality = profileData.user?.municipality;
 
+  const personalTabHasError =
+    isEditing &&
+    Object.keys(formErrors).some((key) => PERSONAL_TAB_ERROR_KEYS.has(key));
+  const professionalTabHasError =
+    isEditing &&
+    (!!specialtyError ||
+      Object.keys(formErrors).some((key) => key.startsWith("professionalProfile.")));
+  const bankTabHasError =
+    isEditing &&
+    Object.keys(formErrors).some((key) => key.startsWith("bankAccount."));
+
+  const tabErrorIcon = (show: boolean, label: string) =>
+    show ? (
+      <span className="inline-flex shrink-0" title={label}>
+        <AlertCircle
+          className="w-4 h-4 text-red-500"
+          aria-hidden
+        />
+      </span>
+    ) : null;
+
   return (
     <Tabs defaultValue="personal" className="w-full">
       <TabsList className="grid w-full grid-cols-3 mb-6">
-        <TabsTrigger value="personal" className="flex items-center gap-2">
-          <User className="w-4 h-4" />
-          Información Personal
+        <TabsTrigger
+          value="personal"
+          className="flex items-center justify-center gap-2"
+          aria-invalid={personalTabHasError || undefined}
+        >
+          <User className="w-4 h-4 shrink-0" />
+          <span className="truncate">Información Personal</span>
+          {tabErrorIcon(
+            personalTabHasError,
+            "Hay campos con error en Información personal"
+          )}
         </TabsTrigger>
-        <TabsTrigger value="professional" className="flex items-center gap-2">
-          <Briefcase className="w-4 h-4" />
-          Información Profesional
+        <TabsTrigger
+          value="professional"
+          className="flex items-center justify-center gap-2"
+          aria-invalid={professionalTabHasError || undefined}
+        >
+          <Briefcase className="w-4 h-4 shrink-0" />
+          <span className="truncate">Información Profesional</span>
+          {tabErrorIcon(
+            professionalTabHasError,
+            "Hay campos con error en Información profesional"
+          )}
         </TabsTrigger>
-        <TabsTrigger value="bank" className="flex items-center gap-2">
-          <CreditCard className="w-4 h-4" />
-          Información Bancaria
+        <TabsTrigger
+          value="bank"
+          className="flex items-center justify-center gap-2"
+          aria-invalid={bankTabHasError || undefined}
+        >
+          <CreditCard className="w-4 h-4 shrink-0" />
+          <span className="truncate">Información Bancaria</span>
+          {tabErrorIcon(
+            bankTabHasError,
+            "Hay campos con error en Información bancaria"
+          )}
         </TabsTrigger>
       </TabsList>
 
@@ -142,15 +200,8 @@ export function ProfessionalProfileTabs({
             )}
           </div>
           <div>
-            <Label htmlFor="rut" className="text-sm font-medium text-gray-700 mb-1.5 block">RUT *</Label>
-            {isEditing ? (
-              <div>
-                <Input id="rut" name="rut" type="text" value={formData.rut || ""} onChange={onInputChange} placeholder="12.345.678-9" className={formErrors.rut ? "border-red-500" : ""} />
-                {formErrors.rut && <p className="text-red-500 text-sm mt-1">{formErrors.rut}</p>}
-              </div>
-            ) : (
-              <p className="text-gray-900 font-medium py-2">{profileData.user?.rut || "No especificado"}</p>
-            )}
+            <Label className="text-sm font-medium text-gray-700 mb-1.5 block">RUT</Label>
+            <p className="text-gray-900 font-medium py-2">{profileData.user?.rut || "No especificado"}</p>
           </div>
           <div className="md:col-span-2">
             <Label htmlFor="address" className="text-sm font-medium text-gray-700 mb-1.5 block">Dirección *</Label>
@@ -376,51 +427,68 @@ export function ProfessionalProfileTabs({
             <p className="text-gray-900 font-medium py-2">{profileData.user?.rut || "No especificado"}</p>
           </div>
           <div>
-            <Label htmlFor="bankAccount.bank" className="text-sm font-medium text-gray-700 mb-1.5 block">Banco</Label>
+            <Label htmlFor="bankAccount.bank" className="text-sm font-medium text-gray-700 mb-1.5 block">Banco *</Label>
             {isEditing ? (
-              <select
-                id="bankAccount.bank"
-                name="bankAccount.bank"
-                value={formData.bankAccount?.bank || ""}
-                onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Seleccionar banco</option>
-                {chileanBanks.map((b) => <option key={b} value={b}>{b}</option>)}
-              </select>
+              <div>
+                <select
+                  id="bankAccount.bank"
+                  name="bankAccount.bank"
+                  value={formData.bankAccount?.bank || ""}
+                  onChange={onInputChange}
+                  className={`w-full px-3 py-2 border rounded-md ${formErrors["bankAccount.bank"] ? "border-red-500" : "border-gray-300"}`}
+                >
+                  <option value="">Seleccionar banco</option>
+                  {chileanBanks.map((b) => <option key={b} value={b}>{b}</option>)}
+                </select>
+                {formErrors["bankAccount.bank"] && (
+                  <p className="text-red-500 text-sm mt-1">{formErrors["bankAccount.bank"]}</p>
+                )}
+              </div>
             ) : (
               <p className="text-gray-900 font-medium py-2">{formData.bankAccount?.bank || "No especificado"}</p>
             )}
           </div>
           <div>
-            <Label htmlFor="bankAccount.account_type" className="text-sm font-medium text-gray-700 mb-1.5 block">Tipo de cuenta</Label>
+            <Label htmlFor="bankAccount.account_type" className="text-sm font-medium text-gray-700 mb-1.5 block">Tipo de cuenta *</Label>
             {isEditing ? (
-              <select
-                id="bankAccount.account_type"
-                name="bankAccount.account_type"
-                value={formData.bankAccount?.account_type || ""}
-                onChange={onInputChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="">Seleccionar tipo</option>
-                {accountTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              <div>
+                <select
+                  id="bankAccount.account_type"
+                  name="bankAccount.account_type"
+                  value={formData.bankAccount?.account_type || ""}
+                  onChange={onInputChange}
+                  className={`w-full px-3 py-2 border rounded-md ${formErrors["bankAccount.account_type"] ? "border-red-500" : "border-gray-300"}`}
+                >
+                  <option value="">Seleccionar tipo</option>
+                  {accountTypes.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                {formErrors["bankAccount.account_type"] && (
+                  <p className="text-red-500 text-sm mt-1">{formErrors["bankAccount.account_type"]}</p>
+                )}
+              </div>
             ) : (
               <p className="text-gray-900 font-medium py-2">{formData.bankAccount?.account_type || "No especificado"}</p>
             )}
           </div>
           <div>
-            <Label htmlFor="bankAccount.account_number" className="text-sm font-medium text-gray-700 mb-1.5 block">Número de cuenta</Label>
+            <Label htmlFor="bankAccount.account_number" className="text-sm font-medium text-gray-700 mb-1.5 block">Número de cuenta *</Label>
             {isEditing ? (
-              <Input
-                id="bankAccount.account_number"
-                name="bankAccount.account_number"
-                type="text"
-                value={formData.bankAccount?.account_number || ""}
-                onChange={onInputChange}
-                placeholder="Ej: 12345678"
-                className="w-full"
-              />
+              <div>
+                <Input
+                  id="bankAccount.account_number"
+                  name="bankAccount.account_number"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={formData.bankAccount?.account_number || ""}
+                  onChange={onInputChange}
+                  placeholder="Solo dígitos, ej: 12345678"
+                  className={`w-full ${formErrors["bankAccount.account_number"] ? "border-red-500" : ""}`}
+                />
+                {formErrors["bankAccount.account_number"] && (
+                  <p className="text-red-500 text-sm mt-1">{formErrors["bankAccount.account_number"]}</p>
+                )}
+              </div>
             ) : (
               <p className="text-gray-900 font-medium py-2">{formData.bankAccount?.account_number || "No especificado"}</p>
             )}
