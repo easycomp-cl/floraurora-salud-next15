@@ -244,11 +244,6 @@ export default function UserProfilePage() {
             setLastLoadedBankAccount(bankData);
           }
         }
-        
-        // Cargar comunas si el usuario tiene una región
-        if (userRegion) {
-          fetchMunicipalities(userRegion);
-        }
       } else {
         setProfileData((prev: UserProfileData) => ({
           ...prev,
@@ -322,17 +317,12 @@ export default function UserProfilePage() {
     }
   };
 
-  // Cargar comunas cuando cambie la región seleccionada
+  // Cargar comunas cuando cambie la región (no limpiar comuna aquí: al hidratar desde BD
+  // o al cancelar, eso borraba la comuna guardada). Al cambiar de región en el UI se
+  // limpia la comuna en los onChange de región.
   useEffect(() => {
     if (formData.region) {
       fetchMunicipalities(formData.region);
-      // Si cambia la región, limpiar la comuna seleccionada
-      setFormData((prev) => {
-        if (prev.municipality) {
-          return { ...prev, municipality: undefined };
-        }
-        return prev;
-      });
     } else {
       setMunicipalities([]);
     }
@@ -1292,7 +1282,11 @@ export default function UserProfilePage() {
                         value={formData.region || ""}
                         onChange={(e) => {
                           const value = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                          setFormData((prev) => ({ ...prev, region: value }));
+                          setFormData((prev) => ({
+                            ...prev,
+                            region: value,
+                            municipality: undefined,
+                          }));
                           // Limpiar error al cambiar
                           if (formErrors.region) {
                             setFormErrors((prev) => {
@@ -1798,12 +1792,18 @@ export default function UserProfilePage() {
                   setFormErrors({}); // Limpiar errores de validación
                   // Restablecer formData a los datos actuales si el usuario cancela la edición
                   if (profileData.user) {
+                    const u = profileData.user as DetailedUserDataMappped & {
+                      region?: number;
+                      municipality?: number;
+                    };
                     setFormData(() => ({
                       name: profileData.user?.name || "",
                       last_name: profileData.user?.last_name || "",
                       email: profileData.user?.email || "",
                       phone_number: profileData.user?.phone_number || "",
                       address: profileData.user?.address || "",
+                      region: u.region ?? undefined,
+                      municipality: u.municipality ?? undefined,
                       birth_date: profileData.user?.birth_date || "",
                       gender: profileData.user?.gender || "No especificar",
                       nationality: profileData.user?.nationality || "",
