@@ -9,7 +9,7 @@ export default function NuestraVision() {
       <div className="max-w-6xl mx-auto px-6 md:px-8">
         <div className="text-center mb-10 md:mb-12">
           <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-teal-900 tracking-wide uppercase mb-3">
-            Nuestra Visión
+            Visión
           </h3>
           <div className="w-24 h-1 bg-teal-500 mx-auto rounded-full"></div>
         </div>
@@ -18,7 +18,10 @@ export default function NuestraVision() {
             <Eye className="size-10 md:size-12 text-white" strokeWidth={2} />
           </div>
           <p className="text-lg md:text-xl text-gray-700 max-w-4xl mx-auto leading-relaxed">
-            Consolidarnos como una empresa líder en servicios de calidad, que inspire confianza, además de innovar tecnológicamente, con el compromiso de la salud y el bienestar de nuestros clientes.
+            Ser una plataforma digital referente en salud integral,
+            fortaleciendo redes profesionales interdisciplinarias y acercando el
+            bienestar a las personas, a través de tecnología accesible y
+            confiable.
           </p>
         </div>
       </div>

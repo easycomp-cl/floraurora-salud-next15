@@ -50,7 +50,7 @@ export default function ProfessionalsList({
                     alt={professional.name}
                     width={48}
                     height={48}
-                    className="w-12 h-12 rounded-full object-cover"
+                    className="w-12 h-12 rounded-full object-cover object-[center_14%]"
                   />
                 ) : (
                   <User className={`w-6 h-6 ${

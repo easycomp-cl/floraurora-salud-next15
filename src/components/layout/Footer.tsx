@@ -22,8 +22,8 @@ const Footer = () => {
               <span className="text-xl font-bold">FlorAurora Salud</span>
             </div>
             <p className="text-gray-300 max-w-md">
-              Conectamos pacientes con profesionales de la salud mental de
-              manera segura y confidencial.
+              Conectamos pacientes con profesionales de la salud de manera
+              segura y confidencial.
             </p>
           </div>
 

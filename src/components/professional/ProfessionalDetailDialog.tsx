@@ -43,13 +43,13 @@ export default function ProfessionalDetailDialog({
         <div className="space-y-6">
           {/* Imagen y información básica */}
           <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
-            <div className="relative w-full md:w-64 h-64 rounded-2xl overflow-hidden flex-shrink-0">
+            <div className="relative w-full md:w-64 h-72 md:h-72 rounded-2xl overflow-hidden flex-shrink-0 bg-slate-100">
               {professional.avatar_url ? (
                 <Image
                   src={professional.avatar_url}
                   alt={professional.name || "Profesional"}
                   fill
-                  className="object-cover"
+                  className="object-cover object-[center_12%]"
                   sizes="(max-width: 768px) 100vw, 256px"
                 />
               ) : (

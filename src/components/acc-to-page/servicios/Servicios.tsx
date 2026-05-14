@@ -437,15 +437,15 @@ export default function Servicios() {
           <div className="space-y-6 md:space-y-8">
             <div className="space-y-4">
               <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white tracking-tight drop-shadow-2xl">
-                Nuestros Servicios
+                Servicios
               </h1>
               <div className="w-32 h-1.5 bg-teal-400 mx-auto rounded-full shadow-lg"></div>
             </div>
 
             <div className="max-w-4xl mx-auto">
               <p className="text-lg md:text-xl lg:text-2xl text-white leading-relaxed drop-shadow-xl font-normal">
-                Contamos con distintas especialidades en atención de salud
-                mental para ajustarnos a tus necesidades.
+                Distintas especialidades en atención de salud, para ajustarnos a
+                tus necesidades.
               </p>
             </div>
           </div>

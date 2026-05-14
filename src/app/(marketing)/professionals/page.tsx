@@ -408,14 +408,14 @@ export default function ProfessionalsPage() {
                   key={professional.id}
                   className="bg-white rounded-2xl shadow-xl overflow-hidden transform transition-all hover:shadow-2xl hover:-translate-y-1"
                 >
-                  <div className={`h-64 bg-gradient-to-br ${gradient} flex items-center justify-center relative overflow-hidden`}>
+                  <div className={`relative h-72 md:h-80 bg-gradient-to-br ${gradient} flex items-center justify-center overflow-hidden`}>
                     <div className={`absolute inset-0 bg-gradient-to-br ${bgOverlay}`}></div>
                     {professional.avatar_url ? (
                       <Image
                         src={professional.avatar_url}
                         alt={fullName}
                         fill
-                        className="object-cover relative z-10"
+                        className="object-cover object-[center_12%] relative z-10"
                         sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                     ) : (
@@ -489,8 +489,8 @@ export default function ProfessionalsPage() {
             </h2>
             <div className="w-24 h-1 bg-teal-500 mx-auto rounded-full mb-6"></div>
             <p className="text-lg md:text-xl text-gray-700 leading-relaxed mb-8 max-w-3xl mx-auto">
-              Nuestros profesionales están aquí para ayudarte. Agenda tu primera
-              sesión y descubre cómo podemos apoyarte en tu crecimiento personal.
+              Los profesionales están aquí para ayudarte. Agenda tu primera
+              sesión y descubre cómo pueden apoyarte en tu crecimiento personal.
             </p>
             <button 
               onClick={() => router.push("/dashboard/appointments")}

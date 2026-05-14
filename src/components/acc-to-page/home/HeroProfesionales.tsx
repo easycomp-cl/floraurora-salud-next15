@@ -459,14 +459,14 @@ export default function HeroProfesionales() {
                                   : "opacity-0 translate-x-full scale-95 z-0"
                           }`}
                         >
-                          <div className="w-32 h-32 rounded-full overflow-hidden mb-6 border-4 border-teal-400 shadow-lg flex items-center justify-center bg-gradient-to-br from-teal-100 to-teal-200 flex-shrink-0">
+                          <div className="w-36 h-36 rounded-full overflow-hidden mb-6 border-4 border-teal-400 shadow-lg flex items-center justify-center bg-gradient-to-br from-teal-100 to-teal-200 flex-shrink-0">
                             {avatarSrc ? (
                               <Image
                                 src={avatarSrc}
                                 alt={fullName}
-                                width={128}
-                                height={128}
-                                className="object-cover w-full h-full"
+                                width={144}
+                                height={144}
+                                className="object-cover object-[center_12%] w-full h-full"
                               />
                             ) : (
                               <Users className="w-16 h-16 text-teal-400" />
@@ -607,14 +607,14 @@ export default function HeroProfesionales() {
                                   minHeight: "500px",
                                 }}
                               >
-                                <div className="w-32 h-32 rounded-full overflow-hidden mb-6 border-4 border-teal-400 shadow-lg flex items-center justify-center bg-gradient-to-br from-teal-100 to-teal-200 flex-shrink-0">
+                                <div className="w-36 h-36 rounded-full overflow-hidden mb-6 border-4 border-teal-400 shadow-lg flex items-center justify-center bg-gradient-to-br from-teal-100 to-teal-200 flex-shrink-0">
                                   {avatarSrc ? (
                                     <Image
                                       src={avatarSrc}
                                       alt={fullName}
-                                      width={128}
-                                      height={128}
-                                      className="object-cover w-full h-full"
+                                      width={144}
+                                      height={144}
+                                      className="object-cover object-[center_12%] w-full h-full"
                                     />
                                   ) : (
                                     <Users className="w-16 h-16 text-teal-400" />

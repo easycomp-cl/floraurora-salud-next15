@@ -9,7 +9,7 @@ export default function NuestraMision() {
       <div className="max-w-6xl mx-auto px-6 md:px-8">
         <div className="text-center mb-10 md:mb-12">
           <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-teal-900 tracking-wide uppercase mb-3">
-            Nuestra Misión
+            Misión
           </h3>
           <div className="w-24 h-1 bg-teal-500 mx-auto rounded-full"></div>
         </div>
@@ -18,7 +18,10 @@ export default function NuestraMision() {
             <Target className="size-10 md:size-12 text-white" strokeWidth={2} />
           </div>
           <p className="text-lg md:text-xl text-gray-700 max-w-4xl mx-auto leading-relaxed">
-            Entregar un servicio online que permita conectar a profesionales de la salud con consultantes, a través de una plataforma tecnológica moderna y eficiente, garantizando calidad, seguridad y confianza en el vínculo.
+            Facilitar el acceso a servicios de salud y bienestar, mediante una
+            plataforma tecnológica segura, moderna y eficiente, conectando
+            consultantes con profesionales de distintas áreas, para promover un
+            acompañamiento integral y de calidad.
           </p>
         </div>
       </div>
