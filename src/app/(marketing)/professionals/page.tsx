@@ -209,7 +209,8 @@ export default function ProfessionalsPage() {
             
             <div className="max-w-4xl mx-auto">
               <p className="text-lg md:text-xl lg:text-2xl text-white leading-relaxed drop-shadow-xl font-normal">
-                Conoce al equipo de profesionales de la salud, psicólogos especializados, todos certificados y con experiencia en terapia online.
+                Conoce al equipo de profesionales de la salud, todos certificados
+                y con experiencia en terapia online.
               </p>
             </div>
           </div>
