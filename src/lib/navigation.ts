@@ -74,6 +74,21 @@ export const navItems: NavItem[] = [
         href: "/services#evaluacion-psicodiagnostico",
         description: "Evaluaciones psicológicas completas"
       },
+      {
+        label: "Psiquiatría",
+        href: "/services#psiquiatria",
+        description: "Diagnóstico y tratamiento psiquiátrico"
+      },
+      {
+        label: "Nutricionista",
+        href: "/services#nutricionista",
+        description: "Evaluación y planes de alimentación"
+      },
+      {
+        label: "Nutriología",
+        href: "/services#nutriologia",
+        description: "Nutrición clínica, metabólica y terapéutica"
+      },
     ]
   },
   {

@@ -1,6 +1,15 @@
 "use client";
 
-import { User, Heart, Users, Check, Eye } from "lucide-react";
+import {
+  User,
+  Heart,
+  Users,
+  Check,
+  Eye,
+  Brain,
+  Apple,
+  Stethoscope,
+} from "lucide-react";
 import Image from "next/image";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -27,6 +36,9 @@ export default function Servicios() {
   const adultosRef = useRef<HTMLDivElement>(null);
   const parejaRef = useRef<HTMLDivElement>(null);
   const evaluacionRef = useRef<HTMLDivElement>(null);
+  const psiquiatriaRef = useRef<HTMLDivElement>(null);
+  const nutricionistaRef = useRef<HTMLDivElement>(null);
+  const nutriologiaRef = useRef<HTMLDivElement>(null);
 
   // Ref para rastrear si estamos haciendo scroll manual
   const isManualScrollRef = useRef(false);
@@ -75,6 +87,9 @@ export default function Servicios() {
           "psicoterapia-adultos": adultosRef,
           "terapia-pareja": parejaRef,
           "evaluacion-psicodiagnostico": evaluacionRef,
+          psiquiatria: psiquiatriaRef,
+          nutricionista: nutricionistaRef,
+          nutriologia: nutriologiaRef,
         };
 
       const targetRef = refMap[hash];
@@ -360,6 +375,18 @@ export default function Servicios() {
     "evaluacion-psicodiagnostico": {
       serviceName: "Evaluación y Psicodiagnóstico",
       areaName: "Psicología"
+    },
+    psiquiatria: {
+      serviceName: "Psiquiatría",
+      areaName: "Psiquiatría"
+    },
+    nutricionista: {
+      serviceName: "Nutricionista",
+      areaName: "Nutricionista"
+    },
+    nutriologia: {
+      serviceName: "Nutriología",
+      areaName: "Nutriología"
     }
   };
 
@@ -570,7 +597,7 @@ export default function Servicios() {
                   TERAPIA DE PAREJA
                 </h3>
                 <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-6">
-                  llevada a cabo por psicólogos formados en este tipo de
+                  Llevada a cabo por psicólogos formados en este tipo de
                   intervención, y su objetivo es el desarrollo de una mejor
                   comunicación, la modificación de conductas poco funcionales en
                   el vínculo y la construcción de una relación saludable y
@@ -641,6 +668,160 @@ export default function Servicios() {
               <button 
                 onClick={() => handleBookService("evaluacion-psicodiagnostico")}
                 className="mt-auto w-full bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold py-3 rounded-lg hover:from-amber-700 hover:to-amber-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
+                Agendar Sesión
+              </button>
+            </div>
+            {/* Tarjeta 5: Psiquiatría */}
+            <div
+              id="psiquiatria"
+              ref={psiquiatriaRef}
+              className={`bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${getHighlightClasses("psiquiatria")}`}
+            >
+              <div className="flex-1 flex flex-col">
+                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-rose-400 to-rose-600 rounded-full mb-6 shadow-lg">
+                  <Brain
+                    className="size-8 md:size-10 text-white"
+                    strokeWidth={2}
+                  />
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+                  PSIQUIATRÍA
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-6">
+                  La psiquiatría es la rama de la medicina dedicada al estudio,
+                  diagnóstico, prevención y tratamiento de los trastornos
+                  mentales, emocionales y del comportamiento humano. El médico
+                  psiquiatra analiza la conexión entre los síntomas
+                  psicológicos, la genética, el historial clínico y posibles
+                  desbalances químicos u otras enfermedades médicas. Utilizan
+                  tratamientos psicofarmacológicos, como antidepresivos o
+                  estabilizadores, para regular la química cerebral.
+                </p>
+                <ul className="space-y-2 text-gray-600 text-sm md:text-base mb-6">
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Diagnóstico
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Tratamiento
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Esquemas farmacológicos
+                  </li>
+                </ul>
+              </div>
+              <button
+                onClick={() => handleBookService("psiquiatria")}
+                className="mt-auto w-full bg-gradient-to-r from-rose-600 to-rose-700 text-white font-semibold py-3 rounded-lg hover:from-rose-700 hover:to-rose-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
+                Agendar Sesión
+              </button>
+            </div>
+
+            {/* Tarjeta 6: Nutricionista */}
+            <div
+              id="nutricionista"
+              ref={nutricionistaRef}
+              className={`bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${getHighlightClasses("nutricionista")}`}
+            >
+              <div className="flex-1 flex flex-col">
+                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full mb-6 shadow-lg">
+                  <Apple
+                    className="size-8 md:size-10 text-white"
+                    strokeWidth={2}
+                  />
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+                  NUTRICIONISTA
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-6">
+                  El nutricionista es un profesional de la salud, experto en
+                  alimentación y dietética. Su función principal es evaluar tu
+                  estado nutricional, crear planes de alimentación
+                  personalizados y enseñarte hábitos saludables para mejorar tu
+                  bienestar, prevenir enfermedades, como diabetes o
+                  hipertensión, o apoyarte en el tratamiento de patologías
+                  específicas.
+                </p>
+                <ul className="space-y-2 text-gray-600 text-sm md:text-base mb-6">
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Evaluación
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Planes de alimentación
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Educación alimentaria
+                  </li>
+                </ul>
+              </div>
+              <button
+                onClick={() => handleBookService("nutricionista")}
+                className="mt-auto w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold py-3 rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
+                Agendar Sesión
+              </button>
+            </div>
+
+            {/* Tarjeta 7: Nutriología */}
+            <div
+              id="nutriologia"
+              ref={nutriologiaRef}
+              className={`bg-white rounded-2xl shadow-xl p-6 md:p-8 flex flex-col transform transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 ${getHighlightClasses("nutriologia")}`}
+            >
+              <div className="flex-1 flex flex-col">
+                <div className="inline-flex items-center justify-center w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-cyan-400 to-cyan-600 rounded-full mb-6 shadow-lg">
+                  <Stethoscope
+                    className="size-8 md:size-10 text-white"
+                    strokeWidth={2}
+                  />
+                </div>
+                <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">
+                  NUTRIOLOGÍA
+                </h3>
+                <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-6">
+                  El médico nutriólogo es un profesional de la medicina que se
+                  enfoca en la relación entre los alimentos y la salud humana,
+                  abordando la nutrición desde una perspectiva clínica,
+                  metabólica y terapéutica. El profesional debe evaluar
+                  cualquier patología que altere el metabolismo, afecte la
+                  absorción de nutrientes o requiera soporte farmacológico y
+                  alimentario combinado, tales como obesidad, resistencia a la
+                  insulina y diabetes, trastornos de la conducta alimentaria,
+                  hígado graso, hipertensión, entre otras.
+                </p>
+                <ul className="space-y-2 text-gray-600 text-sm md:text-base mb-6">
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Trastorno de la conducta alimentaria
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Obesidad
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Trastornos metabólicos
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Resistencia a la insulina
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <Check className="text-teal-500 w-5 h-5 flex-shrink-0" />{" "}
+                    Diabetes
+                  </li>
+                </ul>
+              </div>
+              <button
+                onClick={() => handleBookService("nutriologia")}
+                className="mt-auto w-full bg-gradient-to-r from-cyan-600 to-cyan-700 text-white font-semibold py-3 rounded-lg hover:from-cyan-700 hover:to-cyan-800 transition-all shadow-md hover:shadow-lg cursor-pointer"
               >
                 Agendar Sesión
               </button>
