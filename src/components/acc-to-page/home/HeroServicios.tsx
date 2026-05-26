@@ -158,7 +158,7 @@ export default function HeroServicios() {
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10 md:mb-12">
           <h3 className="text-3xl md:text-4xl lg:text-5xl font-bold text-teal-900 tracking-wide uppercase mb-3">
-            Nuestros Servicios
+            Servicios
           </h3>
           <div className="w-24 h-1 bg-teal-500 mx-auto rounded-full mb-4"></div>
           <p className="text-lg md:text-xl text-teal-900 max-w-3xl mx-auto">
