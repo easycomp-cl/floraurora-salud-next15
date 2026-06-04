@@ -718,7 +718,7 @@ export const appointmentService = {
         const service: Service = {
           id: Number(specialty.id),
           name: `Consulta de ${specialty.name}`,
-          description: specialty.description || `Sesión de terapia especializada en ${specialty.name} de ${duration} minutos`,
+          description: specialty.description || `Consulta especializada en ${specialty.name} de ${duration} minutos`,
           duration_minutes: duration,
           price: price,
           professional_id: professionalId,
@@ -1038,8 +1038,8 @@ export const appointmentService = {
         status: requiresConfirmation ? 'pending_confirmation' : 'confirmed',
         payment_status: 'pending',
         note: appointmentData.notes || null,
-        area: appointmentData.area || 'Psicología',
-        service: appointmentData.service_name || 'Consulta Individual'
+        area: appointmentData.area || 'Consulta general',
+        service: appointmentData.service_name || 'Consulta profesional'
       };
 
       const { data, error } = await supabase

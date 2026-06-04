@@ -123,17 +123,22 @@ export default function ProfessionalsManagement() {
     "all" | "active" | "inactive"
   >("all");
   const [titleFilter, setTitleFilter] = useState<string>("all");
+  const [professionalTitles, setProfessionalTitles] = useState<
+    Array<{ id: number; title_name: string }>
+  >([]);
 
-  // Obtener títulos únicos para el filtro
+  // Catálogo de títulos activos + títulos ya asignados a profesionales existentes
   const availableTitles = useMemo(() => {
-    const titles = new Set<string>();
+    const titles = new Set<string>(
+      professionalTitles.map((t) => t.title_name).filter(Boolean)
+    );
     allProfessionals.forEach((prof) => {
       if (prof.title_name) {
         titles.add(prof.title_name);
       }
     });
     return Array.from(titles).sort();
-  }, [allProfessionals]);
+  }, [professionalTitles, allProfessionals]);
 
   // Filtrar profesionales
   const filteredProfessionals = useMemo(() => {
@@ -205,6 +210,23 @@ export default function ProfessionalsManagement() {
     }
   }, []);
 
+  const loadProfessionalTitles = useCallback(async () => {
+    try {
+      const response = await fetch("/api/admin/professional-titles", {
+        cache: "no-store",
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setProfessionalTitles(data.data || []);
+      }
+    } catch (err) {
+      console.warn(
+        "[ProfessionalsManagement] No se pudieron cargar los títulos:",
+        err
+      );
+    }
+  }, []);
+
   const loadServices = useCallback(async () => {
     try {
       const response = await fetch("/api/admin/services?onlyActive=false", {
@@ -232,7 +254,8 @@ export default function ProfessionalsManagement() {
   useEffect(() => {
     loadProfessionals();
     loadServices();
-  }, [loadProfessionals, loadServices]);
+    loadProfessionalTitles();
+  }, [loadProfessionals, loadServices, loadProfessionalTitles]);
 
   // Resetear página cuando cambian los filtros
   useEffect(() => {

@@ -8,7 +8,7 @@ import icoInfantoJuvenil from "../../Fotos/infanto-juvenil.png";
 import icoAdultos from "../../Fotos/adultos.png";
 import icoPareja from "../../Fotos/pareja.png";
 import icoEvaluacion from "../../Fotos/evaluacion.png";
-import { Calendar, Check } from "lucide-react";
+import { Brain, Calendar, Check, Salad, Stethoscope } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +76,18 @@ export default function HeroServicios() {
     "evaluacion-psicodiagnostico": {
       serviceName: "Evaluación y Psicodiagnóstico",
       areaName: "Psicología"
+    },
+    psiquiatria: {
+      serviceName: "Psiquiatría",
+      areaName: "Psiquiatría"
+    },
+    nutricionista: {
+      serviceName: "Nutricionista",
+      areaName: "Nutricionista"
+    },
+    nutriologia: {
+      serviceName: "Nutriología",
+      areaName: "Nutriología"
     }
   };
 
@@ -84,7 +96,10 @@ export default function HeroServicios() {
     "psicoterapia-infanto-juvenil": "La psicoterapia infanto-juvenil es un servicio especializado dirigido a niños y adolescentes que enfrentan desafíos emocionales, conductuales o de desarrollo. Nuestros profesionales utilizan técnicas adaptadas a cada etapa del desarrollo, creando un ambiente seguro y de confianza donde los menores pueden expresarse libremente. Trabajamos en colaboración con los padres y cuidadores para asegurar un apoyo integral que favorezca el bienestar emocional y el crecimiento saludable del niño o adolescente.",
     "psicoterapia-adultos": "La psicoterapia para adultos ofrece un espacio de acompañamiento profesional para personas que buscan mejorar su bienestar emocional y mental. A través de un proceso terapéutico personalizado, trabajamos en el manejo de ansiedad, depresión, estrés, traumas, problemas de autoestima y otros desafíos de la vida adulta. Nuestro enfoque se adapta a las necesidades individuales de cada persona, proporcionando herramientas y estrategias para enfrentar los retos cotidianos y alcanzar una mejor calidad de vida.",
     "terapia-pareja": "La terapia de pareja es un servicio diseñado para ayudar a las parejas a mejorar su comunicación, resolver conflictos y fortalecer su relación. Trabajamos con parejas que enfrentan dificultades en la comunicación, problemas de intimidad, conflictos recurrentes, crisis o simplemente desean fortalecer su vínculo. A través de técnicas especializadas, facilitamos el diálogo constructivo y ayudamos a identificar patrones que afectan la relación, promoviendo un ambiente de respeto, comprensión y crecimiento mutuo.",
-    "evaluacion-psicodiagnostico": "La evaluación y psicodiagnóstico es un proceso sistemático de evaluación psicológica que permite identificar, diagnosticar y comprender diversos aspectos del funcionamiento psicológico de una persona. Utilizamos herramientas estandarizadas y técnicas de evaluación clínica para obtener información detallada sobre el estado emocional, cognitivo y conductual. Este servicio es fundamental para establecer diagnósticos precisos, planificar tratamientos adecuados y proporcionar recomendaciones específicas para el bienestar del paciente."
+    "evaluacion-psicodiagnostico": "La evaluación y psicodiagnóstico es un proceso sistemático de evaluación psicológica que permite identificar, diagnosticar y comprender diversos aspectos del funcionamiento psicológico de una persona. Utilizamos herramientas estandarizadas y técnicas de evaluación clínica para obtener información detallada sobre el estado emocional, cognitivo y conductual. Este servicio es fundamental para establecer diagnósticos precisos, planificar tratamientos adecuados y proporcionar recomendaciones específicas para el bienestar del paciente.",
+    psiquiatria: "La psiquiatría es una especialidad médica enfocada en la prevención, diagnóstico y tratamiento de trastornos de salud mental. Nuestro equipo evalúa de forma integral síntomas emocionales, cognitivos y conductuales para definir un plan terapéutico personalizado, que puede incluir psicoterapia, farmacoterapia y seguimiento clínico. El objetivo es estabilizar síntomas, mejorar el funcionamiento diario y acompañar de manera continua el bienestar del paciente.",
+    nutricionista: "El servicio de nutricionista entrega orientación profesional para mejorar hábitos alimentarios, prevenir enfermedades y apoyar objetivos de salud en distintas etapas de la vida. Se realiza una evaluación individual de antecedentes clínicos, estilo de vida y requerimientos nutricionales para diseñar un plan alimentario realista y sostenible. El acompañamiento periódico permite ajustar estrategias y fortalecer cambios saludables a largo plazo.",
+    nutriologia: "La nutriología aborda la salud desde un enfoque clínico y metabólico de la alimentación, integrando evaluación médica y nutricional para tratar condiciones asociadas al estado nutricional. Este servicio está orientado a personas que requieren un manejo especializado de su dieta por patologías o necesidades específicas. Se establecen objetivos claros, tratamiento personalizado y seguimiento para optimizar indicadores de salud y calidad de vida."
   };
 
   // Puntos clave de cada servicio
@@ -108,6 +123,21 @@ export default function HeroServicios() {
       "Evaluación de personalidad",
       "Diagnóstico de trastornos",
       "Aplicación de test psicológicos"
+    ],
+    psiquiatria: [
+      "Evaluación clínica integral",
+      "Manejo farmacológico seguro",
+      "Seguimiento especializado"
+    ],
+    nutricionista: [
+      "Plan alimentario personalizado",
+      "Educación nutricional práctica",
+      "Acompañamiento por objetivos"
+    ],
+    nutriologia: [
+      "Abordaje clínico-metabólico",
+      "Tratamiento nutricional especializado",
+      "Control de indicadores de salud"
     ]
   };
 
@@ -117,6 +147,12 @@ export default function HeroServicios() {
     "psicoterapia-adultos": icoAdultos,
     "terapia-pareja": icoPareja,
     "evaluacion-psicodiagnostico": icoEvaluacion
+  };
+
+  const serviceIcons: { [key: string]: React.ComponentType<{ className?: string }> } = {
+    psiquiatria: Stethoscope,
+    nutricionista: Salad,
+    nutriologia: Brain
   };
 
   const handleBookService = (serviceKey: string) => {
@@ -298,6 +334,81 @@ export default function HeroServicios() {
               </button>
             </div>
           </div>
+
+          {/* Servicio 5 */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center transform transition-all hover:shadow-2xl hover:-translate-y-1">
+            <div className="w-28 h-28 md:w-32 md:h-32 border-4 border-teal-300 rounded-full flex items-center justify-center mb-6 p-4 shadow-md bg-teal-50">
+              <Stethoscope className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
+            </div>
+            <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
+              Psiquiatría
+            </h4>
+            <div className="flex flex-col gap-2 w-full mt-auto">
+              <button
+                onClick={() => setSelectedService("psiquiatria")}
+                className="w-full border-2 border-teal-600 text-teal-600 hover:bg-teal-50 py-1.5 px-4 rounded-lg font-semibold transition-all cursor-pointer text-sm"
+              >
+                Ver más
+              </button>
+              <button
+                onClick={() => handleBookService("psiquiatria")}
+                className="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-1.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer text-sm"
+              >
+                <Calendar className="size-4" />
+                Agendar
+              </button>
+            </div>
+          </div>
+
+          {/* Servicio 6 */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center transform transition-all hover:shadow-2xl hover:-translate-y-1">
+            <div className="w-28 h-28 md:w-32 md:h-32 border-4 border-teal-300 rounded-full flex items-center justify-center mb-6 p-4 shadow-md bg-teal-50">
+              <Salad className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
+            </div>
+            <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
+              Nutricionista
+            </h4>
+            <div className="flex flex-col gap-2 w-full mt-auto">
+              <button
+                onClick={() => setSelectedService("nutricionista")}
+                className="w-full border-2 border-teal-600 text-teal-600 hover:bg-teal-50 py-1.5 px-4 rounded-lg font-semibold transition-all cursor-pointer text-sm"
+              >
+                Ver más
+              </button>
+              <button
+                onClick={() => handleBookService("nutricionista")}
+                className="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-1.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer text-sm"
+              >
+                <Calendar className="size-4" />
+                Agendar
+              </button>
+            </div>
+          </div>
+
+          {/* Servicio 7 */}
+          <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center transform transition-all hover:shadow-2xl hover:-translate-y-1">
+            <div className="w-28 h-28 md:w-32 md:h-32 border-4 border-teal-300 rounded-full flex items-center justify-center mb-6 p-4 shadow-md bg-teal-50">
+              <Brain className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
+            </div>
+            <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
+              Nutriología
+            </h4>
+            <div className="flex flex-col gap-2 w-full mt-auto">
+              <button
+                onClick={() => setSelectedService("nutriologia")}
+                className="w-full border-2 border-teal-600 text-teal-600 hover:bg-teal-50 py-1.5 px-4 rounded-lg font-semibold transition-all cursor-pointer text-sm"
+              >
+                Ver más
+              </button>
+              <button
+                onClick={() => handleBookService("nutriologia")}
+                className="w-full bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white font-semibold py-1.5 px-4 rounded-lg flex items-center justify-center gap-2 shadow-md transform transition-all hover:scale-105 cursor-pointer text-sm"
+              >
+                <Calendar className="size-4" />
+                Agendar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -329,6 +440,17 @@ export default function HeroServicios() {
                       </div>
                     </div>
                   )}
+                  {selectedService &&
+                    !serviceImages[selectedService] &&
+                    serviceIcons[selectedService] && (
+                      <div className="flex-shrink-0">
+                        <div className="w-20 h-20 md:w-24 md:h-24 border-4 border-teal-300 rounded-full flex items-center justify-center p-3 shadow-md bg-teal-50">
+                          {React.createElement(serviceIcons[selectedService], {
+                            className: "w-10 h-10 md:w-12 md:h-12 text-teal-700"
+                          })}
+                        </div>
+                      </div>
+                    )}
                   {/* Lista de puntos clave */}
                   <div className="flex-1">
                     <h4 className="text-lg font-semibold text-gray-900 mb-3">

@@ -315,7 +315,7 @@ export default function AppointmentScheduler() {
         time: selectedTime,
         patient_id: patientId,
         service_name: selectedService.name,
-        area: selectedArea?.title_name || "Psicología",
+        area: selectedArea?.title_name || "Consulta general",
         duration_minutes: selectedService.duration_minutes,
         requires_confirmation: requiresConfirmation,
       };

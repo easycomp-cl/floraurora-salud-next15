@@ -301,6 +301,9 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
 
           const requiresConfirmation = Boolean(appointmentData.requires_confirmation);
           
+          const serviceNameFromPendingData =
+            appointmentData.service_name || appointmentData.service || "Consulta profesional";
+
           const appointmentRecord = {
             patient_id: appointmentData.patient_id,
             professional_id: appointmentData.professional_id,
@@ -309,8 +312,8 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
             status: requiresConfirmation ? 'pending_confirmation' : 'confirmed',
             payment_status: 'succeeded', // Ya pagado
             note: `buy_order:${buy_order}`,
-            area: appointmentData.area || 'Psicología',
-            service: appointmentData.service_name || 'Consulta Individual'
+            area: appointmentData.area || 'Consulta general',
+            service: serviceNameFromPendingData
           };
 
           console.log("📝 [Webpay Confirm] Creando cita con datos:", appointmentRecord);
@@ -865,7 +868,7 @@ async function handleWebpayCallback(request: NextRequest, method: "GET" | "POST"
           .eq("id", appointmentId)
           .single();
 
-        const serviceName = appointmentData.data?.service || appointmentData.data?.area || "Consulta psicológica";
+        const serviceName = appointmentData.data?.service || appointmentData.data?.area || "Consulta profesional";
         const glosa = `Servicio de ${serviceName}`;
         
         // service_date: fecha de la cita (scheduled_at)
