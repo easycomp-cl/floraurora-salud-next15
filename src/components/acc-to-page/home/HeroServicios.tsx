@@ -150,9 +150,9 @@ export default function HeroServicios() {
   };
 
   const serviceIcons: { [key: string]: React.ComponentType<{ className?: string }> } = {
-    psiquiatria: Stethoscope,
+    psiquiatria: Brain,
     nutricionista: Salad,
-    nutriologia: Brain
+    nutriologia: Stethoscope
   };
 
   const handleBookService = (serviceKey: string) => {
@@ -338,7 +338,7 @@ export default function HeroServicios() {
           {/* Servicio 5 */}
           <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center transform transition-all hover:shadow-2xl hover:-translate-y-1">
             <div className="w-28 h-28 md:w-32 md:h-32 border-4 border-teal-300 rounded-full flex items-center justify-center mb-6 p-4 shadow-md bg-teal-50">
-              <Stethoscope className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
+              <Brain className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
             </div>
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Psiquiatría
@@ -388,7 +388,7 @@ export default function HeroServicios() {
           {/* Servicio 7 */}
           <div className="bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center transform transition-all hover:shadow-2xl hover:-translate-y-1">
             <div className="w-28 h-28 md:w-32 md:h-32 border-4 border-teal-300 rounded-full flex items-center justify-center mb-6 p-4 shadow-md bg-teal-50">
-              <Brain className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
+              <Stethoscope className="w-12 h-12 md:w-14 md:h-14 text-teal-700" />
             </div>
             <h4 className="font-bold text-xl text-teal-900 mb-3 text-center leading-tight">
               Nutriología

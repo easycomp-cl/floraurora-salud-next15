@@ -43,3 +43,6 @@ next-env.d.ts
 .cursor/
 *.mdc
 *.md
+
+# Scripts locales de seed (no versionar)
+scripts/seed-nutri-psi-titles.mjs
